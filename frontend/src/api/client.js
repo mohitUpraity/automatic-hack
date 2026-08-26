@@ -64,6 +64,12 @@ export async function fetchCandidates() {
   return await res.json();
 }
 
+export async function fetchCandidateDetails(candidateId = 'candidate_mohit') {
+  const res = await fetchWithConfig(`${API_BASE}/api/candidates/${candidateId}`);
+  if (!res.ok) return { status: 'error', candidate: null };
+  return await res.json();
+}
+
 export async function fetchKnowledgeGraph(userId = 'default-user', candidateId = null) {
   const url = candidateId
     ? `${API_BASE}/api/knowledge-graph/${userId}?candidate_id=${encodeURIComponent(candidateId)}`
@@ -184,8 +190,11 @@ export async function fetchDocuments() {
   return await res.json();
 }
 
-export async function fetchOpportunities() {
-  const res = await fetchWithConfig(`${API_BASE}/api/opportunities`);
+export async function fetchOpportunities(candidateId = null) {
+  const url = candidateId && candidateId !== 'candidate_all'
+    ? `${API_BASE}/api/opportunities?candidate_id=${encodeURIComponent(candidateId)}`
+    : `${API_BASE}/api/opportunities`;
+  const res = await fetchWithConfig(url);
   if (!res.ok) return { status: 'error', opportunities: [] };
   return await res.json();
 }

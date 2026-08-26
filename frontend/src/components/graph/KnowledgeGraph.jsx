@@ -614,7 +614,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                   {/* Action Buttons */}
                   <div className="flex items-center gap-3 pt-2">
                     <button
-                      onClick={() => navigate('/studio')}
+                      onClick={() => navigate(`/studio?candidateId=${selectedNode.id}`)}
                       className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all cursor-pointer"
                     >
                       <Wand2 className="w-4 h-4" />
@@ -687,10 +687,14 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                         </a>
                       )}
                       <button
-                        onClick={() => navigate('/studio')}
+                        onClick={() => {
+                          const candId = selectedNode.attributes?.matched_candidate_id || (selectedCandidate !== 'candidate_all' ? selectedCandidate : 'candidate_mohit');
+                          const oppId = selectedNode.attributes?.id || selectedNode.id.replace('opp_', '');
+                          navigate(`/studio?candidateId=${candId}&oppId=${oppId}`);
+                        }}
                         className="px-4 py-2 bg-purple-600/80 hover:bg-purple-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
                       >
-                        <Wand2 className="w-3.5 h-3.5" /> Auto-Tailor Resume
+                        <Wand2 className="w-3.5 h-3.5" /> Open in AI Resume Studio
                       </button>
                     </div>
                   </div>

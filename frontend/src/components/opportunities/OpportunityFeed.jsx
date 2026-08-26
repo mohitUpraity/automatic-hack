@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Compass, RefreshCw, Filter, Search, Zap, Sparkles, Trophy, Briefcase, Wand2 } from 'lucide-react';
+import { Compass, RefreshCw, Filter, Search, Zap, Sparkles, Trophy, Briefcase, Wand2, Users, ChevronDown, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchOpportunities, scoutProfileOpportunities, fetchProfiles, customSearchOpportunities } from '../../api/client';
+import { fetchOpportunities, scoutProfileOpportunities, fetchProfiles, customSearchOpportunities, fetchCandidates } from '../../api/client';
 import OpportunityCard from './OpportunityCard';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
@@ -12,14 +12,16 @@ import AutoPilotModal from '../autopilot/AutoPilotModal';
 const CATEGORIES = ['All', 'Job', 'Internship', 'Hackathon', 'Competition', 'Conclave'];
 const MIN_SCORES = [
   { label: 'All', value: 0 },
+  { label: '90+', value: 90 },
   { label: '80+', value: 80 },
   { label: '60+', value: 60 },
-  { label: '40+', value: 40 }
 ];
 
-export default function OpportunityFeed({ onSelectOpportunity }) {
+export default function OpportunityFeed({ onSelectOpportunity, initialCandidateId = 'candidate_all' }) {
   const navigate = useNavigate();
   const [opportunities, setOpportunities] = useState([]);
+  const [candidatesList, setCandidatesList] = useState([]);
+  const [selectedCandidate, setSelectedCandidate] = useState(initialCandidateId);
   const [isLoading, setIsLoading] = useState(true);
   const [isScouting, setIsScouting] = useState(false);
   const [isAutoPilotOpen, setIsAutoPilotOpen] = useState(false);
@@ -31,12 +33,26 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
   // Filters
   const [category, setCategory] = useState('All');
   const [minScore, setMinScore] = useState(0);
-  const [sortBy, setSortBy] = useState('score'); // 'score' or 'recent'
 
-  const loadData = useCallback(async () => {
+  // 1. Fetch Candidates List
+  useEffect(() => {
+    async function loadCandidates() {
+      try {
+        const cRes = await fetchCandidates();
+        if (cRes.candidates && cRes.candidates.length > 0) {
+          setCandidatesList(cRes.candidates);
+        }
+      } catch (err) {
+        console.error('Failed to load candidate list:', err);
+      }
+    }
+    loadCandidates();
+  }, []);
+
+  const loadData = useCallback(async (candidateId = selectedCandidate) => {
     setIsLoading(true);
     try {
-      const data = await fetchOpportunities();
+      const data = await fetchOpportunities(candidateId === 'candidate_all' ? null : candidateId);
       setOpportunities(data?.opportunities || []);
     } catch (err) {
       console.error('Failed to fetch opportunities:', err);
@@ -44,11 +60,16 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedCandidate]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadData(selectedCandidate);
+  }, [selectedCandidate, loadData]);
+
+  const handleCandidateChange = (candId) => {
+    setSelectedCandidate(candId);
+    loadData(candId);
+  };
 
   const handleCustomSearch = async (e) => {
     e.preventDefault();
@@ -75,7 +96,7 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
       const profiles = profilesData?.profiles || [];
       if (profiles.length > 0) {
         await scoutProfileOpportunities(profiles[0].id);
-        await loadData();
+        await loadData(selectedCandidate);
       } else {
         setIsAutoPilotOpen(true);
       }
@@ -90,198 +111,151 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
     if (onSelectOpportunity) {
       onSelectOpportunity(opp);
     } else {
-      navigate(`/opportunity/${opp.id}`);
+      const cand = opp.matched_candidate_id || selectedCandidate || 'candidate_mohit';
+      navigate(`/opportunity/${opp.id}?candidateId=${cand}`);
     }
   };
 
   const filteredOpportunities = useMemo(() => {
-    let result = opportunities.filter(opp => {
+    let result = opportunities.filter((opp) => {
       const matchCat = category === 'All' || opp.category?.toLowerCase() === category.toLowerCase();
       const matchScore = (opp.relevance_score || 0) >= minScore;
-      return matchCat && matchScore;
+      const matchSearch =
+        !searchQuery ||
+        (opp.title && opp.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (opp.company && opp.company.toLowerCase().includes(searchQuery.toLowerCase()));
+      return matchCat && matchScore && matchSearch;
     });
 
-    if (sortBy === 'score') {
-      result.sort((a, b) => (b.relevance_score || 0) - (a.relevance_score || 0));
-    } else {
-      result.sort((a, b) => (b.id > a.id ? 1 : -1));
-    }
     return result;
-  }, [opportunities, category, minScore, sortBy]);
+  }, [opportunities, category, minScore, searchQuery]);
 
   return (
-    <div className="w-full space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-3">
-          <div className="p-2 bg-indigo-500/10 rounded-xl">
-            <Compass className="w-7 h-7 text-indigo-400" />
+    <div className="w-full space-y-5">
+      {/* Header & Multi-Candidate Bar */}
+      <GlassCard className="p-4 bg-slate-900/80 border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
+            <Users className="w-4 h-4 text-indigo-400" />
+            <span>Target Candidate:</span>
           </div>
-          Discovered Opportunities
-          <Badge variant="primary" className="ml-2">{filteredOpportunities.length}</Badge>
-        </h2>
-        
-        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[240px]">
+            <select
+              value={selectedCandidate}
+              onChange={(e) => handleCandidateChange(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-bold appearance-none pr-8 cursor-pointer shadow-inner"
+            >
+              {candidatesList.length === 0 ? (
+                <option value="candidate_all">🌐 Multi-Candidate Global Network</option>
+              ) : (
+                candidatesList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
+                  </option>
+                ))
+              )}
+            </select>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={loadData}
+            onClick={() => loadData(selectedCandidate)}
             disabled={isLoading}
-            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors disabled:opacity-50"
-            title="Refresh feed"
+            className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white rounded-xl text-xs transition-colors cursor-pointer"
+            title="Refresh Feed"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
-
           <button
-            onClick={() => navigate('/studio')}
-            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border border-slate-700"
+            onClick={handleScout}
+            disabled={isScouting}
+            className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
-            <Wand2 className="w-3.5 h-3.5 text-purple-400" />
-            <span>Open Resume Studio</span>
+            <Sparkles className="w-3.5 h-3.5" />
+            {isScouting ? 'Scouting Web...' : 'Scout Opportunities'}
           </button>
-          
           <button
             onClick={() => setIsAutoPilotOpen(true)}
-            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-indigo-500/20"
+            className="px-3.5 py-2 bg-purple-600/80 hover:bg-purple-600 text-white font-bold text-xs rounded-xl border border-purple-500/30 flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            <Zap className="w-3.5 h-3.5 animate-pulse" />
-            <span>⚡ Launch Auto-Pilot</span>
+            <Wand2 className="w-3.5 h-3.5" />
+            Auto-Pilot
           </button>
         </div>
-      </div>
-
-      {/* Live Web Search Bar */}
-      <GlassCard className="p-3" padding="sm">
-        <form onSubmit={handleCustomSearch} className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search live jobs, hackathons, AI competitions (e.g. 'LLM Engineer Remote', 'Kaggle Hackathons 2026')..."
-              className="w-full bg-slate-950/80 border border-slate-700/60 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isSearching || !searchQuery.trim()}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-40 flex items-center gap-1.5 flex-shrink-0"
-          >
-            {isSearching ? <LoadingSpinner size="sm" /> : <Search className="w-3.5 h-3.5" />}
-            <span>Scout Live Web</span>
-          </button>
-        </form>
       </GlassCard>
 
-      {/* Category & Score Filters */}
-      <GlassCard className="p-1">
-        <div className="p-3 border-b border-slate-800/50 flex flex-wrap gap-2 items-center justify-between">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-hide">
-            {CATEGORIES.map(cat => (
+      {/* Filter Tabs & Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        {/* Category Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setCategory(cat)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                category === cat
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Min Score Filter */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <span className="text-xs text-slate-500 font-medium">Min Match:</span>
+          <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+            {MIN_SCORES.map((s) => (
               <button
-                key={cat}
-                onClick={() => setCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                  category === cat 
-                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/50 font-bold' 
-                    : 'bg-slate-900/50 text-slate-400 border border-transparent hover:bg-slate-800'
+                key={s.label}
+                onClick={() => setMinScore(s.value)}
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  minScore === s.value
+                    ? 'bg-slate-800 text-emerald-400 shadow-inner'
+                    : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {cat === 'All' && '🔥 All'}
-                {cat === 'Job' && '💼 Jobs'}
-                {cat === 'Internship' && '🧭 Internships'}
-                {cat === 'Hackathon' && '⚡ Hackathons'}
-                {cat === 'Competition' && '🏆 Competitions'}
-                {cat === 'Conclave' && '🎤 Conclaves'}
+                {s.label}
               </button>
             ))}
           </div>
         </div>
-        
-        <div className="p-3 flex flex-wrap gap-4 items-center justify-between text-xs">
-          <div className="flex items-center gap-3">
-            <span className="text-slate-400 font-medium flex items-center gap-1">
-              <Filter className="w-3.5 h-3.5" /> Min Fit Score:
-            </span>
-            <div className="flex bg-slate-900/50 p-0.5 rounded-lg border border-slate-700/50">
-              {MIN_SCORES.map(score => (
-                <button
-                  key={score.label}
-                  onClick={() => setMinScore(score.value)}
-                  className={`px-2.5 py-1 rounded-md transition-colors text-xs ${
-                    minScore === score.value ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {score.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <span className="text-slate-400 font-medium">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-            >
-              <option value="score">Fit Relevance Score</option>
-              <option value="recent">Most Recent</option>
-            </select>
-          </div>
-        </div>
-      </GlassCard>
+      </div>
 
+      {/* Cards Grid */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <GlassCard key={i} className="h-48 animate-pulse flex flex-col p-6">
-              <div className="w-20 h-6 bg-slate-800 rounded-full mb-4"></div>
-              <div className="w-3/4 h-6 bg-slate-800 rounded mb-2"></div>
-              <div className="w-1/2 h-4 bg-slate-800 rounded mb-auto"></div>
-              <div className="w-full h-10 bg-slate-800/50 rounded mt-4"></div>
-            </GlassCard>
-          ))}
+        <div className="flex justify-center items-center py-16">
+          <LoadingSpinner size="lg" text="Retrieving ranked opportunities from Career OS..." />
         </div>
       ) : filteredOpportunities.length === 0 ? (
-        <div className="border-2 border-dashed border-slate-700/50 rounded-2xl p-12 text-center flex flex-col items-center">
-          <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center mb-4">
-            <Compass className="w-8 h-8 text-slate-500" />
-          </div>
-          <p className="text-slate-300 font-bold text-base mb-1">No opportunities found in this filter.</p>
-          <p className="text-slate-500 text-xs mb-4">Use the Auto-Pilot or Scout Live Web bar to discover new jobs and hackathons.</p>
-          <button
-            onClick={() => setIsAutoPilotOpen(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-colors"
-          >
-            Launch Auto-Pilot
-          </button>
+        <div className="border-2 border-dashed border-slate-800 rounded-2xl p-12 text-center flex flex-col items-center">
+          <Compass className="w-10 h-10 text-slate-600 mb-3" />
+          <p className="text-slate-300 font-bold mb-1">No opportunities found</p>
+          <p className="text-xs text-slate-500">Try changing your search keywords or click Scout Opportunities.</p>
         </div>
       ) : (
-        <motion.div layout className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <AnimatePresence>
-            {filteredOpportunities.map((opp, idx) => (
-              <motion.div
-                key={opp.id || `opp-${idx}-${opp.title || ''}`}
-                layout
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.2 }}
-              >
-                <OpportunityCard opportunity={opp} onClick={handleSelect} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredOpportunities.map((opp) => (
+            <OpportunityCard
+              key={opp.id}
+              opportunity={opp}
+              onClick={handleSelect}
+              candidateId={selectedCandidate === 'candidate_all' ? (opp.matched_candidate_id || 'candidate_mohit') : selectedCandidate}
+            />
+          ))}
+        </div>
       )}
 
-      {/* Auto-Pilot Modal */}
+      {/* AutoPilot Modal */}
       <AutoPilotModal
         isOpen={isAutoPilotOpen}
         onClose={() => setIsAutoPilotOpen(false)}
-        onComplete={() => loadData()}
+        candidateId={selectedCandidate}
       />
     </div>
   );
 }
-

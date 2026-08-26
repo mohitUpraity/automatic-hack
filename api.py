@@ -659,7 +659,7 @@ def get_audit_logs():
 
 
 @app.get("/api/opportunities")
-def get_all_opportunities():
+def get_all_opportunities(candidate_id: Optional[str] = None):
     ranked_res = read_from_db("ranked_opportunities").get("records", [])
     raw_res = read_from_db("opportunities").get("records", [])
     raw_lookup = {str(o.get("id")): o for o in raw_res}
@@ -667,13 +667,36 @@ def get_all_opportunities():
     joined = []
     for r in ranked_res:
         opp_meta = raw_lookup.get(str(r.get("opportunity_id")), {})
+        title = opp_meta.get("title") or r.get("title") or f"Opportunity #{str(r.get('id', ''))[:6]}"
+        company = opp_meta.get("company_name") or opp_meta.get("source") or r.get("company") or "Tech Company"
+        cat = r.get("category") or opp_meta.get("category") or "job"
+        base_score = r.get("relevance_score", 85)
+
+        # Candidate-specific score adjustment
+        cand_score = base_score
+        target_cand = "candidate_mohit"
+        t_lower = title.lower()
+        if "frontend" in t_lower or "ui" in t_lower or "react" in t_lower or "design" in t_lower or "figma" in t_lower:
+            target_cand = "candidate_krati"
+            if candidate_id == "candidate_krati":
+                cand_score = min(99, base_score + 10)
+        elif "backend" in t_lower or "django" in t_lower or "api" in t_lower or "distributed" in t_lower or "database" in t_lower:
+            target_cand = "candidate_vishnu"
+            if candidate_id == "candidate_vishnu":
+                cand_score = min(99, base_score + 10)
+        elif "ai" in t_lower or "iot" in t_lower or "vision" in t_lower or "hardware" in t_lower or "machine learning" in t_lower or "hackathon" in t_lower:
+            target_cand = "candidate_mohit"
+            if candidate_id == "candidate_mohit":
+                cand_score = min(99, base_score + 10)
+
         item = {
             **opp_meta,
             **r,
-            "title": opp_meta.get("title") or r.get("title") or f"Opportunity #{str(r.get('id', ''))[:6]}",
-            "company": opp_meta.get("company_name") or opp_meta.get("source") or r.get("company") or "Tech Company",
-            "category": r.get("category") or opp_meta.get("category") or "job",
-            "relevance_score": r.get("relevance_score", 85),
+            "title": title,
+            "company": company,
+            "category": cat,
+            "relevance_score": cand_score,
+            "matched_candidate_id": target_cand,
             "url": opp_meta.get("url") or r.get("url") or "#",
             "description": opp_meta.get("description") or r.get("description") or ""
         }
@@ -681,6 +704,10 @@ def get_all_opportunities():
 
     if not joined and raw_res:
         joined = raw_res
+
+    # If filtered by candidate, sort matching candidate items first
+    if candidate_id and candidate_id != "candidate_all":
+        joined.sort(key=lambda x: (x.get("matched_candidate_id") == candidate_id, x.get("relevance_score", 0)), reverse=True)
 
     return {"status": "success", "opportunities": joined}
 
@@ -1135,54 +1162,218 @@ async def upload_url_endpoint(req: UrlUploadReq, user_id: str = Depends(get_curr
 
 
 # ── 7. Multi-Candidate Semantic Graph RAG & Knowledge Network ───────────────
+CANDIDATES_REGISTRY = {
+    "candidate_mohit": {
+        "id": "candidate_mohit",
+        "name": "Mohit Prasad Upraity",
+        "role": "Software Engineer | Full-Stack & AI Systems",
+        "cluster_color": "#6366f1",
+        "email": "mohitupraity123@gmail.com",
+        "phone": "+91-9568548130",
+        "location": "Noida, Uttar Pradesh, India",
+        "summary": "Full-stack Software Engineer with hands-on experience building and deploying production web applications, multi-agent AI systems, and IoT gait analysis algorithms. 1st Place Winner at Hack With UP.",
+        "skills": ["Python", "FastAPI", "React", "PyTorch", "IoT & Smart Shoes", "PostgreSQL", "Supabase", "Docker", "LangChain", "C++"],
+        "top_skills": ["Python", "FastAPI", "React", "PyTorch", "IoT & Smart Shoes", "PostgreSQL"],
+        "projects": [
+            {"title": "CareerOS Multi-Agent Pipeline", "desc": "Autonomous RAG system with real-time WebSocket telemetry and ArmorIQ scope delegation.", "tech": "Python, FastAPI, Gemini, Docling"},
+            {"title": "AI Smart Shoe Gait Tracker", "desc": "IoT wearable embedded system with real-time ML gait analysis and fall prevention.", "tech": "C++, MicroPython, TensorFlow Lite, PyTorch"},
+            {"title": "AgriFarm Vision AI", "desc": "Edge computer vision model for crop disease detection and soil telemetry.", "tech": "PyTorch, OpenCV, React Native"}
+        ],
+        "experiences": [
+            {"role": "Full-Stack & AI Engineer", "company": "CloudScale Technologies", "period": "2023 - Present", "desc": "Engineered high-throughput multi-agent orchestration and reduced vector search latency by 38%."}
+        ],
+        "doc_name": "Mohit_Prasad_Upraity_Resume.pdf",
+        "peer_gaps": ["TypeScript & Figma Design Systems (Mastered by Krati)", "Large-Scale Distributed Microservices (Mastered by Vishnu)"],
+        "resume_markdown": """# Mohit Prasad Upraity
+**Software Engineer | Full-Stack Development | AI & Cybersecurity**
+Phone: +91-9568548130 | Email: mohitupraity123@gmail.com | Location: Noida, India
+GitHub: github.com/mohitupraity | LinkedIn: linkedin.com/in/mohitUpraity
+
+## Professional Summary
+Full-stack Software Engineer with hands-on experience building and deploying production web applications, multi-agent AI systems, and IoT gait analysis algorithms. Winner of 1st Place at Hack With UP (State Hackathon) and Hack With Agra.
+
+## Technical Skills
+- **Languages**: Python, JavaScript, TypeScript, C++, SQL
+- **AI & ML**: PyTorch, LangChain, TensorFlow Lite, Gemini 001 Embeddings, RAG Architectures
+- **Frontend & Backend**: React, FastAPI, Node.js, Tailwind CSS, REST APIs, WebSockets
+- **Databases & Cloud**: PostgreSQL, Supabase, pgvector, SQLite, Docker, Git
+
+## Experience
+### Full-Stack & AI Engineer | CloudScale Technologies
+*2023 - Present | Noida, India*
+- Engineered high-throughput multi-agent orchestration pipeline processing live career telemetry.
+- Implemented real-time WebSocket telemetry with sub-agent scope delegation and ArmorIQ security.
+- Optimized vector search retrieval latency by 38% through hybrid search ranking and cosine matching.
+
+## Featured Projects
+### CareerOS Multi-Agent Autonomous Pipeline
+- Built an autonomous career pipeline integrating Docling OCR, Gemini vector embeddings, and real-time Firecrawl opportunity scouting.
+- Designed ATS resume tailoring engine with instant vector citation provenance and 100% valid binary PDF generation.
+
+### AI Smart Shoe Gait Analysis & Fall Prevention System (IoT)
+- Developed an embedded IoT wearable system with real-time ML gait analysis and fall prevention telemetry.
+- Programmed microcontrollers with C++ and MicroPython for sensor data acquisition and edge inference.
+
+### AgriFarm Vision AI
+- Deployed edge computer vision model for automated crop disease diagnosis and soil sensor telemetry.
+"""
+    },
+    "candidate_krati": {
+        "id": "candidate_krati",
+        "name": "Krati Verma",
+        "role": "Lead Frontend & UI/UX Developer",
+        "cluster_color": "#ec4899",
+        "email": "krati.verma@careeros.ai",
+        "phone": "+91-9876543210",
+        "location": "Noida, Uttar Pradesh, India",
+        "summary": "Frontend Specialist and UI/UX Designer crafting responsive, accessible (WCAG AAA), and high-performance web applications with React, TypeScript, and Tailwind CSS design systems.",
+        "skills": ["React", "TypeScript", "Tailwind CSS", "Figma", "UI/UX Design", "Next.js", "Design Systems", "Framer Motion", "Storybook"],
+        "top_skills": ["React", "TypeScript", "Tailwind CSS", "Figma", "UI/UX Design", "Next.js"],
+        "projects": [
+            {"title": "Modern Glassmorphism UI Framework", "desc": "Sleek, accessible component library tailored for dark-mode dashboard workflows.", "tech": "React, Tailwind CSS, TypeScript, Storybook"},
+            {"title": "Interactive Design Studio", "desc": "Real-time canvas editor with live CSS token export and micro-animations.", "tech": "React, Canvas API, Figma Plugin SDK"},
+            {"title": "Accessible Web Component Suite", "desc": "WCAG AAA compliant component primitives for enterprise SaaS applications.", "tech": "TypeScript, ARIA, Tailwind"}
+        ],
+        "experiences": [
+            {"role": "Lead Frontend Developer", "company": "DesignCraft Studios", "period": "2022 - Present", "desc": "Architected component systems serving 200k+ monthly active users with 99+ Core Web Vitals score."}
+        ],
+        "doc_name": "Krati_Verma_Resume.pdf",
+        "peer_gaps": ["Python Backend & AI APIs (Mastered by Mohit & Vishnu)", "Distributed Systems & SQL (Mastered by Vishnu)"],
+        "resume_markdown": """# Krati Verma
+**Lead Frontend & UI/UX Engineer | Design Systems Specialist**
+Phone: +91-9876543210 | Email: krati.verma@careeros.ai | Location: Noida, India
+GitHub: github.com/krativerma | Portfolio: krati-designs.dev | LinkedIn: linkedin.com/in/krati-verma
+
+## Professional Summary
+Creative Frontend Specialist and UI/UX Designer with expertise crafting accessible (WCAG AAA), high-performance, responsive web interfaces and reusable enterprise design systems in React, TypeScript, and Tailwind CSS.
+
+## Technical Skills
+- **Frontend**: React, Next.js, TypeScript, JavaScript (ES6+), HTML5/Semantic CSS, Framer Motion
+- **UI/UX & Design**: Figma, Design Systems, Glassmorphism, Micro-Animations, Prototyping, Wireframing
+- **Styling & Components**: Tailwind CSS, CSS Modules, Styled Components, Storybook, Radix UI, ARIA
+- **Tools & Workflow**: Vite, Webpack, Git, Jest, Cypress, Vercel
+
+## Experience
+### Lead Frontend Developer | DesignCraft Studios
+*2022 - Present | Noida, India*
+- Architected enterprise component library serving 200k+ monthly active users with 99+ Core Web Vitals score.
+- Reduced UI development cycle by 45% through tokens-first design system and reusable Figma components.
+- Engineered dark-mode glassmorphic dashboards with zero layout shifts and silky 60fps micro-animations.
+
+## Featured Projects
+### Modern Glassmorphism UI Framework
+- Created an open-source React component library featuring dark-mode glassmorphic cards, glow effects, and responsive navigation drawers.
+
+### Interactive Design Studio
+- Built a web-based canvas editor with live CSS token export, drag-and-drop component positioning, and Figma plugin SDK integration.
+
+### Accessible Web Component Suite (WCAG AAA)
+- Developed accessible component primitives with full keyboard navigation and screen-reader compatibility.
+"""
+    },
+    "candidate_vishnu": {
+        "id": "candidate_vishnu",
+        "name": "Vishnu Kumar",
+        "role": "Senior Backend & API Engineer",
+        "cluster_color": "#10b981",
+        "email": "vishnu.kumar@careeros.ai",
+        "phone": "+91-9123456789",
+        "location": "Noida, Uttar Pradesh, India",
+        "summary": "Backend Software Engineer specializing in Python, Django, FastAPI, PostgreSQL database optimization, distributed microservices, and high-throughput real-time APIs.",
+        "skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Distributed Systems", "Docker", "Redis", "REST & GraphQL", "Kafka"],
+        "top_skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Distributed Systems", "Docker"],
+        "projects": [
+            {"title": "Distributed Microservice Gateway", "desc": "High-throughput API gateway handling 15k req/sec with dynamic rate-limiting.", "tech": "Python, FastAPI, Redis, Docker"},
+            {"title": "High-Throughput ETL Pipeline", "desc": "Scalable data ingestion engine processing streaming IoT and telemetry events.", "tech": "Python, Celery, PostgreSQL, Kafka"},
+            {"title": "PostgreSQL Multi-Tenant Scaling", "desc": "Database partition engine with automated indexing and query optimization.", "tech": "PostgreSQL, pgvector, SQLAlchemy"}
+        ],
+        "experiences": [
+            {"role": "Senior Backend Engineer", "company": "ScaleCore Infrastructure", "period": "2022 - Present", "desc": "Scaled cloud backend architecture to 99.99% uptime across multi-region deployments."}
+        ],
+        "doc_name": "Vishnu_Kumar_Resume.pdf",
+        "peer_gaps": ["React & Frontend Engineering (Mastered by Mohit & Krati)", "IoT & Embedded Hardware (Mastered by Mohit)"],
+        "resume_markdown": """# Vishnu Kumar
+**Senior Backend & API Engineer | Distributed Systems Specialist**
+Phone: +91-9123456789 | Email: vishnu.kumar@careeros.ai | Location: Noida, India
+GitHub: github.com/vishnukumar | LinkedIn: linkedin.com/in/vishnu-kumar-backend
+
+## Professional Summary
+Backend Software Engineer specializing in Python, Django, FastAPI, PostgreSQL database optimization, distributed microservices, and high-throughput real-time event streaming systems.
+
+## Technical Skills
+- **Languages**: Python, SQL, Go, Bash, C
+- **Frameworks & APIs**: FastAPI, Django, Flask, Celery, RESTful APIs, GraphQL, gRPC
+- **Databases & Caching**: PostgreSQL, Redis, pgvector, MySQL, MongoDB, SQLAlchemy
+- **DevOps & Architecture**: Docker, Kubernetes, Kafka, RabbitMQ, CI/CD Pipelines, Linux Server Admin
+
+## Experience
+### Senior Backend Engineer | ScaleCore Infrastructure
+*2022 - Present | Noida, India*
+- Scaled cloud backend microservices architecture to 99.99% uptime across multi-region deployments.
+- Implemented Redis distributed caching and connection pooling, reducing database read load by 55%.
+- Architected asynchronous event queues with Celery & RabbitMQ processing 10M+ background jobs daily.
+
+## Featured Projects
+### Distributed Microservice Gateway
+- Engineered high-throughput API gateway with dynamic rate limiting, token authentication, and circuit breakers handling 15k req/sec.
+
+### Real-Time High-Throughput ETL Pipeline
+- Built scalable data ingestion engine processing streaming IoT and telemetry events with Kafka and PostgreSQL.
+
+### PostgreSQL Multi-Tenant Partitioning Engine
+- Designed database partitioning and automated query index analyzer with pgvector integration.
+"""
+    }
+}
+
+
 @app.get("/api/candidates")
 def get_all_candidates():
     """Returns all detected candidates in the system for Graph RAG switching."""
+    c_list = [
+        {
+            "id": "candidate_all",
+            "name": "🌐 Multi-Candidate Global Network",
+            "role": "Interconnected Talent & Skill Ecosystem",
+            "cluster_color": "#818cf8",
+            "location": "Global / NCR Hub",
+            "skills_count": 14,
+            "shared_skills": ["Python", "React", "FastAPI", "PostgreSQL"]
+        }
+    ]
+    for cid, c in CANDIDATES_REGISTRY.items():
+        c_list.append({
+            "id": c["id"],
+            "name": c["name"],
+            "role": c["role"],
+            "cluster_color": c["cluster_color"],
+            "email": c["email"],
+            "phone": c["phone"],
+            "location": c["location"],
+            "summary": c["summary"],
+            "skills_count": len(c["skills"]),
+            "top_skills": c["top_skills"],
+            "projects_count": len(c["projects"]),
+            "doc_name": c["doc_name"],
+            "peer_gaps": c["peer_gaps"]
+        })
+    return {"status": "success", "candidates": c_list}
+
+
+@app.get("/api/candidates/{candidate_id}")
+def get_candidate_details(candidate_id: str):
+    """Returns detailed candidate profile including base resume markdown and matched opportunities."""
+    if candidate_id not in CANDIDATES_REGISTRY:
+        # Fallback to Mohit if unknown
+        candidate_id = "candidate_mohit"
+    
+    cand = CANDIDATES_REGISTRY[candidate_id]
+    opps = get_all_opportunities(candidate_id=candidate_id).get("opportunities", [])
+    
     return {
         "status": "success",
-        "candidates": [
-            {
-                "id": "candidate_all",
-                "name": "🌐 Multi-Candidate Global Network",
-                "role": "Interconnected Talent & Skill Ecosystem",
-                "cluster_color": "#818cf8",
-                "skills_count": 14,
-                "shared_skills": ["Python", "React", "FastAPI", "PostgreSQL"]
-            },
-            {
-                "id": "candidate_mohit",
-                "name": "Mohit Prasad Upraity",
-                "role": "Software Engineer | Full-Stack & AI Systems",
-                "cluster_color": "#6366f1",
-                "email": "mohitupraity123@gmail.com",
-                "skills_count": 8,
-                "top_skills": ["Python", "FastAPI", "React", "PyTorch", "IoT & Smart Shoes", "PostgreSQL"],
-                "projects_count": 3,
-                "shared_skills": ["Python", "React", "FastAPI", "PostgreSQL"]
-            },
-            {
-                "id": "candidate_krati",
-                "name": "Krati Verma",
-                "role": "Lead Frontend & UI/UX Developer",
-                "cluster_color": "#ec4899",
-                "email": "krati.verma@careeros.ai",
-                "skills_count": 7,
-                "top_skills": ["React", "TypeScript", "Tailwind CSS", "Figma", "UI/UX Design", "Next.js"],
-                "projects_count": 3,
-                "shared_skills": ["React"]
-            },
-            {
-                "id": "candidate_vishnu",
-                "name": "Vishnu Kumar",
-                "role": "Senior Backend & API Engineer",
-                "cluster_color": "#10b981",
-                "email": "vishnu.kumar@careeros.ai",
-                "skills_count": 6,
-                "top_skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Distributed Systems", "Docker"],
-                "projects_count": 3,
-                "shared_skills": ["Python", "FastAPI", "PostgreSQL"]
-            }
-        ]
+        "candidate": cand,
+        "matched_opportunities": opps[:10]
     }
 
 
@@ -1237,74 +1428,9 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 "similarity_score": 91.0
             }
 
-        # Candidate Profiles definitions
-        candidates_meta = {
-            "candidate_mohit": {
-                "name": "Mohit Prasad Upraity",
-                "role": "Software Engineer | Full-Stack & AI Systems",
-                "cluster_color": "#6366f1",
-                "email": "mohitupraity123@gmail.com",
-                "phone": "+91-9568548130",
-                "location": "Noida, India",
-                "summary": "Full-stack Software Engineer with experience in multi-agent AI systems, IoT gait analysis algorithms, and cloud APIs.",
-                "skills": ["Python", "FastAPI", "React", "PyTorch", "IoT & Smart Shoes", "PostgreSQL", "Supabase", "Docker", "LangChain"],
-                "projects": [
-                    {"title": "CareerOS Multi-Agent Pipeline", "desc": "Autonomous RAG system with real-time WebSocket telemetry and ArmorIQ scope delegation.", "tech": "Python, FastAPI, Gemini, Docling"},
-                    {"title": "AI Smart Shoe Gait Tracker", "desc": "IoT wearable embedded system with real-time ML gait analysis and fall prevention.", "tech": "C++, MicroPython, TensorFlow Lite, PyTorch"},
-                    {"title": "AgriFarm Vision AI", "desc": "Edge computer vision model for crop disease detection and soil telemetry.", "tech": "PyTorch, OpenCV, React Native"}
-                ],
-                "experiences": [
-                    {"role": "Full-Stack & AI Engineer", "company": "CloudScale Technologies", "period": "2023 - Present", "desc": "Engineered high-throughput multi-agent orchestration and reduced vector search latency by 38%."}
-                ],
-                "doc_name": "Mohit_Prasad_Upraity_Resume.pdf",
-                "peer_gaps": ["TypeScript & Figma Design Systems (Mastered by Krati)", "Large-Scale Distributed Microservices (Mastered by Vishnu)"]
-            },
-            "candidate_krati": {
-                "name": "Krati Verma",
-                "role": "Lead Frontend & UI/UX Developer",
-                "cluster_color": "#ec4899",
-                "email": "krati.verma@careeros.ai",
-                "phone": "+91-9876543210",
-                "location": "Noida, India",
-                "summary": "Frontend Specialist and UI/UX Designer crafting responsive, accessible, and high-performance web applications with React & Tailwind CSS.",
-                "skills": ["React", "TypeScript", "Tailwind CSS", "Figma", "UI/UX Design", "Next.js", "Design Systems", "Framer Motion"],
-                "projects": [
-                    {"title": "Modern Glassmorphism UI Framework", "desc": "Sleek, accessible component library tailored for dark-mode dashboard workflows.", "tech": "React, Tailwind CSS, TypeScript, Storybook"},
-                    {"title": "Interactive Design Studio", "desc": "Real-time canvas editor with live CSS token export and micro-animations.", "tech": "React, Canvas API, Figma Plugin SDK"},
-                    {"title": "Accessible Web Component Suite", "desc": "WCAG AAA compliant component primitives for enterprise SaaS applications.", "tech": "TypeScript, ARIA, Tailwind"}
-                ],
-                "experiences": [
-                    {"role": "Lead Frontend Developer", "company": "DesignCraft Studios", "period": "2022 - Present", "desc": "Architected component systems serving 200k+ monthly active users with 99+ Core Web Vitals score."}
-                ],
-                "doc_name": "Krati_Verma_Resume.pdf",
-                "peer_gaps": ["Python Backend & AI APIs (Mastered by Mohit & Vishnu)", "Distributed Systems & SQL (Mastered by Vishnu)"]
-            },
-            "candidate_vishnu": {
-                "name": "Vishnu Kumar",
-                "role": "Senior Backend & API Engineer",
-                "cluster_color": "#10b981",
-                "email": "vishnu.kumar@careeros.ai",
-                "phone": "+91-9123456789",
-                "location": "Noida, India",
-                "summary": "Backend Software Engineer specializing in Python, Django, FastAPI, PostgreSQL database optimization, and distributed microservices.",
-                "skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Distributed Systems", "Docker", "Redis", "REST & GraphQL"],
-                "projects": [
-                    {"title": "Distributed Microservice Gateway", "desc": "High-throughput API gateway handling 15k req/sec with dynamic rate-limiting.", "tech": "Python, FastAPI, Redis, Docker"},
-                    {"title": "High-Throughput ETL Pipeline", "desc": "Scalable data ingestion engine processing streaming IoT and telemetry events.", "tech": "Python, Celery, PostgreSQL, Kafka"},
-                    {"title": "PostgreSQL Multi-Tenant Scaling", "desc": "Database partition engine with automated indexing and query optimization.", "tech": "PostgreSQL, pgvector, SQLAlchemy"}
-                ],
-                "experiences": [
-                    {"role": "Senior Backend Engineer", "company": "ScaleCore Infrastructure", "period": "2022 - Present", "desc": "Scaled cloud backend architecture to 99.99% uptime across multi-region deployments."}
-                ],
-                "doc_name": "Vishnu_Kumar_Resume.pdf",
-                "peer_gaps": ["React & Frontend Engineering (Mastered by Mohit & Krati)", "IoT & Embedded Hardware (Mastered by Mohit)"]
-            }
-        }
-
         # Filter candidates if specific candidate selected
-        active_candidates = candidates_meta
-        if candidate_id and candidate_id in candidates_meta:
-            # Focus on specific candidate while keeping shared bridge nodes
+        active_candidates = CANDIDATES_REGISTRY
+        if candidate_id and candidate_id in CANDIDATES_REGISTRY:
             focused_id = candidate_id
         else:
             focused_id = "all"
@@ -1521,14 +1647,15 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
             for syn in synergies:
                 edges.append(syn)
 
-        # ── 7. Top Discovered Opportunity Nodes ──────────────────────────────
-        opp_source_list = raw_opps if raw_opps else ranked_opps
-        for opp in opp_source_list[:8]:
+        # ── 7. Discovered & Tailored Opportunity Nodes ───────────────────────
+        cand_opps = get_all_opportunities(candidate_id=focused_id if focused_id != "all" else None).get("opportunities", [])
+        for opp in cand_opps[:8]:
             opp_id = f"opp_{opp.get('id')}"
             title = opp.get("title") or "Engineering Opportunity"
             company = opp.get("company") or opp.get("company_name") or opp.get("source") or "Tech Organization"
             cat = opp.get("category", "job").lower()
             score = opp.get("relevance_score", 92)
+            matched_cand = opp.get("matched_candidate_id", "candidate_mohit")
 
             if opp_id not in added_node_ids:
                 nodes.append({
@@ -1544,26 +1671,23 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                         "similarity_score": float(score)
                     },
                     "attributes": {
+                        "id": str(opp.get("id", "")),
                         "title": title,
                         "company": company,
                         "category": cat,
                         "relevance_score": score,
                         "url": opp.get("url", "#"),
-                        "match_reasons": [f"Directly matches candidates skilled in Python, React, and Full-Stack development."]
+                        "matched_candidate_id": matched_cand,
+                        "match_reasons": [f"Directly matches candidates skilled in {active_candidates.get(matched_cand, {}).get('name', 'Candidate')} core domain."]
                     }
                 })
                 added_node_ids.add(opp_id)
 
-                # Link to candidate Mohit (primary) or relevant candidate
-                target_cand = "candidate_mohit"
-                if "frontend" in title.lower() or "ui" in title.lower():
-                    target_cand = "candidate_krati"
-                elif "backend" in title.lower() or "django" in title.lower():
-                    target_cand = "candidate_vishnu"
-
-                if target_cand in added_node_ids:
+                # Link to candidate
+                link_target = focused_id if focused_id != "all" else matched_cand
+                if link_target in added_node_ids:
                     edges.append({
-                        "source": target_cand,
+                        "source": link_target,
                         "target": opp_id,
                         "type": "MATCHES_PROFILE",
                         "label": f"{score}% Fit"
