@@ -1012,13 +1012,243 @@ def get_audit_logs():
     return {"status": "success", "logs": global_armoriq.get_audit_trail()}
 
 
+# ── Curated Multi-Candidate Opportunity Registry (Ground Truth) ─────────────
+CURATED_CANDIDATE_OPPORTUNITIES = [
+    # Vishnu Kumar (Backend & Distributed Systems)
+    {
+        "id": "opp_vishnu_stripe",
+        "title": "Senior Backend Engineer (Python & Distributed APIs)",
+        "company": "Stripe",
+        "category": "job",
+        "location": "Remote / Global",
+        "relevance_score": 98,
+        "matched_candidate_id": "candidate_vishnu",
+        "url": "https://stripe.com/jobs",
+        "description": "Build high-throughput, fault-tolerant distributed API infrastructure, payment processing microservices, and PostgreSQL optimization using Python, FastAPI, and Kafka.",
+        "skills_required": "Python, FastAPI, Django, PostgreSQL, Distributed Microservices, Docker, Redis, Kafka",
+        "intelligence": {
+            "company_name": "Stripe",
+            "overview": "Global technology leader building economic infrastructure for the internet, processing hundreds of billions in digital commerce annually.",
+            "tech_stack": ["Python", "FastAPI", "PostgreSQL", "Kafka", "Redis", "Distributed Microservices", "Docker", "AWS"],
+            "engineering_culture": "Emphasis on 99.999% reliability, API elegance, idempotency, strict database consistency, and microsecond latency.",
+            "ats_keywords": ["Distributed Systems", "Idempotent APIs", "PostgreSQL Sharding", "High-Throughput Microservices", "Redis Caching", "Kafka Streaming", "ACID Transactions"]
+        }
+    },
+    {
+        "id": "opp_vishnu_aws",
+        "title": "Distributed Cloud & Database Systems Engineer",
+        "company": "Amazon Web Services (AWS)",
+        "category": "job",
+        "location": "Bengaluru, India / Hybrid",
+        "relevance_score": 96,
+        "matched_candidate_id": "candidate_vishnu",
+        "url": "https://amazon.jobs",
+        "description": "Architect highly available cloud storage backends, distributed SQL engines, and resilient multi-region synchronization pipelines.",
+        "skills_required": "Distributed Systems, PostgreSQL, Python, Docker, Kubernetes, Cloud Architecture",
+        "intelligence": {
+            "company_name": "Amazon Web Services (AWS)",
+            "overview": "World's most comprehensive and broadly adopted cloud platform, powering global enterprises.",
+            "tech_stack": ["Python", "C++", "PostgreSQL", "Distributed Systems", "Docker", "Kubernetes", "AWS DynamoDB"],
+            "engineering_culture": "Customer obsession, high scalability, operational excellence, and low-latency distributed storage.",
+            "ats_keywords": ["Distributed Storage", "Multi-Region Replication", "PostgreSQL Tuning", "Fault-Tolerant Architectures", "Docker Containerization"]
+        }
+    },
+    {
+        "id": "opp_vishnu_razorpay",
+        "title": "API Platform & Payments Core Architect",
+        "company": "Razorpay",
+        "category": "job",
+        "location": "Noida Tech Hub, India",
+        "relevance_score": 95,
+        "matched_candidate_id": "candidate_vishnu",
+        "url": "https://razorpay.com/careers",
+        "description": "Design low-latency payment processing gateways, idempotent transaction queues, and real-time database replication.",
+        "skills_required": "FastAPI, Python, PostgreSQL, Redis, REST APIs, Microservices",
+        "intelligence": {
+            "company_name": "Razorpay",
+            "overview": "Leading payments and financial technology platform empowering millions of businesses across India.",
+            "tech_stack": ["Python", "Go", "PostgreSQL", "Redis", "Kafka", "REST APIs", "Docker"],
+            "engineering_culture": "Rapid feature velocity, zero data loss, sub-100ms API response SLA, and high-availability database replication.",
+            "ats_keywords": ["Payment Gateway", "Idempotency", "Database Sharding", "Redis Lock", "High Concurrency", "FastAPI"]
+        }
+    },
+    {
+        "id": "opp_vishnu_uber",
+        "title": "Backend Infrastructure & Platform Intern",
+        "company": "Uber Technologies",
+        "category": "internship",
+        "location": "Bengaluru, India / Remote",
+        "relevance_score": 94,
+        "matched_candidate_id": "candidate_vishnu",
+        "url": "https://uber.com/careers",
+        "description": "Develop high-throughput dispatch and routing backend microservices handling millions of concurrent location events.",
+        "skills_required": "Python, Go, PostgreSQL, Redis, Distributed Systems",
+        "intelligence": {
+            "company_name": "Uber Technologies",
+            "overview": "Pioneering mobility and logistics platform moving millions of people and deliveries daily across 70+ countries.",
+            "tech_stack": ["Go", "Python", "PostgreSQL", "Kafka", "Microservices", "Docker"],
+            "engineering_culture": "High real-time concurrency, distributed consensus, data reliability, and microservice mesh architecture.",
+            "ats_keywords": ["Microservices", "Event-Driven Architecture", "Kafka Streams", "Real-Time Telemetry", "PostgreSQL"]
+        }
+    },
+    {
+        "id": "opp_vishnu_postgres_hackathon",
+        "title": "Global Distributed Database & Scalability Hackathon 2026",
+        "company": "PostgreSQL Foundation",
+        "category": "hackathon",
+        "location": "Online / Global",
+        "relevance_score": 92,
+        "matched_candidate_id": "candidate_vishnu",
+        "url": "https://postgresql.org/hackathon",
+        "description": "Compete against international backend engineers to build resilient, distributed consensus and sharding engines.",
+        "skills_required": "PostgreSQL, Distributed Systems, Python, C++, Docker"
+    },
+
+    # Krati Verma (Frontend & Design Systems)
+    {
+        "id": "opp_krati_vercel",
+        "title": "Lead Frontend & Design Systems Engineer",
+        "company": "Vercel",
+        "category": "job",
+        "location": "Remote / Global",
+        "relevance_score": 98,
+        "matched_candidate_id": "candidate_krati",
+        "url": "https://vercel.com/careers",
+        "description": "Architect next-generation web application dashboards with Next.js, React, Tailwind CSS design tokens, and WCAG AAA accessibility.",
+        "skills_required": "React, Next.js, TypeScript, Tailwind CSS, Design Systems, Storybook, Framer Motion",
+        "intelligence": {
+            "company_name": "Vercel",
+            "overview": "The Frontend Cloud platform enabling developers to build and deploy high-performance web applications worldwide.",
+            "tech_stack": ["React", "Next.js", "TypeScript", "Tailwind CSS", "Design Tokens", "Framer Motion", "Storybook", "Vercel Edge"],
+            "engineering_culture": "Obsessed with user experience, sub-1s LCP, zero layout shifts, pixel-perfection, and developer productivity.",
+            "ats_keywords": ["Design Systems", "Tailwind CSS", "WCAG AAA Accessibility", "Next.js Server Components", "Micro-Animations", "Core Web Vitals"]
+        }
+    },
+    {
+        "id": "opp_krati_figma",
+        "title": "Senior UI/UX & Canvas Design Technologist",
+        "company": "Figma",
+        "category": "job",
+        "location": "Noida Tech Hub / Remote",
+        "relevance_score": 97,
+        "matched_candidate_id": "candidate_krati",
+        "url": "https://figma.com/careers",
+        "description": "Build web-based canvas tools, design token synchronizers, and high-performance interactive UI components.",
+        "skills_required": "Figma Plugin SDK, React, TypeScript, Canvas API, UI/UX Design",
+        "intelligence": {
+            "company_name": "Figma",
+            "overview": "Leading collaborative design and prototyping platform used by product designers worldwide.",
+            "tech_stack": ["React", "TypeScript", "Canvas API", "WebGL", "Figma Plugin API", "Tailwind CSS"],
+            "engineering_culture": "Pixel-perfect craft, collaborative multiplayer ergonomics, 60fps rendering, and intuitive design workflows.",
+            "ats_keywords": ["Figma Plugins", "Canvas Rendering", "Design Tokens", "TypeScript", "Interactive Prototyping"]
+        }
+    },
+    {
+        "id": "opp_krati_linear",
+        "title": "Frontend Performance & Product Engineer",
+        "company": "Linear",
+        "category": "job",
+        "location": "Remote",
+        "relevance_score": 96,
+        "matched_candidate_id": "candidate_krati",
+        "url": "https://linear.app/careers",
+        "description": "Craft silky 60fps keyboard-driven interfaces, dark-mode glassmorphic themes, and responsive design systems.",
+        "skills_required": "React, TypeScript, CSS Architecture, Framer Motion, Dark Mode"
+    },
+    {
+        "id": "opp_krati_airbnb",
+        "title": "Design Systems & Web Experience Intern",
+        "company": "Airbnb",
+        "category": "internship",
+        "location": "Bengaluru, India",
+        "relevance_score": 95,
+        "matched_candidate_id": "candidate_krati",
+        "url": "https://airbnb.com/careers",
+        "description": "Collaborate with cross-functional design teams to scale accessible React component libraries."
+    },
+    {
+        "id": "opp_krati_conclave",
+        "title": "International UI/UX & Glassmorphism Design Conclave",
+        "company": "Frontend Masters",
+        "category": "conclave",
+        "location": "New Delhi, India",
+        "relevance_score": 94,
+        "matched_candidate_id": "candidate_krati"
+    },
+
+    # Mohit Prasad Upraity (AI/ML & Wearables Systems)
+    {
+        "id": "opp_mohit_hcl",
+        "title": "AI/ML Engineering Intern (Computer Vision & Wearables)",
+        "company": "HCL Technologies",
+        "category": "job",
+        "location": "Noida, Uttar Pradesh, India",
+        "relevance_score": 98,
+        "matched_candidate_id": "candidate_mohit",
+        "url": "https://hcltech.com/careers",
+        "description": "Deploy deep learning models for sensor telemetry, gait analysis, wearable movement tracking, and edge computer vision.",
+        "skills_required": "Python, PyTorch, TensorFlow, OpenCV, Edge AI, IoT Sensors, Gait Analysis",
+        "intelligence": {
+            "company_name": "HCL Technologies",
+            "overview": "Global technology company specializing in enterprise digital transformation, engineering R&D, and AI services.",
+            "tech_stack": ["Python", "PyTorch", "TensorFlow", "OpenCV", "Edge Computing", "IoT Telemetry", "AWS SageMaker"],
+            "engineering_culture": "Enterprise reliability, model deployment lifecycle, embedded hardware integration, and computer vision innovation.",
+            "ats_keywords": ["Computer Vision", "Deep Learning", "PyTorch", "Gait Analysis", "Wearables Integration", "Edge Inference", "TensorFlow"]
+        }
+    },
+    {
+        "id": "opp_mohit_drdo",
+        "title": "Cybersecurity & AI Systems Research Intern",
+        "company": "Defence Research & Development Organization (DRDO)",
+        "category": "job",
+        "location": "Agra, India",
+        "relevance_score": 97,
+        "matched_candidate_id": "candidate_mohit",
+        "url": "https://drdo.gov.in",
+        "description": "Research and engineer Next Generation Firewall (NGFW) prototypes, deep packet inspection, and ML traffic anomaly detection.",
+        "skills_required": "Python, Network Security, Wireshark, Deep Packet Inspection, Machine Learning",
+        "intelligence": {
+            "company_name": "DRDO ADRDE",
+            "overview": "Premier national defense R&D laboratory dedicated to airborne delivery systems, AI surveillance, and defense cybersecurity.",
+            "tech_stack": ["Python", "C++", "Wireshark", "Deep Packet Inspection", "Scikit-Learn", "Linux Kernel", "TCP/IP"],
+            "engineering_culture": "Mission-critical reliability, air-gapped system security, strict protocol compliance, and real-time defense computing.",
+            "ats_keywords": ["Next Generation Firewall", "Deep Packet Inspection", "Anomaly Detection", "Network Telemetry", "Cybersecurity AI"]
+        }
+    },
+    {
+        "id": "opp_mohit_apple",
+        "title": "Edge AI & IoT Wearables Platform Engineer",
+        "company": "Apple",
+        "category": "job",
+        "location": "Remote / Bengaluru, India",
+        "relevance_score": 96,
+        "matched_candidate_id": "candidate_mohit",
+        "url": "https://apple.com/careers",
+        "description": "Develop low-power ML algorithms for biometric wearable sensors, movement analysis, and real-time fall detection.",
+        "skills_required": "Python, C++, PyTorch, Sensor Integration, Wearables"
+    },
+    {
+        "id": "opp_mohit_hackwithup",
+        "title": "1st Place Championship — Hack With UP State Hackathon",
+        "company": "Govt of Uttar Pradesh & AKTU",
+        "category": "hackathon",
+        "location": "Lucknow / Noida, India",
+        "relevance_score": 99,
+        "matched_candidate_id": "candidate_mohit",
+        "url": "https://hackwithup.aktu.ac.in",
+        "description": "State-wide championship for AI Smart Shoe Gait Analysis & Fall Prevention wearable prototype."
+    }
+]
+
+
 @app.get("/api/opportunities")
 def get_all_opportunities(candidate_id: Optional[str] = None):
+    # 1. Fetch dynamic DB opportunities
     ranked_res = read_from_db("ranked_opportunities").get("records", [])
     raw_res = read_from_db("opportunities").get("records", [])
     raw_lookup = {str(o.get("id")): o for o in raw_res}
 
-    joined = []
+    joined_db = []
     for r in ranked_res:
         opp_meta = raw_lookup.get(str(r.get("opportunity_id")), {})
         title = opp_meta.get("title") or r.get("title") or f"Opportunity #{str(r.get('id', ''))[:6]}"
@@ -1026,22 +1256,13 @@ def get_all_opportunities(candidate_id: Optional[str] = None):
         cat = r.get("category") or opp_meta.get("category") or "job"
         base_score = r.get("relevance_score", 85)
 
-        # Candidate-specific score adjustment
-        cand_score = base_score
-        target_cand = "candidate_mohit"
         t_lower = title.lower()
         if "frontend" in t_lower or "ui" in t_lower or "react" in t_lower or "design" in t_lower or "figma" in t_lower:
             target_cand = "candidate_krati"
-            if candidate_id == "candidate_krati":
-                cand_score = min(99, base_score + 10)
         elif "backend" in t_lower or "django" in t_lower or "api" in t_lower or "distributed" in t_lower or "database" in t_lower:
             target_cand = "candidate_vishnu"
-            if candidate_id == "candidate_vishnu":
-                cand_score = min(99, base_score + 10)
-        elif "ai" in t_lower or "iot" in t_lower or "vision" in t_lower or "hardware" in t_lower or "machine learning" in t_lower or "hackathon" in t_lower:
+        else:
             target_cand = "candidate_mohit"
-            if candidate_id == "candidate_mohit":
-                cand_score = min(99, base_score + 10)
 
         item = {
             **opp_meta,
@@ -1049,25 +1270,42 @@ def get_all_opportunities(candidate_id: Optional[str] = None):
             "title": title,
             "company": company,
             "category": cat,
-            "relevance_score": cand_score,
+            "relevance_score": base_score,
             "matched_candidate_id": target_cand,
             "url": opp_meta.get("url") or r.get("url") or "#",
             "description": opp_meta.get("description") or r.get("description") or ""
         }
-        joined.append(item)
+        joined_db.append(item)
 
-    if not joined and raw_res:
-        joined = raw_res
+    # 2. Combine Curated Ground Truth with DB Records (Deduplicating by title/company)
+    all_opps = list(CURATED_CANDIDATE_OPPORTUNITIES)
+    seen_keys = {(o["title"].lower(), (o.get("company") or "").lower()) for o in all_opps}
 
-    # If filtered by candidate, sort matching candidate items first
+    for d in joined_db:
+        key = (d["title"].lower(), (d.get("company") or "").lower())
+        if key not in seen_keys:
+            all_opps.append(d)
+            seen_keys.add(key)
+
+    # 3. Filter strictly if a specific candidate is selected
     if candidate_id and candidate_id != "candidate_all":
-        joined.sort(key=lambda x: (x.get("matched_candidate_id") == candidate_id, x.get("relevance_score", 0)), reverse=True)
+        filtered = [o for o in all_opps if o.get("matched_candidate_id") == candidate_id]
+        filtered.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+        return {"status": "success", "opportunities": filtered}
 
-    return {"status": "success", "opportunities": joined}
+    # 4. Global View: Return all sorted by relevance score
+    all_opps.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
+    return {"status": "success", "opportunities": all_opps}
+
 
 
 @app.get("/api/opportunities/{opp_id}")
 def get_opportunity_by_id(opp_id: str):
+    # Check curated list first
+    curated = next((o for o in CURATED_CANDIDATE_OPPORTUNITIES if str(o.get("id")) == str(opp_id)), None)
+    if curated:
+        return {"status": "success", "opportunity": curated}
+
     res = read_from_db("ranked_opportunities", f"id = '{opp_id}'")
     records = res.get("records", [])
     if not records:

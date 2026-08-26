@@ -38,7 +38,13 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
           {opportunity.category?.toUpperCase() || 'OPPORTUNITY'}
         </Badge>
         {opportunity.matched_candidate_id && (
-          <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-950/60 border border-indigo-500/20 px-2 py-0.5 rounded">
+          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+            opportunity.matched_candidate_id === 'candidate_krati'
+              ? 'text-pink-400 bg-pink-950/70 border-pink-500/40'
+              : opportunity.matched_candidate_id === 'candidate_vishnu'
+              ? 'text-emerald-400 bg-emerald-950/70 border-emerald-500/40'
+              : 'text-indigo-400 bg-indigo-950/70 border-indigo-500/40'
+          }`}>
             {opportunity.matched_candidate_id === 'candidate_krati' ? 'Krati' : opportunity.matched_candidate_id === 'candidate_vishnu' ? 'Vishnu' : 'Mohit'} Match
           </span>
         )}
