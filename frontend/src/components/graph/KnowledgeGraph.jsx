@@ -58,26 +58,160 @@ import {
   Workflow,
   Orbit,
   GitFork,
-  Boxes
+  Boxes,
+  Palette,
+  Hexagon,
+  Circle,
+  Square,
+  Gem,
+  Stars,
+  Grid,
+  Sun,
+  Moon
 } from 'lucide-react';
 
-const NODE_COLORS = {
-  user: '#6366f1',          // indigo
-  skill: '#10b981',         // emerald
-  project: '#8b5cf6',       // violet
-  experience: '#ec4899',    // rose/pink
-  achievement: '#f59e0b',   // amber/gold
-  education: '#06b6d4',     // cyan
-  certification: '#14b8a6', // teal
-  opportunity: '#f97316',   // orange
-  document: '#38bdf8',      // sky
-};
-
-const CANDIDATE_COLORS = {
-  candidate_mohit: '#6366f1',  // Indigo
-  candidate_krati: '#ec4899',  // Rose
-  candidate_vishnu: '#10b981', // Emerald
-  candidate_all: '#818cf8',    // Light Indigo
+// ── Themes & Color Palettes ──────────────────────────────────────────────────
+const THEME_PALETTES = {
+  cyberpunk: {
+    id: 'cyberpunk',
+    name: '⚡ Cyberpunk Neon',
+    bg: '#030712',
+    gridColor: 'rgba(0, 240, 255, 0.04)',
+    nodeColors: {
+      user: '#00f0ff',          // Electric Cyan
+      skill: '#39ff14',         // Neon Lime
+      project: '#b026ff',       // Cyber Purple
+      experience: '#ff007f',    // Hot Pink
+      achievement: '#ffd700',   // Laser Gold
+      education: '#00ffff',     // Bright Cyan
+      certification: '#00e5ff', // Aqua
+      opportunity: '#ff5500',   // Blazing Orange
+      document: '#38bdf8',      // Sky
+    },
+    candidateColors: {
+      candidate_mohit: '#00f0ff',
+      candidate_krati: '#ff007f',
+      candidate_vishnu: '#39ff14',
+      candidate_all: '#b026ff',
+    },
+    edgeColors: {
+      KNOWS_SKILL: '#39ff14',
+      BUILT_PROJECT: '#b026ff',
+      USES_TECH: '#64748b',
+      WORKED_AT: '#ff007f',
+      EARNED_AWARD: '#ffd700',
+      STUDIED_AT: '#00ffff',
+      ACQUIRED_CERT: '#00e5ff',
+      TEAM_SYNERGY: '#ff00ff',
+      MATCHES_PROFILE: '#ff5500',
+      SOURCES_CANDIDATE_DATA: '#38bdf8',
+    }
+  },
+  cosmic: {
+    id: 'cosmic',
+    name: '🌌 Cosmic Nebula',
+    bg: '#020617',
+    gridColor: 'rgba(139, 92, 246, 0.05)',
+    nodeColors: {
+      user: '#818cf8',          // Light Indigo
+      skill: '#34d399',         // Emerald Green
+      project: '#c084fc',       // Starlight Violet
+      experience: '#f472b6',    // Nebula Pink
+      achievement: '#fbbf24',   // Solar Gold
+      education: '#38bdf8',     // Celestial Sky
+      certification: '#2dd4bf', // Astral Teal
+      opportunity: '#fb923c',   // Cosmic Orange
+      document: '#93c5fd',      // Moonstone
+    },
+    candidateColors: {
+      candidate_mohit: '#818cf8',
+      candidate_krati: '#f472b6',
+      candidate_vishnu: '#34d399',
+      candidate_all: '#c084fc',
+    },
+    edgeColors: {
+      KNOWS_SKILL: '#34d399',
+      BUILT_PROJECT: '#c084fc',
+      USES_TECH: '#64748b',
+      WORKED_AT: '#f472b6',
+      EARNED_AWARD: '#fbbf24',
+      STUDIED_AT: '#38bdf8',
+      ACQUIRED_CERT: '#2dd4bf',
+      TEAM_SYNERGY: '#e879f9',
+      MATCHES_PROFILE: '#fb923c',
+      SOURCES_CANDIDATE_DATA: '#93c5fd',
+    }
+  },
+  matrix: {
+    id: 'matrix',
+    name: '🛡️ ArmorIQ Tactical / Matrix',
+    bg: '#030d0a',
+    gridColor: 'rgba(16, 185, 129, 0.06)',
+    nodeColors: {
+      user: '#10b981',          // Phosphor Green
+      skill: '#34d399',         // Emerald
+      project: '#059669',       // Deep Forest
+      experience: '#065f46',    // Dark Green
+      achievement: '#f59e0b',   // Tactical Amber
+      education: '#14b8a6',     // Cyber Teal
+      certification: '#0d9488', // Dark Teal
+      opportunity: '#f97316',   // High-Threat Orange
+      document: '#6ee7b7',      // Light Mint
+    },
+    candidateColors: {
+      candidate_mohit: '#10b981',
+      candidate_krati: '#14b8a6',
+      candidate_vishnu: '#34d399',
+      candidate_all: '#6ee7b7',
+    },
+    edgeColors: {
+      KNOWS_SKILL: '#34d399',
+      BUILT_PROJECT: '#10b981',
+      USES_TECH: '#475569',
+      WORKED_AT: '#059669',
+      EARNED_AWARD: '#f59e0b',
+      STUDIED_AT: '#14b8a6',
+      ACQUIRED_CERT: '#0d9488',
+      TEAM_SYNERGY: '#a7f3d0',
+      MATCHES_PROFILE: '#f97316',
+      SOURCES_CANDIDATE_DATA: '#6ee7b7',
+    }
+  },
+  minimal_glass: {
+    id: 'minimal_glass',
+    name: '💎 Obsidian Glass',
+    bg: '#09090b',
+    gridColor: 'rgba(255, 255, 255, 0.03)',
+    nodeColors: {
+      user: '#6366f1',          // Indigo Iris
+      skill: '#10b981',         // Soft Mint
+      project: '#8b5cf6',       // Lavender
+      experience: '#ec4899',    // Rose
+      achievement: '#eab308',   // Ochre Gold
+      education: '#06b6d4',     // Cyan
+      certification: '#14b8a6', // Teal
+      opportunity: '#f97316',   // Coral
+      document: '#38bdf8',      // Sky
+    },
+    candidateColors: {
+      candidate_mohit: '#6366f1',
+      candidate_krati: '#ec4899',
+      candidate_vishnu: '#10b981',
+      candidate_all: '#818cf8',
+    },
+    edgeColors: {
+      KNOWS_SKILL: '#10b981',
+      BUILT_PROJECT: '#8b5cf6',
+      USES_TECH: '#475569',
+      WORKED_AT: '#ec4899',
+      EARNED_AWARD: '#eab308',
+      STUDIED_AT: '#06b6d4',
+      ACQUIRED_CERT: '#14b8a6',
+      TEAM_SYNERGY: '#c084fc',
+      MATCHES_PROFILE: '#f97316',
+      SOURCES_CANDIDATE_DATA: '#38bdf8',
+    }
+  }
 };
 
 const NODE_ICONS = {
@@ -93,16 +227,16 @@ const NODE_ICONS = {
 };
 
 const EDGE_TYPES = {
-  KNOWS_SKILL: { label: 'Knows Skill', color: '#10b981', desc: 'Candidate possesses technical or domain skill' },
-  BUILT_PROJECT: { label: 'Built Project', color: '#8b5cf6', desc: 'Candidate developed and shipped project' },
-  USES_TECH: { label: 'Uses Tech', color: '#64748b', desc: 'Project leverages specific framework or tool' },
-  WORKED_AT: { label: 'Worked At', color: '#ec4899', desc: 'Candidate career experience and roles' },
-  EARNED_AWARD: { label: 'Earned Award', color: '#f59e0b', desc: 'Hackathon, patent, or honors' },
-  STUDIED_AT: { label: 'Studied At', color: '#06b6d4', desc: 'University and academic degree' },
-  ACQUIRED_CERT: { label: 'Acquired Cert', color: '#14b8a6', desc: 'Professional certification' },
-  TEAM_SYNERGY: { label: 'Team Synergy', color: '#c084fc', desc: 'Complementary cross-candidate collaboration' },
-  MATCHES_PROFILE: { label: 'Matches Profile', color: '#f97316', desc: 'Scouted job matching candidate' },
-  SOURCES_CANDIDATE_DATA: { label: 'Doc Source', color: '#38bdf8', desc: 'Provenance grounding source doc' },
+  KNOWS_SKILL: { label: 'Knows Skill', desc: 'Candidate possesses technical or domain skill' },
+  BUILT_PROJECT: { label: 'Built Project', desc: 'Candidate developed and shipped project' },
+  USES_TECH: { label: 'Uses Tech', desc: 'Project leverages specific framework or tool' },
+  WORKED_AT: { label: 'Worked At', desc: 'Candidate career experience and roles' },
+  EARNED_AWARD: { label: 'Earned Award', desc: 'Hackathon, patent, or honors' },
+  STUDIED_AT: { label: 'Studied At', desc: 'University and academic degree' },
+  ACQUIRED_CERT: { label: 'Acquired Cert', desc: 'Professional certification' },
+  TEAM_SYNERGY: { label: 'Team Synergy', desc: 'Complementary cross-candidate collaboration' },
+  MATCHES_PROFILE: { label: 'Matches Profile', desc: 'Scouted job matching candidate' },
+  SOURCES_CANDIDATE_DATA: { label: 'Doc Source', desc: 'Provenance grounding source doc' },
 };
 
 const TOPOLOGY_MODES = [
@@ -110,6 +244,13 @@ const TOPOLOGY_MODES = [
   { id: 'tree_td', name: '🌲 Top-Down Tree DAG', desc: 'Structured hierarchy: Candidate at top → Entities below', icon: GitFork },
   { id: 'flow_lr', name: '➡️ Pipeline Flow DAG', desc: 'Horizontal flow from experience to skills to jobs', icon: Workflow },
   { id: 'radial', name: '🪐 Concentric Orbit', desc: 'Planetary multi-orbit ring structure', icon: Orbit },
+];
+
+const NODE_SHAPES = [
+  { id: 'sphere', name: '🔮 Glowing Sphere', icon: Circle },
+  { id: 'hexagon', name: '⬡ Cyber Hexagon', icon: Hexagon },
+  { id: 'badge', name: '🔲 Glass Card Badge', icon: Square },
+  { id: 'diamond', name: '💎 Prismatic Diamond', icon: Gem },
 ];
 
 export default function KnowledgeGraph({ userId = 'default-user' }) {
@@ -125,13 +266,19 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [copiedExcerpt, setCopiedExcerpt] = useState(false);
   const [copiedAttribute, setCopiedAttribute] = useState(false);
 
+  // ── Theme & Style Engine ───────────────────────────────────────────────────
+  const [visualTheme, setVisualTheme] = useState('cyberpunk');   // 'cyberpunk' | 'cosmic' | 'matrix' | 'minimal_glass'
+  const [nodeShape, setNodeShape] = useState('sphere');          // 'sphere' | 'hexagon' | 'badge' | 'diamond'
+  const [bgAtmosphere, setBgAtmosphere] = useState('grid');      // 'grid' | 'stars' | 'void'
+  const [linkStyle, setLinkStyle] = useState('laser');           // 'laser' | 'dashed' | 'subtle'
+
   // ── Topology & Structural Layout Engine ────────────────────────────────────
   const [topologyMode, setTopologyMode] = useState('organic');   // 'organic' | 'tree_td' | 'flow_lr' | 'radial'
   const [dagLevelDistance, setDagLevelDistance] = useState(130); // Distance between hierarchy levels
 
   // ── Physics & Distance Controls State ──────────────────────────────────────
-  const [nodeRepulsion, setNodeRepulsion] = useState(1000);      // Repulsion strength
-  const [linkDistance, setLinkDistance] = useState(150);         // Link spring distance
+  const [nodeRepulsion, setNodeRepulsion] = useState(1050);      // Repulsion strength
+  const [linkDistance, setLinkDistance] = useState(160);         // Link spring distance
   const [centerGravity, setCenterGravity] = useState(0.035);     // Pull toward center
   const [particleSpeed, setParticleSpeed] = useState(0.006);     // Flow speed
   const [showParticles, setShowParticles] = useState(true);
@@ -145,7 +292,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [linkWidthScale, setLinkWidthScale] = useState(1.5);
   const [isolateFocus, setIsolateFocus] = useState(false);       // Dims unrelated nodes on selection
   const [nodeSizingMode, setNodeSizingMode] = useState('degree'); // 'degree' (hub size) | 'category' | 'uniform'
-  const [activeTabControls, setActiveTabControls] = useState('topology'); // 'topology' | 'physics' | 'connections' | 'display'
+  const [activeTabControls, setActiveTabControls] = useState('styles'); // 'styles' | 'topology' | 'physics' | 'connections'
 
   // Active Connection Types Toggles
   const [activeEdgeTypes, setActiveEdgeTypes] = useState({
@@ -176,6 +323,8 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const containerRef = useRef(null);
   const fgRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  const currentTheme = THEME_PALETTES[visualTheme] || THEME_PALETTES.cyberpunk;
 
   // 1. Fetch Candidates List
   useEffect(() => {
@@ -256,7 +405,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     loadGraph(selectedCandidate);
   }, [selectedCandidate, userId, loadGraph]);
 
-  // 3. Dynamic D3 Force Engine Settings (Real-time Spacing & Topology Update)
+  // 3. Dynamic D3 Force Engine Settings
   useEffect(() => {
     if (fgRef.current) {
       const charge = fgRef.current.d3Force('charge');
@@ -291,7 +440,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Filter nodes & links based on active groups, edge types, and search query
+  // Filter nodes & links
   const filteredData = useMemo(() => {
     const validNodes = graphData.nodes.filter((node) => {
       const groupMatch = activeGroups[node.group] !== false;
@@ -317,7 +466,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     return { nodes: validNodes, links: validLinks };
   }, [graphData, activeGroups, activeEdgeTypes, searchQuery]);
 
-  // Direct 1-hop neighbor node set for Focus Isolation
+  // Focus neighbor set
   const activeFocusNeighborSet = useMemo(() => {
     const focusNode = hoverNode || selectedNode;
     if (!focusNode || !isolateFocus) return null;
@@ -406,7 +555,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
       if (canvas) {
         const imageURI = canvas.toDataURL('image/png');
         const link = document.createElement('a');
-        link.download = `careeros-knowledge-graph-${selectedCandidate}-${Date.now()}.png`;
+        link.download = `careeros-${visualTheme}-graph-${selectedCandidate}-${Date.now()}.png`;
         link.href = imageURI;
         link.click();
       }
@@ -451,6 +600,42 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
       };
     }).filter((item) => item.node);
   }, [selectedNode, graphData]);
+
+  // ── Canvas Custom Node Drawers ─────────────────────────────────────────────
+  const drawHexagon = (ctx, x, y, r, fill, stroke, strokeWidth) => {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 3) * i - Math.PI / 6;
+      const px = x + r * Math.cos(angle);
+      const py = y + r * Math.sin(angle);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = strokeWidth || 1;
+      ctx.stroke();
+    }
+  };
+
+  const drawDiamond = (ctx, x, y, r, fill, stroke, strokeWidth) => {
+    ctx.beginPath();
+    ctx.moveTo(x, y - r * 1.15);
+    ctx.lineTo(x + r * 1.15, y);
+    ctx.lineTo(x, y + r * 1.15);
+    ctx.lineTo(x - r * 1.15, y);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = strokeWidth || 1;
+      ctx.stroke();
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -513,7 +698,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
         {/* Floating Top Control Bar */}
         <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
           {/* Search Box */}
-          <div className="pointer-events-auto relative w-60 sm:w-68">
+          <div className="pointer-events-auto relative w-56 sm:w-64">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
@@ -532,24 +717,23 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             )}
           </div>
 
-          {/* Topology Structure Quick Selector */}
+          {/* Theme Quick Switcher Pills */}
           <div className="pointer-events-auto flex items-center gap-1 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg">
-            {TOPOLOGY_MODES.map((mode) => {
-              const Icon = mode.icon;
-              const isActive = topologyMode === mode.id;
+            {Object.values(THEME_PALETTES).map((thm) => {
+              const isActive = visualTheme === thm.id;
               return (
                 <button
-                  key={mode.id}
-                  onClick={() => setTopologyMode(mode.id)}
-                  title={`${mode.name}: ${mode.desc}`}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  key={thm.id}
+                  onClick={() => setVisualTheme(thm.id)}
+                  title={thm.name}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     isActive
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span className="hidden xl:inline">{mode.name.split(' ')[1]}</span>
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: thm.nodeColors.user }} />
+                  <span className="hidden md:inline">{thm.name.split(' ')[1]}</span>
                 </button>
               );
             })}
@@ -594,15 +778,15 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             {/* Open Full Studio Control Drawer */}
             <button
               onClick={() => setShowControlsDrawer(!showControlsDrawer)}
-              title="Graph Physics, Connections & Display Suite"
+              title="Visual Themes, Geometry, Physics & Edge Styles"
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
                 showControlsDrawer
                   ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30'
                   : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
               }`}
             >
-              <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Studio Controls</span>
+              <Palette className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Studio & Styles</span>
             </button>
 
             <div className="w-[1px] h-4 bg-slate-700 mx-1" />
@@ -648,11 +832,11 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
 
         {/* ── Comprehensive Floating Studio Controls Drawer ───────────────── */}
         {showControlsDrawer && (
-          <div className="absolute top-20 right-4 z-30 w-96 max-h-[560px] overflow-y-auto bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 rounded-2xl p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="absolute top-20 right-4 z-30 w-96 max-h-[580px] overflow-y-auto bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 rounded-2xl p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-4 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
-                <h3 className="text-sm font-bold text-white">Knowledge Graph Studio Suite</h3>
+                <h3 className="text-sm font-bold text-white">Visual Themes & Graph Studio</h3>
               </div>
               <button
                 onClick={() => setShowControlsDrawer(false)}
@@ -665,10 +849,10 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             {/* Controls Tabs */}
             <div className="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
               {[
+                { id: 'styles', label: '🎨 Aesthetics' },
                 { id: 'topology', label: '📐 Structure' },
                 { id: 'physics', label: '⚡ Physics' },
                 { id: 'connections', label: '🔗 Edges' },
-                { id: 'display', label: '🎨 Styling' },
               ].map((t) => (
                 <button
                   key={t.id}
@@ -684,7 +868,114 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               ))}
             </div>
 
-            {/* ── TAB 0: Topology & Layout Structure ───────────────────────── */}
+            {/* ── TAB 1: Aesthetics, Themes & Shapes ───────────────────────── */}
+            {activeTabControls === 'styles' && (
+              <div className="space-y-4">
+                {/* Visual Theme Palettes */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-2">Color Palettes & Lighting</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {Object.values(THEME_PALETTES).map((thm) => (
+                      <button
+                        key={thm.id}
+                        onClick={() => setVisualTheme(thm.id)}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          visualTheme === thm.id
+                            ? 'bg-indigo-600/20 border-indigo-500 text-white font-bold shadow-sm'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        <div className="text-xs">{thm.name}</div>
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          {['user', 'skill', 'project', 'experience'].map((k) => (
+                            <span
+                              key={k}
+                              className="w-2.5 h-2.5 rounded-full"
+                              style={{ backgroundColor: thm.nodeColors[k] }}
+                            />
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Node Geometry & Shapes */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-2">Node Geometry & Shapes</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {NODE_SHAPES.map((shape) => {
+                      const Icon = shape.icon;
+                      const isActive = nodeShape === shape.id;
+                      return (
+                        <button
+                          key={shape.id}
+                          onClick={() => setNodeShape(shape.id)}
+                          className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            isActive
+                              ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold'
+                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4 text-cyan-400" />
+                          <span className="text-xs">{shape.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Canvas Background Atmosphere */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-2">Canvas Atmosphere</label>
+                  <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    {[
+                      { id: 'grid', label: '📐 Cyber Grid', icon: Grid },
+                      { id: 'stars', label: '✨ Starfield', icon: Stars },
+                      { id: 'void', label: '⬛ Deep Void', icon: Moon },
+                    ].map((atm) => (
+                      <button
+                        key={atm.id}
+                        onClick={() => setBgAtmosphere(atm.id)}
+                        className={`py-1.5 text-[11px] rounded-lg font-semibold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                          bgAtmosphere === atm.id
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        <atm.icon className="w-3 h-3" />
+                        <span>{atm.label.split(' ')[1]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Node Sizing Strategy */}
+                <div className="pt-2 border-t border-slate-800">
+                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">Node Sizing Metric</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'degree', label: 'Hub Degree Centrality' },
+                      { id: 'category', label: 'Entity Category Size' },
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        onClick={() => setNodeSizingMode(mode.id)}
+                        className={`p-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-left ${
+                          nodeSizingMode === mode.id
+                            ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── TAB 2: Topology & Layout Structure ───────────────────────── */}
             {activeTabControls === 'topology' && (
               <div className="space-y-4">
                 <div>
@@ -736,7 +1027,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               </div>
             )}
 
-            {/* ── TAB 1: Physics & Distance ───────────────────────────────── */}
+            {/* ── TAB 3: Physics & Distance ───────────────────────────────── */}
             {activeTabControls === 'physics' && (
               <div className="space-y-4">
                 {/* Spacing Presets */}
@@ -785,11 +1076,6 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                       }}
                       className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                     />
-                    <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
-                      <span>Tight (200)</span>
-                      <span>Spacious (1000)</span>
-                      <span>Expansive (2400)</span>
-                    </div>
                   </div>
 
                   {/* Link Spring Distance */}
@@ -815,7 +1101,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                   {/* Center Gravity */}
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-semibold text-slate-300">Center Gravity (Centering Pull)</span>
+                      <span className="font-semibold text-slate-300">Center Gravity</span>
                       <span className="font-mono text-purple-400 font-bold">{centerGravity.toFixed(3)}</span>
                     </div>
                     <input
@@ -835,7 +1121,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               </div>
             )}
 
-            {/* ── TAB 2: Connections & Edge Types ─────────────────────────── */}
+            {/* ── TAB 4: Connections & Edge Types ─────────────────────────── */}
             {activeTabControls === 'connections' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -857,6 +1143,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                 <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                   {Object.entries(EDGE_TYPES).map(([typeKey, info]) => {
                     const isActive = activeEdgeTypes[typeKey];
+                    const edgeCol = currentTheme.edgeColors[typeKey] || '#818cf8';
                     return (
                       <button
                         key={typeKey}
@@ -868,7 +1155,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: info.color }} />
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: edgeCol }} />
                           <div>
                             <div className="text-xs font-semibold">{info.label}</div>
                             <div className="text-[10px] text-slate-500">{typeKey}</div>
@@ -887,7 +1174,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                 {/* Edge Geometry & Labels */}
                 <div className="pt-3 border-t border-slate-800 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-300">Show Relationship Text On Links</span>
+                    <span className="text-xs font-semibold text-slate-300">Show Text Labels On Links</span>
                     <button
                       onClick={() => setShowEdgeLabels(!showEdgeLabels)}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
@@ -917,102 +1204,17 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               </div>
             )}
 
-            {/* ── TAB 3: Styling & Export Suite ───────────────────────────── */}
-            {activeTabControls === 'display' && (
-              <div className="space-y-4">
-                {/* Node Sizing Strategy */}
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">Node Sizing Metric</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { id: 'degree', label: 'Hub Connectivity (Degree)' },
-                      { id: 'category', label: 'Entity Category Size' },
-                    ].map((mode) => (
-                      <button
-                        key={mode.id}
-                        onClick={() => setNodeSizingMode(mode.id)}
-                        className={`p-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-left ${
-                          nodeSizingMode === mode.id
-                            ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold'
-                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800'
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Node Label Rendering Mode */}
-                <div>
-                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">Label Visibility Mode</label>
-                  <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                    {[
-                      { id: 'smart', label: 'Smart (Auto)' },
-                      { id: 'always', label: 'Always All' },
-                      { id: 'key_only', label: 'Key Nodes' }
-                    ].map((mode) => (
-                      <button
-                        key={mode.id}
-                        onClick={() => setLabelMode(mode.id)}
-                        className={`py-1 text-[11px] rounded-lg font-semibold transition-all cursor-pointer ${
-                          labelMode === mode.id
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-slate-400 hover:text-slate-200'
-                        }`}
-                      >
-                        {mode.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Particle Animation Controls */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200">Directional Flow Particles</div>
-                    <div className="text-[10px] text-slate-400">Animated pulses across connections</div>
-                  </div>
-                  <button
-                    onClick={() => setShowParticles(!showParticles)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                      showParticles ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-400 border-slate-700'
-                    }`}
-                  >
-                    {showParticles ? 'Enabled' : 'Disabled'}
-                  </button>
-                </div>
-
-                {/* Export Actions */}
-                <div className="pt-3 border-t border-slate-800 space-y-2">
-                  <label className="text-xs font-semibold text-slate-400 block">Export Graph</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={handleExportPNG}
-                      className="py-2 px-3 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
-                      <span>Export PNG</span>
-                    </button>
-                    <button
-                      onClick={handleExportJSON}
-                      className="py-2 px-3 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <Download className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Export JSON</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Actions footer */}
             <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
               <button
-                onClick={() => applyPreset('spacious')}
+                onClick={() => {
+                  setVisualTheme('cyberpunk');
+                  setNodeShape('sphere');
+                  applyPreset('spacious');
+                }}
                 className="text-xs text-slate-400 hover:text-indigo-400 underline cursor-pointer"
               >
-                Reset Defaults
+                Reset All Defaults
               </button>
               <button
                 onClick={() => {
@@ -1039,7 +1241,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             width={dimensions.width}
             height={dimensions.height}
             graphData={filteredData}
-            backgroundColor="#030712"
+            backgroundColor={currentTheme.bg}
             dagMode={
               topologyMode === 'tree_td' ? 'td' :
               topologyMode === 'flow_lr' ? 'lr' :
@@ -1057,9 +1259,9 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             }}
             nodeLabel={(node) => `${node.label} (${node.group?.toUpperCase()}) — ${node.degree || 1} connections`}
             linkColor={(link) => {
-              const edgeInfo = EDGE_TYPES[link.type];
-              if (edgeInfo) return edgeInfo.color;
-              if (link.type === 'TEAM_SYNERGY') return '#c084fc';
+              const edgeCol = currentTheme.edgeColors[link.type];
+              if (edgeCol) return edgeCol;
+              if (link.type === 'TEAM_SYNERGY') return currentTheme.candidateColors.candidate_all;
               return '#475569';
             }}
             linkWidth={(link) => {
@@ -1070,8 +1272,8 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             linkDirectionalParticleSpeed={particleSpeed}
             linkDirectionalParticleWidth={(link) => (link.type === 'TEAM_SYNERGY' ? 3.5 : 2.2)}
             linkDirectionalParticleColor={(link) => {
-              const edgeInfo = EDGE_TYPES[link.type];
-              return edgeInfo ? edgeInfo.color : '#818cf8';
+              const edgeCol = currentTheme.edgeColors[link.type];
+              return edgeCol || currentTheme.nodeColors.user;
             }}
             linkCanvasObjectMode={showEdgeLabels ? () => 'after' : undefined}
             linkCanvasObject={showEdgeLabels ? (link, ctx, globalScale) => {
@@ -1089,7 +1291,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
               const textWidth = ctx.measureText(label).width;
               ctx.fillRect(textPos.x - textWidth / 2 - 2, textPos.y - fontSize / 2 - 1, textWidth + 4, fontSize + 2);
-              ctx.fillStyle = EDGE_TYPES[link.type]?.color || '#94a3b8';
+              ctx.fillStyle = currentTheme.edgeColors[link.type] || '#94a3b8';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
               ctx.fillText(label, textPos.x, textPos.y);
@@ -1108,8 +1310,8 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               const isDimmed = isolateFocus && activeFocusNeighborSet && !activeFocusNeighborSet.has(node.id);
 
               const nodeColor = isCandidate
-                ? CANDIDATE_COLORS[node.id] || '#6366f1'
-                : NODE_COLORS[node.group] || '#94a3b8';
+                ? currentTheme.candidateColors[node.id] || currentTheme.nodeColors.user
+                : currentTheme.nodeColors[node.group] || '#94a3b8';
 
               let radius;
               if (nodeSizingMode === 'degree') {
@@ -1124,30 +1326,47 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               if (isSelected || isHovered || isCandidate || isSharedSkill || isAchievement) {
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, radius + (isSelected ? 6 : 3.5), 0, 2 * Math.PI, false);
-                ctx.fillStyle = isCandidate ? `${nodeColor}44` : isSharedSkill ? '#10b98133' : isAchievement ? '#f59e0b33' : `${nodeColor}33`;
+                ctx.fillStyle = `${nodeColor}33`;
                 ctx.fill();
 
                 if (isSelected || isSharedSkill || isAchievement) {
-                  ctx.strokeStyle = isSharedSkill ? '#34d399' : isAchievement ? '#fbbf24' : '#818cf8';
+                  ctx.strokeStyle = nodeColor;
                   ctx.lineWidth = 1.5;
                   ctx.stroke();
                 }
               }
 
-              // Main node core circle
-              ctx.beginPath();
-              ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
-              ctx.fillStyle = nodeColor;
-              ctx.fill();
-
-              // Inner border
-              ctx.strokeStyle = '#ffffff';
-              ctx.lineWidth = isCandidate ? 1.8 : 0.8;
-              ctx.stroke();
+              // Render Node by Selected Geometry Shape
+              if (nodeShape === 'hexagon') {
+                drawHexagon(ctx, node.x, node.y, radius, nodeColor, '#ffffff', isCandidate ? 2 : 1);
+              } else if (nodeShape === 'diamond') {
+                drawDiamond(ctx, node.x, node.y, radius, nodeColor, '#ffffff', isCandidate ? 2 : 1);
+              } else if (nodeShape === 'badge') {
+                const label = node.label || node.id;
+                const bw = Math.max(radius * 2.2, label.length * 4.5 + 16);
+                const bh = radius * 1.6;
+                ctx.beginPath();
+                ctx.roundRect(node.x - bw / 2, node.y - bh / 2, bw, bh, 6);
+                ctx.fillStyle = `${nodeColor}ee`;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = isCandidate ? 2 : 0.8;
+                ctx.stroke();
+              } else {
+                // Sphere (Default)
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+                ctx.fillStyle = nodeColor;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = isCandidate ? 1.8 : 0.8;
+                ctx.stroke();
+              }
 
               // Determine whether to draw label
               const shouldDrawLabel =
-                !isDimmed && (
+                !isDimmed &&
+                nodeShape !== 'badge' && (
                   labelMode === 'always' ||
                   isSelected ||
                   isHovered ||
@@ -1172,7 +1391,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                   bckgDimensions[1]
                 );
 
-                ctx.fillStyle = isCandidate ? '#ffffff' : isSharedSkill ? '#6ee7b7' : isAchievement ? '#fde68a' : '#cbd5e1';
+                ctx.fillStyle = isCandidate ? '#ffffff' : '#cbd5e1';
                 ctx.fillText(label, node.x, node.y + radius + 3);
               }
 
@@ -1199,13 +1418,13 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                 <div
                   className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg"
                   style={{
-                    backgroundColor: `${NODE_COLORS[selectedNode.group] || '#6366f1'}22`,
-                    border: `1.5px solid ${NODE_COLORS[selectedNode.group] || '#6366f1'}`,
+                    backgroundColor: `${currentTheme.nodeColors[selectedNode.group] || '#6366f1'}22`,
+                    border: `1.5px solid ${currentTheme.nodeColors[selectedNode.group] || '#6366f1'}`,
                   }}
                 >
                   {(() => {
                     const IconComponent = NODE_ICONS[selectedNode.group] || Sparkles;
-                    return <IconComponent className="w-6 h-6" style={{ color: NODE_COLORS[selectedNode.group] || '#6366f1' }} />;
+                    return <IconComponent className="w-6 h-6" style={{ color: currentTheme.nodeColors[selectedNode.group] || '#6366f1' }} />;
                   })()}
                 </div>
 
@@ -1338,7 +1557,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                     >
                       <span
                         className="w-2 h-2 rounded-full shrink-0"
-                        style={{ backgroundColor: NODE_COLORS[node.group] || '#6366f1' }}
+                        style={{ backgroundColor: currentTheme.nodeColors[node.group] || '#6366f1' }}
                       />
                       <span className="font-semibold text-white truncate max-w-[160px]">{node.label}</span>
                       <span className="text-[10px] text-slate-500 font-mono">({edgeLabel || edgeType})</span>
