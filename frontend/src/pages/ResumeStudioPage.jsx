@@ -12,7 +12,8 @@ import {
   tailorResume,
   downloadResumePdf,
   fetchCandidates,
-  fetchCandidateDetails
+  fetchCandidateDetails,
+  saveCandidateTemplate
 } from '../api/client';
 import {
   Wand2,
@@ -35,7 +36,8 @@ import {
   Users,
   MapPin,
   Mail,
-  Network
+  Network,
+  Save
 } from 'lucide-react';
 
 const CANDIDATE_THEMES = {
@@ -215,6 +217,24 @@ export default function ResumeStudioPage() {
     if (!customPrompt.trim()) return;
     await handleAiAction('custom_instruction', customPrompt);
     setCustomPrompt('');
+  };
+
+  const [isSavingMaster, setIsSavingMaster] = useState(false);
+  const [masterSaved, setMasterSaved] = useState(false);
+
+  const handleSaveMaster = async () => {
+    setIsSavingMaster(true);
+    try {
+      await saveCandidateTemplate(activeCandidateId, markdown);
+      setOriginalMarkdown(markdown);
+      setMasterSaved(true);
+      setTimeout(() => setMasterSaved(false), 2500);
+    } catch (err) {
+      console.error('Failed to save master template:', err);
+      alert('Failed to save master template: ' + (err.message || 'Error'));
+    } finally {
+      setIsSavingMaster(false);
+    }
   };
 
   const handleCopyMarkdown = () => {
@@ -405,6 +425,19 @@ export default function ResumeStudioPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSaveMaster}
+                    disabled={isSavingMaster}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                      masterSaved
+                        ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-400'
+                        : 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300 hover:bg-indigo-900/80 hover:text-white'
+                    }`}
+                    title="Save this markdown as the candidate's active Master Resume Template"
+                  >
+                    {masterSaved ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Save className="w-3.5 h-3.5" />}
+                    {masterSaved ? 'Master Saved!' : isSavingMaster ? 'Saving...' : 'Set as Master'}
+                  </button>
                   <button
                     onClick={() => setMarkdown(originalMarkdown)}
                     className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer"

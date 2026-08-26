@@ -1930,6 +1930,37 @@ def get_candidate_details(candidate_id: str):
     }
 
 
+class SaveTemplateReq(BaseModel):
+    resume_markdown: str
+
+@app.post("/api/candidates/{candidate_id}/save-template")
+def save_candidate_template(candidate_id: str, req: SaveTemplateReq):
+    """Saves the candidate's master resume markdown and synchronizes to local resume.md."""
+    if candidate_id not in CANDIDATES_REGISTRY:
+        candidate_id = "candidate_mohit"
+    
+    from my_agent.tools.tailor_tools import normalize_to_sections
+    clean_md = normalize_to_sections(req.resume_markdown)
+
+    CANDIDATES_REGISTRY[candidate_id]["resume_markdown"] = clean_md
+    
+    # Synchronize to root resume.md
+    try:
+        resume_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resume.md")
+        with open(resume_file, "w", encoding="utf-8") as f:
+            f.write(clean_md)
+    except Exception as e:
+        print(f"[Sync resume.md notice] {e}")
+
+    return {
+        "status": "success",
+        "candidate_id": candidate_id,
+        "resume_markdown": clean_md,
+        "message": f"Master template for {CANDIDATES_REGISTRY[candidate_id]['name']} saved and locked successfully!"
+    }
+
+
+
 @app.get("/api/knowledge-graph/{user_id}")
 @app.get("/api/knowledge-graph")
 async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optional[str] = None):

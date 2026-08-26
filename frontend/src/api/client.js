@@ -70,6 +70,20 @@ export async function fetchCandidateDetails(candidateId = 'candidate_mohit') {
   return await res.json();
 }
 
+export async function saveCandidateTemplate(candidateId, resumeMarkdown) {
+  const res = await fetchWithConfig(`${API_BASE}/api/candidates/${candidateId}/save-template`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resume_markdown: resumeMarkdown }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to save master template' }));
+    throw new Error(err.detail || 'Failed to save master template');
+  }
+  return await res.json();
+}
+
+
 export async function fetchKnowledgeGraph(userId = 'default-user', candidateId = null) {
   const url = candidateId
     ? `${API_BASE}/api/knowledge-graph/${userId}?candidate_id=${encodeURIComponent(candidateId)}`
