@@ -69,7 +69,14 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
       <div className="flex items-center justify-between pt-3 border-t border-slate-800/60 mt-auto gap-2">
         <div className="flex items-center gap-2">
           <ScoreGauge score={opportunity.relevance_score || 85} size={36} strokeWidth={3.5} />
-          <span className="text-[11px] font-semibold text-slate-400">Fit</span>
+          <div className="flex flex-col">
+            <span className="text-[11px] font-semibold text-slate-300">Vector Fit</span>
+            {opportunity.semantic_cosine_similarity && (
+              <span className="text-[9px] font-mono text-cyan-400 font-bold">
+                cos: {opportunity.semantic_cosine_similarity}
+              </span>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-1.5">

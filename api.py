@@ -1241,8 +1241,12 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
 ]
 
 
+from my_agent.tools.semantic_matcher import rank_and_match_opportunities_semantically
+
+
 @app.get("/api/opportunities")
 def get_all_opportunities(candidate_id: Optional[str] = None):
+    """Retrieves and ranks opportunities using high-dimensional mathematical vector similarity."""
     # 1. Fetch dynamic DB opportunities
     ranked_res = read_from_db("ranked_opportunities").get("records", [])
     raw_res = read_from_db("opportunities").get("records", [])
@@ -1254,24 +1258,13 @@ def get_all_opportunities(candidate_id: Optional[str] = None):
         title = opp_meta.get("title") or r.get("title") or f"Opportunity #{str(r.get('id', ''))[:6]}"
         company = opp_meta.get("company_name") or opp_meta.get("source") or r.get("company") or "Tech Company"
         cat = r.get("category") or opp_meta.get("category") or "job"
-        base_score = r.get("relevance_score", 85)
-
-        t_lower = title.lower()
-        if "frontend" in t_lower or "ui" in t_lower or "react" in t_lower or "design" in t_lower or "figma" in t_lower:
-            target_cand = "candidate_krati"
-        elif "backend" in t_lower or "django" in t_lower or "api" in t_lower or "distributed" in t_lower or "database" in t_lower:
-            target_cand = "candidate_vishnu"
-        else:
-            target_cand = "candidate_mohit"
-
+        
         item = {
             **opp_meta,
             **r,
             "title": title,
             "company": company,
             "category": cat,
-            "relevance_score": base_score,
-            "matched_candidate_id": target_cand,
             "url": opp_meta.get("url") or r.get("url") or "#",
             "description": opp_meta.get("description") or r.get("description") or ""
         }
@@ -1287,15 +1280,14 @@ def get_all_opportunities(candidate_id: Optional[str] = None):
             all_opps.append(d)
             seen_keys.add(key)
 
-    # 3. Filter strictly if a specific candidate is selected
-    if candidate_id and candidate_id != "candidate_all":
-        filtered = [o for o in all_opps if o.get("matched_candidate_id") == candidate_id]
-        filtered.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
-        return {"status": "success", "opportunities": filtered}
+    # 3. True Mathematical Semantic Vector Retrieval & Ranking
+    matched_results = rank_and_match_opportunities_semantically(
+        all_opps,
+        CANDIDATES_REGISTRY,
+        target_candidate_id=candidate_id
+    )
 
-    # 4. Global View: Return all sorted by relevance score
-    all_opps.sort(key=lambda x: x.get("relevance_score", 0), reverse=True)
-    return {"status": "success", "opportunities": all_opps}
+    return {"status": "success", "opportunities": matched_results}
 
 
 
