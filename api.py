@@ -821,7 +821,7 @@ async def upload_user_template(
     """Uploads a candidate's original resume (PDF/DOCX/image), parses via Docling OCR,
     extracts social links and contact info, and saves as the candidate's active Golden Template.
     """
-    temp_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "temp_uploads")
+    temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_uploads")
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, f"template_{uuid.uuid4()}_{file.filename}")
 
@@ -838,10 +838,9 @@ async def upload_user_template(
         extracted = extract_social_links_from_text(raw_markdown)
 
         # Store in Supabase documents
-        doc_id = str(uuid.uuid4())
-        store_document(
-            doc_id=doc_id,
-            user_id=USER_PROFILE_STORE.get(candidate_id, {}).get("user_id", user_id),
+        target_uid = USER_PROFILE_STORE.get(candidate_id, {}).get("user_id", user_id)
+        doc_id = store_document(
+            user_id=target_uid,
             filename=file.filename,
             doc_type="resume",
             raw_markdown=raw_markdown,
@@ -849,8 +848,11 @@ async def upload_user_template(
         )
 
         if doc_res.get("chunks"):
-            embedded = embed_chunks(doc_res["chunks"])
-            store_embeddings(doc_id, user_id, embedded)
+            try:
+                embedded = embed_chunks(doc_res["chunks"])
+                store_embeddings(doc_id, target_uid, embedded)
+            except Exception as e:
+                print(f"[Embedding Notice] {e}")
 
         # Update candidate registry and profile store
         cand_key = candidate_id if candidate_id in CANDIDATES_REGISTRY else "candidate_mohit"
@@ -874,6 +876,10 @@ async def upload_user_template(
             "resume_markdown": raw_markdown,
             "message": f"Successfully parsed {file.filename} via Docling OCR and extracted contact & social links!"
         }
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Upload template processing failed: {str(e)}")
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
