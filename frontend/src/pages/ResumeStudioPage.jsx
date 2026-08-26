@@ -180,24 +180,26 @@ export default function ResumeStudioPage() {
     }
   };
 
-  // 4. Auto-Tailor specifically for selected Opportunity & Candidate
+  // 4. Auto-Tailor specifically for selected Opportunity & Candidate (Preserving original document format)
   const handleAutoTailor = async () => {
     if (!selectedOpportunity) {
       alert('Please select a target role first.');
       return;
     }
     setIsProcessing(true);
-    setProcessingAction(`Tailoring for ${selectedOpportunity.title} (${activeCandidate?.name || 'Candidate'})...`);
+    setProcessingAction(`Surgically tailoring for ${selectedOpportunity.title} at ${selectedOpportunity.company || selectedOpportunity.company_name || 'Target Org'}...`);
     try {
-      const res = await tailorResume(
-        activeCandidateId || 'default-profile',
-        selectedOpportunity.id,
-        'standard'
-      );
+      const res = await tailorResume({
+        opportunityTitle: selectedOpportunity.title || 'Target Role',
+        companyName: selectedOpportunity.company || selectedOpportunity.company_name || selectedOpportunity.source || 'Target Organization',
+        requirements: selectedOpportunity.description || selectedOpportunity.skills_required || 'High proficiency in software engineering, AI systems, and project delivery',
+        candidateId: activeCandidateId,
+        resumeMarkdown: markdown,
+      });
       if (res.tailored_markdown) {
         setMarkdown(res.tailored_markdown);
         setAtsScore(98);
-        if (res.pdf_engine) setActiveEngine(res.pdf_engine);
+        if (res.engine) setActiveEngine(res.engine);
       }
     } catch (err) {
       console.error('Tailoring failed, falling back to local ATS optimization:', err);

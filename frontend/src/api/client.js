@@ -136,15 +136,30 @@ export async function searchKnowledge(query, topK = 10) {
   return await res.json();
 }
 
-export async function tailorResume(opportunityTitle, companyName, requirements) {
+export async function tailorResume(arg1, arg2, arg3, arg4, arg5) {
+  let payload = {};
+  if (typeof arg1 === 'object' && arg1 !== null) {
+    payload = {
+      opportunity_title: arg1.opportunityTitle || arg1.opportunity_title || 'Target Role',
+      company_name: arg1.companyName || arg1.company_name || 'Target Company',
+      requirements: arg1.requirements || 'Technical excellence',
+      candidate_id: arg1.candidateId || arg1.candidate_id || null,
+      resume_markdown: arg1.resumeMarkdown || arg1.resume_markdown || null,
+    };
+  } else {
+    payload = {
+      opportunity_title: arg1,
+      company_name: arg2,
+      requirements: arg3,
+      candidate_id: arg4 || null,
+      resume_markdown: arg5 || null,
+    };
+  }
+
   const res = await fetchWithConfig(`${API_BASE}/api/tailor`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      opportunity_title: opportunityTitle,
-      company_name: companyName,
-      requirements: requirements,
-    }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Tailoring failed' }));

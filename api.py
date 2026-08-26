@@ -109,6 +109,8 @@ class TailorReq(BaseModel):
     opportunity_title: str
     company_name: str
     requirements: str
+    candidate_id: Optional[str] = None
+    resume_markdown: Optional[str] = None
 
 
 class AutoPilotReq(BaseModel):
@@ -353,13 +355,15 @@ async def knowledge_search(req: KnowledgeSearchReq, user_id: str = Depends(get_c
 # ── 3. Resume Tailoring Endpoint ───────────────────────────────────────────
 @app.post("/api/tailor")
 async def tailor_resume_endpoint(req: TailorReq, user_id: str = Depends(get_current_user)):
-    """Generates company-specific tailored resume content and WeasyPrint PDF."""
+    """Generates company-specific tailored resume content preserving original layout and generates PDF."""
     try:
         res = tailor_resume_for_opportunity(
             opportunity_title=req.opportunity_title,
             company_name=req.company_name,
             requirements=req.requirements,
-            user_id=user_id
+            user_id=user_id,
+            original_markdown=req.resume_markdown,
+            candidate_id=req.candidate_id
         )
         return res
     except Exception as e:
