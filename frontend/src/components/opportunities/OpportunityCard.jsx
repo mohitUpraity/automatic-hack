@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Building2, ArrowRight, ExternalLink, Wand2, Sparkles } from 'lucide-react';
+import { MapPin, Building2, ArrowRight, ExternalLink, Wand2, Sparkles, Clock, CheckCircle2, Target } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 import ScoreGauge from '../ui/ScoreGauge';
@@ -33,10 +33,17 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
       className="cursor-pointer group flex flex-col h-full bg-slate-900/80 border border-slate-800/90 hover:border-indigo-500/40 transition-all shadow-lg"
       padding="md"
     >
-      <div className="flex justify-between items-start mb-3">
-        <Badge variant={getCategoryBadgeVariant(opportunity.category)} size="sm">
-          {opportunity.category?.toUpperCase() || 'OPPORTUNITY'}
-        </Badge>
+      <div className="flex justify-between items-start mb-3 gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Badge variant={getCategoryBadgeVariant(opportunity.category)} size="sm">
+            {opportunity.category?.toUpperCase() || 'OPPORTUNITY'}
+          </Badge>
+          <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            {opportunity.application_status || 'Actively Hiring'}
+          </span>
+        </div>
+
         {opportunity.matched_candidate_id && (
           <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
             opportunity.matched_candidate_id === 'candidate_krati'
@@ -54,7 +61,7 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
         {opportunity.title}
       </h3>
 
-      <div className="space-y-1.5 mb-4 flex-grow">
+      <div className="space-y-1.5 mb-3 flex-grow">
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <Building2 className="w-3.5 h-3.5 shrink-0 text-slate-500" />
           <span className="truncate">{opportunity.company || 'Tech Organization'}</span>
@@ -63,7 +70,24 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
           <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-500" />
           <span className="truncate">{opportunity.location || 'Noida, India / Remote'}</span>
         </div>
+        <div className="flex items-center gap-2 text-xs text-slate-300">
+          <Clock className="w-3.5 h-3.5 shrink-0 text-amber-400" />
+          <span className="font-semibold text-amber-300/90 text-[11px]">
+            Deadline: {opportunity.deadline || 'Open / Rolling'}
+          </span>
+        </div>
       </div>
+
+      {/* Candidate Interest Alignment Pill */}
+      {opportunity.interest_alignment && (
+        <div className="mb-3.5 p-2 bg-slate-950/60 border border-slate-800/80 rounded-xl flex items-start gap-1.5">
+          <Target className="w-3.5 h-3.5 text-cyan-400 shrink-0 mt-0.5" />
+          <span className="text-[10px] text-slate-300 leading-tight">
+            <span className="font-bold text-cyan-400">Aligned Interest: </span>
+            {opportunity.interest_alignment}
+          </span>
+        </div>
+      )}
 
       {/* Action Strip */}
       <div className="flex items-center justify-between pt-3 border-t border-slate-800/60 mt-auto gap-2">

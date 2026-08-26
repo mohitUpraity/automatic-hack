@@ -126,13 +126,28 @@ export default function OpportunityDetailModal({ opportunity, isOpen, onClose, c
                 <MapPin className="w-4 h-4 text-slate-500" />
                 <span>{opportunity.location || 'Noida, India / Remote'}</span>
               </div>
+              <div className="flex items-center gap-1.5 font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>{opportunity.application_status || 'Actively Hiring'}</span>
+              </div>
               {opportunity.deadline && (
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-slate-500" />
-                  <span>{opportunity.deadline}</span>
+                <div className="flex items-center gap-1.5 font-semibold text-amber-300">
+                  <Calendar className="w-4 h-4 text-amber-400" />
+                  <span>Deadline: {opportunity.deadline}</span>
                 </div>
               )}
             </div>
+
+            {opportunity.interest_alignment && (
+              <div className="p-2.5 bg-slate-950/70 border border-slate-800 rounded-xl flex items-center gap-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-400 bg-cyan-950/80 px-2 py-0.5 rounded border border-cyan-500/30">
+                  Profile Interest Fit
+                </span>
+                <span className="text-xs text-slate-200 font-medium">
+                  {opportunity.interest_alignment}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 shrink-0">

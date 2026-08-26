@@ -1030,6 +1030,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 98,
         "matched_candidate_id": "candidate_vishnu",
         "url": "https://stripe.com/jobs",
+        "application_status": "Actively Hiring",
+        "deadline": "Open / Rolling 2026",
+        "is_active": True,
+        "interest_alignment": "Distributed Systems, Microservices & High-Throughput APIs",
         "description": "Build high-throughput, fault-tolerant distributed API infrastructure, payment processing microservices, and PostgreSQL optimization using Python, FastAPI, and Kafka.",
         "skills_required": "Python, FastAPI, Django, PostgreSQL, Distributed Microservices, Docker, Redis, Kafka",
         "intelligence": {
@@ -1049,6 +1053,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 96,
         "matched_candidate_id": "candidate_vishnu",
         "url": "https://amazon.jobs",
+        "application_status": "Actively Hiring",
+        "deadline": "Closes Oct 31, 2026",
+        "is_active": True,
+        "interest_alignment": "PostgreSQL Sharding, Cloud Architecture & Scalability",
         "description": "Architect highly available cloud storage backends, distributed SQL engines, and resilient multi-region synchronization pipelines.",
         "skills_required": "Distributed Systems, PostgreSQL, Python, Docker, Kubernetes, Cloud Architecture",
         "intelligence": {
@@ -1068,6 +1076,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 95,
         "matched_candidate_id": "candidate_vishnu",
         "url": "https://razorpay.com/careers",
+        "application_status": "Actively Hiring",
+        "deadline": "Closes Nov 15, 2026",
+        "is_active": True,
+        "interest_alignment": "FastAPI, PostgreSQL & Idempotent Payment Gateways",
         "description": "Design low-latency payment processing gateways, idempotent transaction queues, and real-time database replication.",
         "skills_required": "FastAPI, Python, PostgreSQL, Redis, REST APIs, Microservices",
         "intelligence": {
@@ -1087,6 +1099,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 94,
         "matched_candidate_id": "candidate_vishnu",
         "url": "https://uber.com/careers",
+        "application_status": "Apply Open",
+        "deadline": "Closes Dec 15, 2026",
+        "is_active": True,
+        "interest_alignment": "High-Throughput Routing & Event Streaming",
         "description": "Develop high-throughput dispatch and routing backend microservices handling millions of concurrent location events.",
         "skills_required": "Python, Go, PostgreSQL, Redis, Distributed Systems",
         "intelligence": {
@@ -1106,6 +1122,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 92,
         "matched_candidate_id": "candidate_vishnu",
         "url": "https://postgresql.org/hackathon",
+        "application_status": "Registration Open",
+        "deadline": "Registration Closes Nov 30, 2026",
+        "is_active": True,
+        "interest_alignment": "Distributed Consensus & Database Sharding",
         "description": "Compete against international backend engineers to build resilient, distributed consensus and sharding engines.",
         "skills_required": "PostgreSQL, Distributed Systems, Python, C++, Docker"
     },
@@ -1120,6 +1140,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 98,
         "matched_candidate_id": "candidate_krati",
         "url": "https://vercel.com/careers",
+        "application_status": "Actively Hiring",
+        "deadline": "Open / Rolling 2026",
+        "is_active": True,
+        "interest_alignment": "React 19, Next.js & WCAG AAA Design Tokens",
         "description": "Architect next-generation web application dashboards with Next.js, React, Tailwind CSS design tokens, and WCAG AAA accessibility.",
         "skills_required": "React, Next.js, TypeScript, Tailwind CSS, Design Systems, Storybook, Framer Motion",
         "intelligence": {
@@ -1139,6 +1163,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 97,
         "matched_candidate_id": "candidate_krati",
         "url": "https://figma.com/careers",
+        "application_status": "Actively Hiring",
+        "deadline": "Closes Oct 20, 2026",
+        "is_active": True,
+        "interest_alignment": "Figma Plugin SDK, Canvas & UI Tokens",
         "description": "Build web-based canvas tools, design token synchronizers, and high-performance interactive UI components.",
         "skills_required": "Figma Plugin SDK, React, TypeScript, Canvas API, UI/UX Design",
         "intelligence": {
@@ -1158,6 +1186,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 96,
         "matched_candidate_id": "candidate_krati",
         "url": "https://linear.app/careers",
+        "application_status": "Actively Hiring",
+        "deadline": "Open / Rolling 2026",
+        "is_active": True,
+        "interest_alignment": "60fps Micro-Animations & Dark-Mode Systems",
         "description": "Craft silky 60fps keyboard-driven interfaces, dark-mode glassmorphic themes, and responsive design systems.",
         "skills_required": "React, TypeScript, CSS Architecture, Framer Motion, Dark Mode"
     },
@@ -1170,6 +1202,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 95,
         "matched_candidate_id": "candidate_krati",
         "url": "https://airbnb.com/careers",
+        "application_status": "Apply Open",
+        "deadline": "Closes Nov 30, 2026",
+        "is_active": True,
+        "interest_alignment": "Design Systems & Accessible Component Libraries",
         "description": "Collaborate with cross-functional design teams to scale accessible React component libraries."
     },
     {
@@ -1179,7 +1215,11 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "category": "conclave",
         "location": "New Delhi, India",
         "relevance_score": 94,
-        "matched_candidate_id": "candidate_krati"
+        "matched_candidate_id": "candidate_krati",
+        "application_status": "Registration Open",
+        "deadline": "Registration Closes Dec 10, 2026",
+        "is_active": True,
+        "interest_alignment": "Modern Web UI/UX & Glassmorphic Design"
     },
 
     # Mohit Prasad Upraity (AI/ML & Wearables Systems)
@@ -1192,6 +1232,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 98,
         "matched_candidate_id": "candidate_mohit",
         "url": "https://hcltech.com/careers",
+        "application_status": "Actively Hiring",
+        "deadline": "Closes Oct 15, 2026",
+        "is_active": True,
+        "interest_alignment": "Edge AI, PyTorch & IoT Wearables Gait Analysis",
         "description": "Deploy deep learning models for sensor telemetry, gait analysis, wearable movement tracking, and edge computer vision.",
         "skills_required": "Python, PyTorch, TensorFlow, OpenCV, Edge AI, IoT Sensors, Gait Analysis",
         "intelligence": {
@@ -1211,6 +1255,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 97,
         "matched_candidate_id": "candidate_mohit",
         "url": "https://drdo.gov.in",
+        "application_status": "Actively Hiring",
+        "deadline": "Closes Nov 28, 2026",
+        "is_active": True,
+        "interest_alignment": "Next Generation Firewall & Deep Packet Inspection",
         "description": "Research and engineer Next Generation Firewall (NGFW) prototypes, deep packet inspection, and ML traffic anomaly detection.",
         "skills_required": "Python, Network Security, Wireshark, Deep Packet Inspection, Machine Learning",
         "intelligence": {
@@ -1230,6 +1278,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 96,
         "matched_candidate_id": "candidate_mohit",
         "url": "https://apple.com/careers",
+        "application_status": "Actively Hiring",
+        "deadline": "Open / Rolling 2026",
+        "is_active": True,
+        "interest_alignment": "Biometric Sensors, Fall Detection & PyTorch ML",
         "description": "Develop low-power ML algorithms for biometric wearable sensors, movement analysis, and real-time fall detection.",
         "skills_required": "Python, C++, PyTorch, Sensor Integration, Wearables"
     },
@@ -1242,6 +1294,10 @@ CURATED_CANDIDATE_OPPORTUNITIES = [
         "relevance_score": 99,
         "matched_candidate_id": "candidate_mohit",
         "url": "https://hackwithup.aktu.ac.in",
+        "application_status": "Registration Open",
+        "deadline": "Registration Closes Oct 31, 2026",
+        "is_active": True,
+        "interest_alignment": "AI Smart Shoe Gait & Fall Prevention Prototype",
         "description": "State-wide championship for AI Smart Shoe Gait Analysis & Fall Prevention wearable prototype."
     }
 ]
