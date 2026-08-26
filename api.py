@@ -1085,49 +1085,92 @@ USER_PROFILE_STORE = {
 
 
 @app.get("/api/user/profile")
-def get_user_profile(candidate_id: Optional[str] = "candidate_mohit", user_id: str = Depends(get_current_user)):
-    """Retrieves full candidate profile, career preferences, social URLs, and available base templates."""
-    cand_key = candidate_id if candidate_id in USER_PROFILE_STORE else "candidate_mohit"
-    profile_data = dict(USER_PROFILE_STORE.get(cand_key, USER_PROFILE_STORE["candidate_mohit"]))
-    
-    # Try fetching real database records if available
-    db_users = read_from_db("users").get("records", [])
-    matched_db_user = next((u for u in db_users if str(u.get("id")) == str(profile_data.get("user_id")) or u.get("email") == profile_data.get("email")), None)
-    if matched_db_user:
-        profile_data["name"] = matched_db_user.get("name") or profile_data["name"]
-        profile_data["email"] = matched_db_user.get("email") or profile_data["email"]
-        profile_data["linkedin_url"] = matched_db_user.get("linkedin_url") or profile_data.get("linkedin_url")
-        profile_data["github_url"] = matched_db_user.get("github_url") or profile_data.get("github_url")
-        profile_data["portfolio_url"] = matched_db_user.get("portfolio_url") or profile_data.get("portfolio_url")
+def get_user_profile(candidate_id: Optional[str] = None, user_id: str = Depends(get_current_user)):
+    """Retrieves full candidate profile, career preferences, social URLs, and available base templates for authenticated user."""
+    target_id = candidate_id or user_id or "default-user"
 
-    # Available Templates list
-    templates = [
-        {
-            "id": "candidate_mohit",
-            "name": "Mohit Prasad Upraity — AI Systems & Edge Vision Template",
-            "role": "Autonomous Agentic AI Engineer",
-            "preview": CANDIDATES_REGISTRY["candidate_mohit"]["resume_markdown"][:250] + "...",
-            "is_default": cand_key == "candidate_mohit"
-        },
-        {
-            "id": "candidate_krati",
-            "name": "Krati Verma — Design Systems & React UI Template",
-            "role": "Lead Frontend Architect",
-            "preview": CANDIDATES_REGISTRY["candidate_krati"]["resume_markdown"][:250] + "...",
-            "is_default": cand_key == "candidate_krati"
-        },
-        {
-            "id": "candidate_vishnu",
-            "name": "Vishnu Kumar — Distributed Systems & PostgreSQL Template",
-            "role": "Senior Backend Engineer",
-            "preview": CANDIDATES_REGISTRY["candidate_vishnu"]["resume_markdown"][:250] + "...",
-            "is_default": cand_key == "candidate_vishnu"
+    # 1. Check if user is in USER_PROFILE_STORE
+    if target_id in USER_PROFILE_STORE:
+        profile_data = dict(USER_PROFILE_STORE[target_id])
+    elif target_id in CANDIDATES_REGISTRY:
+        cand = CANDIDATES_REGISTRY[target_id]
+        profile_data = {
+            "user_id": target_id,
+            "candidate_id": target_id,
+            "name": cand.get("name", "User"),
+            "email": cand.get("email", ""),
+            "phone": cand.get("phone", ""),
+            "role": cand.get("role", "Software Engineer"),
+            "location": cand.get("location", "Remote"),
+            "bio": cand.get("summary", ""),
+            "linkedin_url": "",
+            "github_url": "",
+            "leetcode_url": "",
+            "portfolio_url": "",
+            "work_mode": "Remote",
+            "target_roles": ["Software Engineer", "Full Stack Developer"],
+            "location_preferences": ["Remote", "Noida", "Bangalore"],
+            "preferred_categories": ["job", "internship", "hackathon"],
+            "min_compensation": "$100,000 / ₹20 LPA",
+            "notice_period": "Immediate",
+            "active_template_id": target_id,
+            "resume_markdown": cand.get("resume_markdown", "")
         }
-    ]
+    else:
+        # Check DB or Auth Accounts
+        auth_acc = next((a for a in USER_AUTH_ACCOUNTS.values() if a.get("id") == target_id or a.get("email") == target_id), None)
+        prof_records = read_from_db("profiles", f"user_id = '{target_id}'").get("records", [])
+        db_prof = prof_records[0] if prof_records else None
 
-    # Active template markdown
-    active_cand_info = CANDIDATES_REGISTRY.get(profile_data.get("active_template_id", cand_key), CANDIDATES_REGISTRY["candidate_mohit"])
-    profile_data["resume_markdown"] = profile_data.get("custom_resume_markdown") or active_cand_info.get("resume_markdown", "")
+        user_name = (db_prof.get("name") if db_prof else None) or (auth_acc.get("name") if auth_acc else None) or "New Engineer"
+        user_email = (db_prof.get("email") if db_prof else None) or (auth_acc.get("email") if auth_acc else None) or ""
+        user_role = (db_prof.get("role") if db_prof else None) or (auth_acc.get("role") if auth_acc else None) or "Software Engineer"
+
+        profile_data = {
+            "user_id": target_id,
+            "candidate_id": target_id,
+            "name": user_name,
+            "email": user_email,
+            "phone": "",
+            "role": user_role,
+            "location": "Remote",
+            "bio": f"Profile for {user_name}.",
+            "linkedin_url": "",
+            "github_url": "",
+            "leetcode_url": "",
+            "portfolio_url": "",
+            "work_mode": "Remote",
+            "target_roles": [user_role],
+            "location_preferences": ["Remote"],
+            "preferred_categories": ["job", "internship", "hackathon"],
+            "min_compensation": "Flexible",
+            "notice_period": "Immediate",
+            "active_template_id": target_id,
+            "resume_markdown": f"# {user_name}\n**{user_role}**\n{user_email}\n\n## Professional Summary\nUpload your master resume above or edit markdown directly to establish your baseline profile.\n"
+        }
+
+    # Fetch user's own uploaded documents as preserved templates
+    user_docs = [d for d in read_from_db("documents").get("records", []) if d.get("user_id") == target_id or d.get("id") == target_id]
+    
+    templates = []
+    for d in user_docs:
+        templates.append({
+            "id": d.get("id"),
+            "name": d.get("filename", "Uploaded Resume"),
+            "role": profile_data.get("role", "Software Engineer"),
+            "preview": (d.get("raw_markdown") or "")[:250] + "...",
+            "is_default": True
+        })
+
+    if not templates and profile_data.get("resume_markdown"):
+        templates.append({
+            "id": target_id,
+            "name": f"{profile_data.get('name', 'Master')} Resume Template",
+            "role": profile_data.get("role", "Software Engineer"),
+            "preview": profile_data["resume_markdown"][:250] + "...",
+            "is_default": True
+        })
+
     profile_data["available_templates"] = templates
 
     return {"status": "success", "profile": profile_data}
