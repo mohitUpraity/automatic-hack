@@ -135,24 +135,24 @@ def seed_candidate_knowledge_bases():
             "chunk_metadata": {"heading": "Technical Skills", "candidate": "Mohit Prasad Upraity"}
         },
 
-        # Vishnu Kumar Chunks
+        # Vishnu Kumar Chunks (Authentic Profile Knowledge)
         {
             "user_id": "candidate_vishnu",
             "document_id": "doc_vishnu_master",
-            "chunk_text": "Distributed Microservices & High-Throughput API Gateway. Built resilient FastAPI and Django backend architecture processing 25,000+ RPS with sub-25ms P99 latency and idempotent transaction processing.",
-            "chunk_metadata": {"heading": "Experience: Senior Backend Engineer", "candidate": "Vishnu Kumar"}
+            "chunk_text": "Full Stack Developer at Devstack Technologies (2026 - Present). Built end-to-end full stack web applications with React frontend, FastAPI/Node.js backend, MongoDB/MySQL databases, WebSockets real-time features, and automated Docker CI/CD deployment pipelines.",
+            "chunk_metadata": {"heading": "Experience: Full Stack Developer", "candidate": "Vishnu Kumar"}
         },
         {
             "user_id": "candidate_vishnu",
             "document_id": "doc_vishnu_master",
-            "chunk_text": "Database Sharding & PostgreSQL Optimization. Designed multi-region read replicas, Redis distributed locks, and Kafka event streaming pipelines with zero data loss and strict ACID compliance.",
-            "chunk_metadata": {"heading": "Architecture: PostgreSQL & Kafka", "candidate": "Vishnu Kumar"}
+            "chunk_text": "Key AI/ML Projects: Built GPT Large Language Model from Scratch (GPT-1 in Python/TensorFlow), S.A.F.E. Real-Time AI Sensor Data Pipeline, SentiScan Bidirectional LSTM NLP Sentiment Microservice (92.4% accuracy), and MediPredict Multi-Domain ML Recommendation Engine across 7 domains.",
+            "chunk_metadata": {"heading": "Projects: ML & Data Systems", "candidate": "Vishnu Kumar"}
         },
         {
             "user_id": "candidate_vishnu",
             "document_id": "doc_vishnu_master",
-            "chunk_text": "Technical Skills: Python, FastAPI, Django, PostgreSQL, Distributed Systems, Redis, Kafka, Docker, Kubernetes, AWS, REST APIs, Microservices.",
-            "chunk_metadata": {"heading": "Technical Skills", "candidate": "Vishnu Kumar"}
+            "chunk_text": "Technical Skills & Certifications: Python 3.x, FastAPI, Flask, Streamlit, TensorFlow, Keras, Scikit-learn, Docker, GitHub Actions, MongoDB, MySQL, Redis, AWS, OCI Certified Data Science Professional, HackerRank SQL Certified Intermediate.",
+            "chunk_metadata": {"heading": "Technical Skills & Certifications", "candidate": "Vishnu Kumar"}
         },
 
         # Krati Verma Chunks

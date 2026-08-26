@@ -199,36 +199,16 @@ def _build_story_from_markdown(markdown_text: str):
             name_line = header_lines[0].lstrip('#').strip()
             story.append(Paragraph(_format_inline_markdown(name_line), name_style))
             
-            rest = ' '.join(header_lines[1:])
+            for line in header_lines[1:]:
+                # Check if it's the subtitle / role line (e.g. **Python Developer...**)
+                if ('Developer' in line or 'Engineer' in line or 'Specialist' in line or line.startswith('**')) and '@' not in line:
+                    clean_sub = line.strip('*').strip()
+                    story.append(Paragraph(_format_inline_markdown(clean_sub), subtitle_style))
+                else:
+                    # Contact line (Email, Phone, LinkedIn, GitHub)
+                    story.append(Paragraph(_format_inline_markdown(line), contact_style))
             
-            # Extract phone, email, github, linkedin links
-            phone_m = re.search(r'(\+?\d{1,3}[- ]?\d{9,11})', rest)
-            email_m = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', rest)
-            github_m = re.search(r'(github\.com/[a-zA-Z0-9_-]+)', rest)
-            linkedin_m = re.search(r'(linkedin\.com/in/[a-zA-Z0-9_-]+)', rest)
-            
-            contacts = []
-            if phone_m:
-                contacts.append(f'<font color="#0f172a">{phone_m.group(1)}</font>')
-                rest = rest.replace(phone_m.group(1), '')
-            if email_m:
-                contacts.append(f'<a href="mailto:{email_m.group(1)}"><font color="#1d4ed8"><u>{email_m.group(1)}</u></font></a>')
-                rest = rest.replace(email_m.group(1), '')
-            if github_m:
-                contacts.append(f'<a href="https://{github_m.group(1)}"><font color="#1d4ed8"><u>{github_m.group(1)}</u></font></a>')
-                rest = rest.replace(github_m.group(1), '')
-            if linkedin_m:
-                contacts.append(f'<a href="https://{linkedin_m.group(1)}"><font color="#1d4ed8"><u>{linkedin_m.group(1)}</u></font></a>')
-                rest = rest.replace(linkedin_m.group(1), '')
-                
-            subtitle = re.sub(r'[\s|]+', ' ', rest).strip()
-            subtitle = subtitle.strip('|').strip()
-            
-            if subtitle:
-                story.append(Paragraph(_format_inline_markdown(subtitle), subtitle_style))
-            if contacts:
-                story.append(Paragraph(' | '.join(contacts), contact_style))
-            story.append(Spacer(1, 3))
+            story.append(Spacer(1, 4))
 
         # 2. Iterate through each section
         for section in parts[1:]:
@@ -236,8 +216,8 @@ def _build_story_from_markdown(markdown_text: str):
             if not sec_lines:
                 continue
 
-            sec_title = sec_lines[0].strip()
-            story.append(Paragraph(_format_inline_markdown(sec_title), h2_style))
+            sec_title = sec_lines[0].lstrip('#').strip()
+            story.append(Paragraph(_format_inline_markdown(sec_title.upper()), h2_style))
             story.append(HRFlowable(
                 width="100%",
                 thickness=0.75,
@@ -247,34 +227,50 @@ def _build_story_from_markdown(markdown_text: str):
             ))
 
             for line in sec_lines[1:]:
-                if line.startswith(("- ", "* ", "● ", "• ")):
-                    bullet_text = line.lstrip('-*●• ').strip()
+                clean_l = line.strip()
+                # Skip lonely hash markers or empty lines
+                if not clean_l or clean_l == '#' or clean_l == '##' or clean_l == '###':
+                    continue
+
+                if clean_l.startswith("###"):
+                    h3_text = clean_l.lstrip('#').strip()
+                    story.append(Paragraph(_format_inline_markdown(h3_text), h3_style))
+                elif clean_l.startswith(("- ", "* ", "● ", "• ")):
+                    bullet_text = clean_l.lstrip('-*●• ').strip()
+                    # If this is a skill category line like **Core Python**: ...
                     if bullet_text.startswith('**') and ':' in bullet_text:
                         story.append(Paragraph(_format_inline_markdown(bullet_text), body_style))
+                    elif re.match(r'^[A-Za-z0-9\s/&]+:', bullet_text):
+                        cat_k, cat_v = bullet_text.split(':', 1)
+                        story.append(Paragraph(f"<b>{cat_k.strip()}:</b> {_format_inline_markdown(cat_v.strip())}", body_style))
                     else:
                         story.append(Paragraph(f"&bull; {_format_inline_markdown(bullet_text)}", bullet_style))
-                elif line.startswith("###"):
-                    h3_text = line.lstrip('#').strip()
-                    story.append(Paragraph(_format_inline_markdown(h3_text), h3_style))
-                elif line.startswith('*') and line.endswith('*'):
-                    role_text = line.strip('*').strip()
+                elif clean_l.startswith('*') and clean_l.endswith('*'):
+                    role_text = clean_l.strip('*').strip()
                     story.append(Paragraph(f"<i>{_format_inline_markdown(role_text)}</i>", role_style))
-                elif any(line.startswith(k) for k in ['Languages & Frameworks:', 'Languages & Web:', 'Databases:', 'Engineering Practices:', 'AI/ML & Vision:', 'AI/Security:']):
-                    cat_name, cat_val = line.split(':', 1)
-                    story.append(Paragraph(f"<b>{cat_name.strip()}:</b> {_format_inline_markdown(cat_val.strip())}", body_style))
-                elif '—' in line and any(yr in line for yr in ['2023', '2024', '2025', '2026', '2027', 'Present']):
-                    story.append(Paragraph(f"<i>{_format_inline_markdown(line)}</i>", role_style))
+                elif re.match(r'^[A-Za-z0-9\s/&]+:', clean_l) and not clean_l.startswith('http'):
+                    cat_k, cat_v = clean_l.split(':', 1)
+                    story.append(Paragraph(f"<b>{cat_k.strip()}:</b> {_format_inline_markdown(cat_v.strip())}", body_style))
+                elif '—' in clean_l and any(yr in clean_l for yr in ['2023', '2024', '2025', '2026', '2027', 'Present']):
+                    story.append(Paragraph(f"<i>{_format_inline_markdown(clean_l)}</i>", role_style))
                 else:
-                    story.append(Paragraph(_format_inline_markdown(line), body_style))
+                    story.append(Paragraph(_format_inline_markdown(clean_l), body_style))
 
     else:
         lines = [l.strip() for l in md.split("\n") if l.strip()]
         for line in lines:
-            if line.startswith(("- ", "* ", "● ", "• ")):
-                bullet_text = line.lstrip('-*●• ').strip()
+            clean_l = line.strip()
+            if not clean_l or clean_l in ['#', '##', '###']:
+                continue
+            if clean_l.startswith(("- ", "* ", "● ", "• ")):
+                bullet_text = clean_l.lstrip('-*●• ').strip()
                 story.append(Paragraph(f"&bull; {_format_inline_markdown(bullet_text)}", bullet_style))
+            elif clean_l.startswith("###"):
+                story.append(Paragraph(_format_inline_markdown(clean_l.lstrip('#').strip()), h3_style))
+            elif clean_l.startswith("##"):
+                story.append(Paragraph(_format_inline_markdown(clean_l.lstrip('#').strip().upper()), h2_style))
             else:
-                story.append(Paragraph(_format_inline_markdown(line), body_style))
+                story.append(Paragraph(_format_inline_markdown(clean_l), body_style))
 
     return story
 

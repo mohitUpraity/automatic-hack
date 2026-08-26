@@ -2115,120 +2115,128 @@ Creative Frontend Specialist and UI/UX Designer with expertise crafting accessib
     "candidate_vishnu": {
         "id": "candidate_vishnu",
         "name": "Vishnu Kumar",
-        "role": "Senior Backend & API Engineer",
+        "role": "Python Developer | Backend & API Engineering | ML Systems",
         "cluster_color": "#10b981",
-        "email": "vishnu.kumar@careeros.ai",
-        "phone": "+91-9123456789",
+        "email": "vishnu9027872285@gmail.com",
+        "phone": "+91 9027872285",
         "location": "Noida, Uttar Pradesh, India",
-        "summary": "Backend Software Engineer specializing in Python, Django, FastAPI, PostgreSQL database optimization, distributed microservices, and high-throughput real-time APIs.",
-        "skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Distributed Systems", "Docker", "Redis", "REST & GraphQL", "Kafka"],
-        "top_skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Distributed Systems", "Docker"],
+        "summary": "Results-driven Python Developer with hands-on experience building scalable REST APIs, automating ML pipelines, and developing production-grade backend systems. Proficient in FastAPI, Flask, and Streamlit for service layer development. Strong foundation in object-oriented Python, data structures, and algorithm design. Experienced deploying containerized services via Docker with CI/CD automation using GitHub Actions. Passionate about writing clean, maintainable Python code across ML, backend, and data engineering domains.",
+        "skills": ["Python", "FastAPI", "Flask", "TensorFlow", "Docker", "MongoDB", "MySQL", "Redis", "Scikit-learn", "REST APIs", "CI/CD"],
+        "top_skills": ["Python", "FastAPI", "TensorFlow", "Docker", "MongoDB", "Scikit-learn"],
         "projects": [
             {
-                "title": "Distributed Microservice Gateway",
-                "desc": "High-throughput API gateway handling 15k req/sec with dynamic rate-limiting, circuit breakers, and JWT auth.",
-                "tech": "Python, FastAPI, Redis, Docker, Kong",
-                "skills": ["Python", "FastAPI", "Docker", "Redis"]
+                "title": "GPT Large Language Model from Scratch",
+                "desc": "Engineered a complete GPT-1 style model in Python/TensorFlow with modular scripts for data preprocessing, training, and inference — demonstrating deep Python architecture skills across a large codebase.",
+                "tech": "Python, TensorFlow, Deep Learning",
+                "skills": ["Python", "TensorFlow"]
             },
             {
-                "title": "High-Throughput ETL Pipeline",
-                "desc": "Scalable data ingestion engine processing streaming IoT and telemetry events with Kafka and PostgreSQL.",
-                "tech": "Python, Celery, PostgreSQL, Apache Kafka, pgvector",
-                "skills": ["Python", "PostgreSQL", "Kafka"]
+                "title": "S.A.F.E. — Real-Time AI Data Pipeline & Deep Learning System",
+                "desc": "Built a real-time sensor data ingestion pipeline in Python feeding a TensorFlow deep learning model with automated training, model versioning, and REST API deployment.",
+                "tech": "Python, TensorFlow, FastAPI, REST APIs",
+                "skills": ["Python", "FastAPI", "TensorFlow"]
             },
             {
-                "title": "PostgreSQL Multi-Tenant Scaling",
-                "desc": "Database partition engine with automated indexing, connection pooling, and query optimization.",
-                "tech": "PostgreSQL, pgvector, SQLAlchemy, Alembic",
-                "skills": ["PostgreSQL", "Distributed Systems"]
+                "title": "SentiScan — NLP Sentiment Intelligence Engine",
+                "desc": "Developed a Flask REST API microservice serving a Bidirectional LSTM model (92.4% accuracy on 50K reviews) with real-time inference; exposed clean JSON endpoints for seamless integration.",
+                "tech": "Python, Flask, NLP, Bidirectional LSTM",
+                "skills": ["Python", "Flask", "NLP"]
+            },
+            {
+                "title": "MediPredict — Multi-Domain ML Recommendation Engine",
+                "desc": "Implemented automated Python model selection logic across 7 domains (Scikit-learn, XGBoost, Random Forest, SVM); 91.3% mean accuracy with ensemble logic for multi-class recommendations.",
+                "tech": "Python, Scikit-learn, XGBoost, Streamlit",
+                "skills": ["Python", "Scikit-learn"]
             }
         ],
         "experiences": [
             {
-                "role": "Senior Backend Engineer",
-                "company": "ScaleCore Infrastructure",
+                "role": "Full Stack Developer",
+                "company": "Devstack Technologies",
                 "location": "Noida, India",
-                "period": "2022 - Present",
-                "desc": "Scaled cloud backend architecture to 99.99% uptime across multi-region deployments."
-            },
-            {
-                "role": "Python Backend Developer",
-                "company": "Nexus Data Systems",
-                "location": "Noida, India",
-                "period": "2020 - 2022",
-                "desc": "Built high-speed RESTful & GraphQL APIs with Django, FastAPI, and Celery background workers."
+                "period": "2026 – Present",
+                "desc": "Designed and developed end-to-end full stack web applications using React (frontend) and FastAPI/Node.js (backend), delivering responsive, production-ready products for internal and client-facing use."
             }
         ],
         "achievements": [
             {
-                "title": "🏆 99.99% High Availability Infrastructure Milestone",
-                "organization": "ScaleCore Infrastructure",
-                "year": "2024",
-                "desc": "Maintained zero-downtime distributed failover across 12 consecutive months handling 10M+ daily events."
+                "title": "Oracle Cloud Infrastructure (OCI) Data Science Professional Certification",
+                "organization": "Oracle",
+                "year": "2025",
+                "desc": "Cloud ML deployment, model management, OCI infrastructure"
             },
             {
-                "title": "🏅 1st Place — Backend Scale Optimization Challenge",
-                "organization": "PyCon India Developers Conclave",
-                "year": "2023",
-                "desc": "Optimized async Python API throughput from 3k to 15k requests per second."
+                "title": "HackerRank SQL Certificate — Intermediate",
+                "organization": "HackerRank",
+                "year": "2024",
+                "desc": "Advanced SQL for data pipelines and Text-to-SQL applications"
+            },
+            {
+                "title": "2nd Place — HackTheBox TechTrix Cybersecurity Competition",
+                "organization": "HackTheBox / Virtual Lab Hackathon",
+                "year": "2024",
+                "desc": "Top 5 Finalist (Pan-India) — Virtual Lab Hackathon"
             }
         ],
         "education": [
             {
                 "degree": "B.Tech in Computer Science & Engineering",
-                "institution": "AKTU Noida Institute of Technology",
-                "period": "2019 - 2023",
-                "details": "Graduated First Class with Distinction. Specialization in Distributed Systems & Databases."
+                "institution": "AKTU Engineering Hub",
+                "period": "2022 - 2026",
+                "details": "Specialization in Python Development, Backend Engineering & ML Systems."
             }
         ],
         "certifications": [
             {
-                "name": "AWS Certified Solutions Architect - Associate",
-                "issuer": "Amazon Web Services",
-                "year": "2023"
+                "name": "Oracle Cloud Infrastructure (OCI) Data Science Professional Certification",
+                "issuer": "Oracle",
+                "year": "2025"
             },
             {
-                "name": "PostgreSQL High Performance & Database Tuning",
-                "issuer": "Linux Academy / O'Reilly",
-                "year": "2023"
+                "name": "HackerRank SQL Certificate — Intermediate",
+                "issuer": "HackerRank",
+                "year": "2024"
             }
         ],
         "doc_name": "Vishnu_Kumar_Resume.pdf",
-        "peer_gaps": ["React & Frontend Engineering (Mastered by Mohit & Krati)", "IoT & Embedded Hardware (Mastered by Mohit)"],
-        "resume_markdown": """# Vishnu Kumar
-**Senior Backend & API Engineer | Distributed Systems Specialist**
-Phone: +91-9123456789 | Email: vishnu.kumar@careeros.ai | Location: Noida, India
-GitHub: github.com/vishnukumar | LinkedIn: linkedin.com/in/vishnu-kumar-backend
+        "peer_gaps": ["React & Frontend UI (Mastered by Krati)", "IoT Wearables Firmware (Mastered by Mohit)"],
+        "resume_markdown": """# VISHNU KUMAR
+**Python Developer | Backend & API Engineering | ML Systems**
+vishnu9027872285@gmail.com • +91 9027872285 • [linkedin.com/in/vishnu-kumar](https://linkedin.com/in/vishnu-kumar) • [github.com/HelloVishnu04](https://github.com/HelloVishnu04)
 
-## Professional Summary
-Backend Software Engineer specializing in Python, Django, FastAPI, PostgreSQL database optimization, distributed microservices, and high-throughput real-time event streaming systems.
+## PROFESSIONAL SUMMARY
+Results-driven Python Developer with hands-on experience building scalable REST APIs, automating ML pipelines, and developing production-grade backend systems. Proficient in FastAPI, Flask, and Streamlit for service layer development. Strong foundation in object-oriented Python, data structures, and algorithm design. Experienced deploying containerized services via Docker with CI/CD automation using GitHub Actions. Passionate about writing clean, maintainable Python code across ML, backend, and data engineering domains.
 
-## Technical Skills
-- **Languages**: Python, SQL, Go, Bash, C
-- **Frameworks & APIs**: FastAPI, Django, Flask, Celery, RESTful APIs, GraphQL, gRPC
-- **Databases & Caching**: PostgreSQL, Redis, pgvector, MySQL, MongoDB, SQLAlchemy
-- **DevOps & Architecture**: Docker, Kubernetes, Kafka, RabbitMQ, CI/CD Pipelines, Linux Server Admin
+## EXPERIENCE
+### Full Stack Developer | Devstack Technologies | 2026 – Present
+- Designed and developed end-to-end full stack web applications using React (frontend) and FastAPI/Node.js (backend), delivering responsive, production-ready products for internal and client-facing use.
+- Built and maintained RESTful APIs integrated with MongoDB and MySQL databases, implementing authentication, role-based access control, and real-time data features using WebSockets.
+- Collaborated with cross-functional teams to integrate ML model APIs into web platforms, and automated deployment pipelines using Docker and GitHub Actions for continuous delivery.
 
-## Honors & Awards
-- 🏆 **99.99% High Availability Infrastructure Milestone** (ScaleCore Infrastructure, 2024)
-- 🏅 **1st Place** — Backend Scale Optimization Challenge (PyCon India Developers Conclave, 2023)
+## KEY PROJECTS
+### GPT Large Language Model from Scratch | Personal Project | 2026
+- Engineered a complete GPT-1 style model in Python/TensorFlow with modular scripts for data preprocessing, training, and inference — demonstrating deep Python architecture skills across a large codebase.
 
-## Experience
-### Senior Backend Engineer | ScaleCore Infrastructure
-*2022 - Present | Noida, India*
-- Scaled cloud backend microservices architecture to 99.99% uptime across multi-region deployments.
-- Implemented Redis distributed caching and connection pooling, reducing database read load by 55%.
-- Architected asynchronous event queues with Celery & RabbitMQ processing 10M+ background jobs daily.
+### S.A.F.E. — Real-Time AI Data Pipeline & Deep Learning System | Personal Project | 2026
+- Built a real-time sensor data ingestion pipeline in Python feeding a TensorFlow deep learning model with automated training, model versioning, and REST API deployment.
 
-## Featured Projects
-### Distributed Microservice Gateway
-- Engineered high-throughput API gateway with dynamic rate limiting, token authentication, and circuit breakers handling 15k req/sec.
+### SentiScan — NLP Sentiment Intelligence Engine | Personal Project | 2025
+- Developed a Flask REST API microservice serving a Bidirectional LSTM model (92.4% accuracy on 50K reviews) with real-time inference; exposed clean JSON endpoints for seamless integration.
 
-### Real-Time High-Throughput ETL Pipeline
-- Built scalable data ingestion engine processing streaming IoT and telemetry events with Kafka and PostgreSQL.
+### MediPredict — Multi-Domain ML Recommendation Engine | Personal Project | 2025
+- Implemented automated Python model selection logic across 7 domains (Scikit-learn, XGBoost, Random Forest, SVM); 91.3% mean accuracy with ensemble logic for multi-class recommendations.
 
-### PostgreSQL Multi-Tenant Partitioning Engine
-- Designed database partitioning and automated query index analyzer with pgvector integration.
+## TECHNICAL SKILLS
+- **Core Python**: Python 3.x, OOP, Functional Programming, Design Patterns, Data Structures & Algorithms (DSA)
+- **API & Backend**: FastAPI, Flask, REST API Design, Microservices, Streamlit, Firebase, MongoDB, MySQL, Redis
+- **ML & Data**: TensorFlow, Keras, Scikit-learn, XGBoost, Pandas, NumPy, NLP, LangChain, Hugging Face Transformers, OpenAI API
+- **DevOps & Cloud**: Docker, GitHub Actions, CI/CD, MLflow, Model Versioning, AWS (S3, Lambda, SageMaker), OCI (Certified)
+- **Other**: Git, React / MERN Stack, Java (DSA), Competitive Programming, PySpark, FAISS, ChromaDB
+
+## EDUCATION, CERTIFICATIONS & ACHIEVEMENTS
+- Oracle Cloud Infrastructure (OCI) Data Science Professional Certification — 2025 (Cloud ML deployment, model management, OCI infrastructure)
+- HackerRank SQL Certificate — Intermediate — 2024 (Advanced SQL for data pipelines and Text-to-SQL applications)
+- 2nd Place — HackTheBox TechTrix Cybersecurity Competition | Top 5 Finalist (Pan-India) — Virtual Lab Hackathon
 """
     }
 }
