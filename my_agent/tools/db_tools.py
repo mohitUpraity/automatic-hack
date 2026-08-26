@@ -126,8 +126,15 @@ def store_embeddings(document_id: str, user_id: str, embedded_chunks: List[Dict[
     return len(records)
 
 
+def _normalize_table_name(table: str) -> str:
+    """Normalizes table aliases for Supabase schema."""
+    if table in ["analyses", "analysis"]:
+        return "resume_analysis"
+    return table
+
+
 def store_to_db(table: str, data: Any) -> Dict[str, Any]:
-    """Universal database table inserter with automatic SQLite fallback."""
+    """Universal database table inserter with automatic Supabase & SQLite fallback."""
     try:
         record = json.loads(data) if isinstance(data, str) else dict(data)
     except Exception as e:
@@ -140,11 +147,17 @@ def store_to_db(table: str, data: Any) -> Dict[str, Any]:
     if "created_at" not in record:
         record["created_at"] = datetime.now().isoformat()
 
+    sb_table = _normalize_table_name(table)
+
+    # Opportunity column mapping for Supabase
+    if sb_table == "opportunities" and "company" in record and "company_name" not in record:
+        record["company_name"] = record["company"]
+
     sb = get_supabase()
     if sb:
         try:
-            res = sb.table(table).insert(record).execute()
-            return {"status": "success", "id": record["id"], "table": table}
+            res = sb.table(sb_table).insert(record).execute()
+            return {"status": "success", "id": record["id"], "table": sb_table}
         except Exception as e:
             print(f"[Supabase Storage Notice] {e}")
 
@@ -166,10 +179,11 @@ def store_to_db(table: str, data: Any) -> Dict[str, Any]:
 
 def read_from_db(table: str, query_filter: str = "") -> Dict[str, Any]:
     """Universal reader supporting Supabase with SQLite fallback."""
+    sb_table = _normalize_table_name(table)
     sb = get_supabase()
     if sb:
         try:
-            query = sb.table(table).select("*").order("created_at", desc=True)
+            query = sb.table(sb_table).select("*").order("created_at", desc=True)
             if query_filter:
                 if " = " in query_filter:
                     parts = query_filter.split(" = ", 1)
