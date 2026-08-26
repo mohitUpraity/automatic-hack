@@ -20,27 +20,29 @@ import ExecutionTimeline from '../components/observatory/ExecutionTimeline';
 import AuditTrail from '../components/observatory/AuditTrail';
 import ShieldDemo from '../components/observatory/ShieldDemo';
 import { fetchStats } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function ObservatoryPage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({
-    total_audit_events: 48,
+    total_audit_events: 12,
     shield_active: true,
-    total_profiles: 3,
-    total_documents: 12,
-    total_opportunities: 24,
-    total_tailored_resumes: 8,
+    total_profiles: 1,
+    total_documents: 0,
+    total_opportunities: 0,
+    total_tailored_resumes: 0,
   });
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulatedStages, setSimulatedStages] = useState(null);
 
   useEffect(() => {
-    fetchStats()
+    fetchStats(user?.id || 'default-user')
       .then((data) => {
         if (data) setStats((prev) => ({ ...prev, ...data }));
       })
       .catch(console.error);
-  }, []);
+  }, [user?.id]);
 
   const runLiveSimulation = async () => {
     setIsSimulating(true);

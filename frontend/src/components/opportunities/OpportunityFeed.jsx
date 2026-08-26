@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Compass, RefreshCw, Filter, Search, Zap, Sparkles, Trophy, Briefcase, Wand2, Users, ChevronDown, MapPin } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { fetchOpportunities, scoutProfileOpportunities, fetchProfiles, customSearchOpportunities, fetchCandidates } from '../../api/client';
+import { fetchOpportunities, scoutProfileOpportunities, fetchProfiles, customSearchOpportunities } from '../../api/client';
 import OpportunityCard from './OpportunityCard';
 import OpportunityDetailModal from './OpportunityDetailModal';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import AutoPilotModal from '../autopilot/AutoPilotModal';
+import { useAuth } from '../../context/AuthContext';
 
 const CATEGORIES = ['All', 'Job', 'Internship', 'Hackathon', 'Competition', 'Conclave'];
 const MIN_SCORES = [
@@ -18,11 +19,10 @@ const MIN_SCORES = [
   { label: '60+', value: 60 },
 ];
 
-export default function OpportunityFeed({ onSelectOpportunity, initialCandidateId = 'candidate_all' }) {
+export default function OpportunityFeed({ onSelectOpportunity }) {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [opportunities, setOpportunities] = useState([]);
-  const [candidatesList, setCandidatesList] = useState([]);
-  const [selectedCandidate, setSelectedCandidate] = useState(initialCandidateId);
   const [isLoading, setIsLoading] = useState(true);
   const [isScouting, setIsScouting] = useState(false);
   const [isAutoPilotOpen, setIsAutoPilotOpen] = useState(false);
@@ -37,25 +37,10 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
   const [category, setCategory] = useState('All');
   const [minScore, setMinScore] = useState(0);
 
-  // 1. Fetch Candidates List
-  useEffect(() => {
-    async function loadCandidates() {
-      try {
-        const cRes = await fetchCandidates();
-        if (cRes.candidates && cRes.candidates.length > 0) {
-          setCandidatesList(cRes.candidates);
-        }
-      } catch (err) {
-        console.error('Failed to load candidate list:', err);
-      }
-    }
-    loadCandidates();
-  }, []);
-
-  const loadData = useCallback(async (candidateId = selectedCandidate) => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetchOpportunities(candidateId === 'candidate_all' ? null : candidateId);
+      const data = await fetchOpportunities(user?.id || 'default-user');
       setOpportunities(data?.opportunities || []);
     } catch (err) {
       console.error('Failed to fetch opportunities:', err);
@@ -63,16 +48,11 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
     } finally {
       setIsLoading(false);
     }
-  }, [selectedCandidate]);
+  }, [user?.id]);
 
   useEffect(() => {
-    loadData(selectedCandidate);
-  }, [selectedCandidate, loadData]);
-
-  const handleCandidateChange = (candId) => {
-    setSelectedCandidate(candId);
-    loadData(candId);
-  };
+    loadData();
+  }, [loadData]);
 
   const handleCustomSearch = async (e) => {
     e.preventDefault();
@@ -95,14 +75,8 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
   const handleScout = async () => {
     setIsScouting(true);
     try {
-      const profilesData = await fetchProfiles();
-      const profiles = profilesData?.profiles || [];
-      if (profiles.length > 0) {
-        await scoutProfileOpportunities(profiles[0].id);
-        await loadData(selectedCandidate);
-      } else {
-        setIsAutoPilotOpen(true);
-      }
+      await scoutProfileOpportunities(user?.id || 'default-user');
+      await loadData();
     } catch (err) {
       console.error('Scouting failed:', err);
     } finally {
@@ -118,7 +92,6 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
       setIsDetailModalOpen(true);
     }
   };
-
 
   const filteredOpportunities = useMemo(() => {
     let result = opportunities.filter((opp) => {
@@ -136,30 +109,15 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
 
   return (
     <div className="w-full space-y-5">
-      {/* Header & Multi-Candidate Bar */}
+      {/* Header & User Info Bar */}
       <GlassCard className="p-4 bg-slate-900/80 border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-            <Users className="w-4 h-4 text-indigo-400" />
-            <span>Target Candidate:</span>
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center font-bold text-xs text-white shadow-inner">
+            {user?.name ? user.name.slice(0, 2).toUpperCase() : 'ME'}
           </div>
-          <div className="relative min-w-[240px]">
-            <select
-              value={selectedCandidate}
-              onChange={(e) => handleCandidateChange(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-bold appearance-none pr-8 cursor-pointer shadow-inner"
-            >
-              {candidatesList.length === 0 ? (
-                <option value="candidate_all">🌐 Multi-Candidate Global Network</option>
-              ) : (
-                candidatesList.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
-                  </option>
-                ))
-              )}
-            </select>
-            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+          <div>
+            <div className="text-xs font-extrabold text-white">{user?.name || 'My Scouted Opportunities'}</div>
+            <div className="text-[10px] text-slate-400">Targeting {user?.role || 'Software Engineering'} roles</div>
           </div>
         </div>
 

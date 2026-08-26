@@ -4,8 +4,10 @@ import { motion } from 'framer-motion';
 import ChatMessage from './ChatMessage';
 import QuickActions from './QuickActions';
 import { executeAdkAgent } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ChatInterface() {
+  const { user } = useAuth();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -46,7 +48,7 @@ export default function ChatInterface() {
     setIsLoading(true);
 
     try {
-      const response = await executeAdkAgent(trimmed, sessionId);
+      const response = await executeAdkAgent(trimmed, sessionId, user?.id || 'default-user');
       
       if (response?.session_id) {
         setSessionId(response.session_id);

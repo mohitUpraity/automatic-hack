@@ -5,6 +5,7 @@ import GlassCard from '../components/ui/GlassCard';
 import Badge from '../components/ui/Badge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AutoPilotModal from '../components/autopilot/AutoPilotModal';
+import { useAuth } from '../context/AuthContext';
 import {
   fetchOpportunities,
   fetchTailoredResumes,
@@ -16,6 +17,7 @@ import {
   saveCandidateTemplate,
   deepResearchCompany
 } from '../api/client';
+
 import {
   Wand2,
   Download,
@@ -45,21 +47,13 @@ import {
   Lightbulb
 } from 'lucide-react';
 
-const CANDIDATE_THEMES = {
-  candidate_mohit: { border: 'border-indigo-500/40', badge: 'primary', accent: 'text-indigo-400' },
-  candidate_krati: { border: 'border-pink-500/40', badge: 'secondary', accent: 'text-pink-400' },
-  candidate_vishnu: { border: 'border-emerald-500/40', badge: 'success', accent: 'text-emerald-400' },
-};
-
 export default function ResumeStudioPage() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // Candidate state
-  const [candidates, setCandidates] = useState([]);
-  const [activeCandidateId, setActiveCandidateId] = useState(
-    searchParams.get('candidateId') || 'candidate_mohit'
-  );
+  // Candidate state bound to authenticated user
+  const [activeCandidateId, setActiveCandidateId] = useState(user?.id || 'default-user');
   const [activeCandidate, setActiveCandidate] = useState(null);
 
   // Opportunities & Targets
@@ -82,29 +76,19 @@ export default function ResumeStudioPage() {
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [history, setHistory] = useState([]);
 
-  // 1. Initial Candidates Load
-  useEffect(() => {
-    async function loadCandidatesList() {
-      try {
-        const cRes = await fetchCandidates();
-        const validList = (cRes.candidates || []).filter((c) => c.id !== 'candidate_all');
-        setCandidates(validList);
-      } catch (err) {
-        console.error('Failed to load candidates:', err);
-      }
-    }
-    loadCandidatesList();
-  }, []);
+  // Firecrawl Company Deep Research state
+  const [companyIntel, setCompanyIntel] = useState(null);
+  const [isCrawlingIntel, setIsCrawlingIntel] = useState(false);
+  const [justTailored, setJustTailored] = useState(false);
+  const [tailoredMeta, setTailoredMeta] = useState(null);
 
-  // 1.5 Synchronize candidateId from URL search param if changed
   useEffect(() => {
-    const urlCandId = searchParams.get('candidateId');
-    if (urlCandId && urlCandId !== activeCandidateId) {
-      setActiveCandidateId(urlCandId);
+    if (user?.id) {
+      setActiveCandidateId(user.id);
     }
-  }, [searchParams]);
+  }, [user?.id]);
 
-  // 2. Load Candidate Profile & Resume
+  // Load Candidate Profile & Resume
   useEffect(() => {
     async function loadCandidateProfile() {
       try {
@@ -147,108 +131,59 @@ export default function ResumeStudioPage() {
     loadCandidateProfile();
   }, [activeCandidateId]);
 
-  const handleCandidateChange = async (candId) => {
-    setActiveCandidateId(candId);
+  // Handle Opportunity Selection Change & Firecrawl Deep Research Grounding
+  const handleOpportunityChange = async (oppId) => {
+    setSelectedOppId(oppId);
     setSearchParams((prev) => {
-      const nextParams = new URLSearchParams(prev);
-      nextParams.set('candidateId', candId);
-      return nextParams;
+      const p = new URLSearchParams(prev);
+      p.set('oppId', oppId);
+      return p;
     });
+    const found = opportunities.find((o) => String(o.id) === String(oppId));
+    setSelectedOpportunity(found || null);
 
-    // Immediate optimistic update
-    try {
-      const cData = await fetchCandidateDetails(candId);
-      if (cData.candidate) {
-        setActiveCandidate(cData.candidate);
-        const baseMd = cData.candidate.resume_markdown || '';
-        setMarkdown(baseMd);
-        setOriginalMarkdown(baseMd);
+    if (found) {
+      const companyName = found.company || found.company_name || found.source;
+      if (companyName && companyName !== 'Tech Company') {
+        setIsCrawlingIntel(true);
+        try {
+          const res = await deepResearchCompany(companyName, found.title || 'Software Engineer', found.url);
+          if (res?.intel) {
+            setCompanyIntel(res.intel);
+          }
+        } catch (err) {
+          console.error('Deep company research background fetch failed:', err);
+        } finally {
+          setIsCrawlingIntel(false);
+        }
       }
-      const oppsRes = await fetchOpportunities(candId);
-      const opps = oppsRes.opportunities || [];
-      setOpportunities(opps);
-      if (opps.length > 0) {
-        setSelectedOppId(String(opps[0].id));
-        setSelectedOpportunity(opps[0]);
-      }
-    } catch (err) {
-      console.error('Failed to switch candidate profile:', err);
     }
   };
 
-  const handleOpportunityChange = (oppId) => {
-    setSelectedOppId(oppId);
-    const found = opportunities.find((o) => String(o.id) === String(oppId));
-    setSelectedOpportunity(found || null);
-    setSearchParams((prev) => {
-      const nextParams = new URLSearchParams(prev);
-      if (oppId) nextParams.set('oppId', oppId);
-      else nextParams.delete('oppId');
-      return nextParams;
-    });
-  };
-
-  // 3. AI Actions
-  const handleAiAction = async (actionKey, promptDesc) => {
+  // Auto-Pilot & AI Refinement
+  const handleAiAction = async (actionType, label) => {
     setIsProcessing(true);
-    setProcessingAction(promptDesc);
+    setProcessingAction(label || 'Refining with Gemini Flash...');
     try {
-      let candidateContext = '';
-      if (activeCandidate) {
-        candidateContext = `Candidate Name: ${activeCandidate.name}, Role: ${activeCandidate.role}, Location: ${activeCandidate.location}, Top Skills: ${(activeCandidate.top_skills || []).join(', ')}.`;
-      }
-      if (selectedOpportunity) {
-        candidateContext += ` Target Opportunity: ${selectedOpportunity.title} at ${selectedOpportunity.company}. Category: ${selectedOpportunity.category}.`;
-      }
-
-      const res = await refineResume(markdown, actionKey, candidateContext);
+      const res = await refineResume(markdown, actionType, {
+        targetRole: selectedOpportunity?.title || activeCandidate?.role || 'Software Engineer',
+        company: selectedOpportunity?.company || selectedOpportunity?.company_name || 'Target Org',
+        requirements: selectedOpportunity?.description || selectedOpportunity?.skills_required || '',
+        candidateId: activeCandidateId
+      });
       if (res.refined_markdown) {
         setMarkdown(res.refined_markdown);
-        setAtsScore((prev) => Math.min(99, prev + 3));
+        setAtsScore((prev) => Math.min(99, prev + 2));
       }
     } catch (err) {
-      console.error('Refinement failed:', err);
-      alert('AI Refinement failed: ' + (err.message || 'Please check backend logs.'));
+      console.error('AI Action failed:', err);
+      alert('AI refinement failed. Please check backend connection.');
     } finally {
       setIsProcessing(false);
       setProcessingAction('');
     }
   };
 
-  // 3.5 Load Firecrawl Company Intel when target opportunity changes
-  const [companyIntel, setCompanyIntel] = useState(null);
-  const [isCrawlingIntel, setIsCrawlingIntel] = useState(false);
-
-  useEffect(() => {
-    async function loadCompanyIntel() {
-      if (selectedOpportunity) {
-        if (selectedOpportunity.intelligence || selectedOpportunity.company_intel) {
-          setCompanyIntel(selectedOpportunity.intelligence || selectedOpportunity.company_intel);
-        } else {
-          setIsCrawlingIntel(true);
-          try {
-            const comp = selectedOpportunity.company || selectedOpportunity.company_name || selectedOpportunity.source || 'Tech Company';
-            const title = selectedOpportunity.title || 'Software Engineer';
-            const res = await deepResearchCompany(comp, title, selectedOpportunity.url);
-            setCompanyIntel(res);
-          } catch (e) {
-            console.error('Failed to pre-crawl company intel:', e);
-          } finally {
-            setIsCrawlingIntel(false);
-          }
-        }
-      } else {
-        setCompanyIntel(null);
-      }
-    }
-    loadCompanyIntel();
-  }, [selectedOpportunity]);
-
-  // Post-tailoring state
-  const [justTailored, setJustTailored] = useState(false);
-  const [tailoredMeta, setTailoredMeta] = useState(null);
-
-  // 4. Auto-Tailor specifically for selected Opportunity & Candidate (Preserving original document format)
   const handleAutoTailor = async () => {
     if (!selectedOpportunity) {
       alert('Please select a target role first.');
@@ -289,16 +224,6 @@ export default function ResumeStudioPage() {
     }
   };
 
-  const handleCustomPromptSubmit = async (e) => {
-    e.preventDefault();
-    if (!customPrompt.trim()) return;
-    await handleAiAction('custom_instruction', customPrompt);
-    setCustomPrompt('');
-  };
-
-  const [isSavingMaster, setIsSavingMaster] = useState(false);
-  const [masterSaved, setMasterSaved] = useState(false);
-
   const handleSaveMaster = async () => {
     setIsSavingMaster(true);
     try {
@@ -312,12 +237,6 @@ export default function ResumeStudioPage() {
     } finally {
       setIsSavingMaster(false);
     }
-  };
-
-  const handleCopyMarkdown = () => {
-    navigator.clipboard.writeText(markdown);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleDownloadPdf = async () => {
@@ -340,40 +259,23 @@ export default function ResumeStudioPage() {
     }
   };
 
-  const currentTheme = CANDIDATE_THEMES[activeCandidateId] || CANDIDATE_THEMES.candidate_mohit;
-
   return (
     <PageShell
       title="Autonomous AI Resume Studio"
-      subtitle="Multi-candidate ATS keyword optimization, Graph RAG alignment & 100% pure binary PDF generation"
+      subtitle="ATS keyword optimization, Graph RAG alignment & 100% pure binary PDF generation"
       icon={Wand2}
     >
       <div className="space-y-6 animate-fade-in">
         {/* Top Candidate & Opportunity Navigation Bar */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl">
-          {/* Candidate Switcher Dropdown */}
+          {/* Active User Badge */}
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-              <Users className="w-4 h-4 text-indigo-400" />
-              <span>Active Candidate:</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center font-bold text-sm text-white shadow-inner">
+              {activeCandidate?.name ? activeCandidate.name.slice(0, 2).toUpperCase() : 'ME'}
             </div>
-            <div className="relative min-w-[260px]">
-              <select
-                value={activeCandidateId}
-                onChange={(e) => handleCandidateChange(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-bold appearance-none pr-8 cursor-pointer shadow-inner"
-              >
-                {candidates.length === 0 ? (
-                  <option value="candidate_mohit">Mohit Prasad Upraity (AI/IoT)</option>
-                ) : (
-                  candidates.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.role ? `— ${c.role.split('|')[0].trim()}` : ''}
-                    </option>
-                  ))
-                )}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            <div>
+              <div className="text-xs font-extrabold text-white">{activeCandidate?.name || user?.name || 'My Profile'}</div>
+              <div className="text-[10px] text-slate-400">{activeCandidate?.email || user?.email}</div>
             </div>
           </div>
 
@@ -449,24 +351,24 @@ export default function ResumeStudioPage() {
 
         {/* Candidate Profile Details Banner */}
         {activeCandidate && (
-          <div className={`p-4 bg-slate-900/60 rounded-2xl border ${currentTheme.border} flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg`}>
+          <div className="p-4 bg-slate-900/60 rounded-2xl border border-indigo-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg">
             <div className="flex items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sm text-white shadow-inner">
-                {activeCandidate.name?.slice(0, 2).toUpperCase() || 'CA'}
+                {activeCandidate.name?.slice(0, 2).toUpperCase() || 'ME'}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm font-extrabold text-white">{activeCandidate.name}</h3>
-                  <Badge variant={currentTheme.badge} size="sm">
-                    {activeCandidate.role?.split('|')[0].trim()}
+                  <h3 className="text-sm font-extrabold text-white">{activeCandidate.name || user?.name}</h3>
+                  <Badge variant="primary" size="sm">
+                    {activeCandidate.role?.split('|')[0].trim() || 'Software Engineer'}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5 flex-wrap">
                   <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-slate-500" /> {activeCandidate.location || 'Noida, India'}
+                    <MapPin className="w-3 h-3 text-slate-500" /> {activeCandidate.location || 'Remote'}
                   </span>
                   <span className="flex items-center gap-1">
-                    <Mail className="w-3 h-3 text-slate-500" /> {activeCandidate.email}
+                    <Mail className="w-3 h-3 text-slate-500" /> {activeCandidate.email || user?.email}
                   </span>
                 </div>
               </div>

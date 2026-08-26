@@ -112,20 +112,21 @@ export async function uploadUrl(url, docType = 'resume', userId = null) {
   return await res.json();
 }
 
-export async function fetchCandidates() {
-  const res = await fetchWithConfig(`${API_BASE}/api/candidates`);
+export async function fetchCandidates(userId = null) {
+  const url = userId ? `${API_BASE}/api/candidates?user_id=${encodeURIComponent(userId)}` : `${API_BASE}/api/candidates`;
+  const res = await fetchWithConfig(url);
   if (!res.ok) return { status: 'error', candidates: [] };
   return await res.json();
 }
 
-export async function fetchCandidateDetails(candidateId = 'candidate_mohit') {
-  const res = await fetchWithConfig(`${API_BASE}/api/candidates/${candidateId}`);
+export async function fetchCandidateDetails(candidateId = 'default-user') {
+  const res = await fetchWithConfig(`${API_BASE}/api/candidates/${encodeURIComponent(candidateId)}`);
   if (!res.ok) return { status: 'error', candidate: null };
   return await res.json();
 }
 
 export async function saveCandidateTemplate(candidateId, resumeMarkdown) {
-  const res = await fetchWithConfig(`${API_BASE}/api/candidates/${candidateId}/save-template`, {
+  const res = await fetchWithConfig(`${API_BASE}/api/candidates/${encodeURIComponent(candidateId)}/save-template`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ resume_markdown: resumeMarkdown }),
@@ -275,8 +276,9 @@ export async function triggerAttack(secured = true) {
   return await res.json();
 }
 
-export async function fetchStats() {
-  const res = await fetchWithConfig(`${API_BASE}/api/stats`);
+export async function fetchStats(userId = null) {
+  const url = userId ? `${API_BASE}/api/stats?user_id=${encodeURIComponent(userId)}` : `${API_BASE}/api/stats`;
+  const res = await fetchWithConfig(url);
   if (!res.ok) return { total_documents: 0, total_profiles: 0, total_opportunities: 0, total_audit_events: 0 };
   return await res.json();
 }
@@ -339,11 +341,11 @@ export async function fetchAdkGraph() {
   return await res.json();
 }
 
-export async function executeAdkAgent(message, sessionId = null) {
+export async function executeAdkAgent(message, sessionId = null, userId = null) {
   const res = await fetchWithConfig(`${API_BASE}/api/adk/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, session_id: sessionId }),
+    body: JSON.stringify({ message, session_id: sessionId, user_id: userId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'ADK execution failed' }));

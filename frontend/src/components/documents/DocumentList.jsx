@@ -15,7 +15,7 @@ export default function DocumentList({ refreshTrigger, selectedCandidateId = 'ca
   const loadDocuments = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetchDocuments();
+      const data = await fetchDocuments(selectedCandidateId === 'candidate_all' ? null : selectedCandidateId);
       setDocuments(data?.documents || []);
     } catch (err) {
       console.error('Failed to fetch documents:', err);
@@ -23,11 +23,11 @@ export default function DocumentList({ refreshTrigger, selectedCandidateId = 'ca
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedCandidateId]);
 
   useEffect(() => {
     loadDocuments();
-  }, [loadDocuments, refreshTrigger]);
+  }, [loadDocuments, refreshTrigger, selectedCandidateId]);
 
   const handleDelete = async (docId, filename) => {
     if (!window.confirm(`Are you sure you want to permanently delete "${filename || 'this document'}"?`)) {

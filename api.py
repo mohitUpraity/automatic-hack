@@ -1337,17 +1337,31 @@ def delete_document_endpoint(doc_id: str):
 
 
 @app.get("/api/stats")
-def get_dashboard_stats():
-    docs = read_from_db("documents").get("records", [])
-    profiles = read_from_db("profiles").get("records", [])
-    opps = read_from_db("ranked_opportunities").get("records", [])
-    resumes = read_from_db("resumes").get("records", [])
-    tailored = read_from_db("tailored_resumes").get("records", [])
+def get_dashboard_stats(user_id: Optional[str] = None):
+    all_docs = read_from_db("documents").get("records", [])
+    all_profiles = read_from_db("profiles").get("records", [])
+    all_opps = read_from_db("ranked_opportunities").get("records", [])
+    all_resumes = read_from_db("resumes").get("records", [])
+    all_tailored = read_from_db("tailored_resumes").get("records", [])
     logs = global_armoriq.get_audit_trail()
+
+    if user_id and user_id not in ("all", "candidate_all"):
+        docs = [d for d in all_docs if d.get("user_id") == user_id or d.get("id") == user_id]
+        profiles = [p for p in all_profiles if p.get("user_id") == user_id or p.get("id") == user_id]
+        resumes = [r for r in all_resumes if r.get("user_id") == user_id or r.get("candidate_id") == user_id]
+        tailored = [t for t in all_tailored if t.get("user_id") == user_id or t.get("candidate_id") == user_id]
+        opps = [o for o in all_opps if o.get("candidate_id") == user_id or o.get("profile_id") == user_id] or all_opps
+    else:
+        docs = all_docs
+        profiles = all_profiles
+        resumes = all_resumes
+        tailored = all_tailored
+        opps = all_opps
+
     return {
         "status": "success",
         "total_documents": len(docs),
-        "total_profiles": len(profiles),
+        "total_profiles": max(1, len(profiles)),
         "total_opportunities": len(opps),
         "total_resumes": len(resumes),
         "total_tailored_resumes": len(tailored),
@@ -2595,19 +2609,62 @@ Results-driven Python Developer with hands-on experience building scalable REST 
 
 
 @app.get("/api/candidates")
-def get_all_candidates():
-    """Returns all detected candidates in the system for Graph RAG switching."""
-    c_list = [
-        {
-            "id": "candidate_all",
-            "name": "🌐 Multi-Candidate Global Network",
-            "role": "Interconnected Talent & Skill Ecosystem",
-            "cluster_color": "#818cf8",
-            "location": "Global / NCR Hub",
-            "skills_count": 14,
-            "shared_skills": ["Python", "React", "FastAPI", "PostgreSQL"]
-        }
-    ]
+def get_all_candidates(user_id: Optional[str] = None):
+    """Returns candidate profiles isolated to the authenticated user."""
+    if user_id and user_id not in ("all", "candidate_all"):
+        if user_id in CANDIDATES_REGISTRY:
+            c = CANDIDATES_REGISTRY[user_id]
+            return {"status": "success", "candidates": [{
+                "id": c["id"],
+                "name": c["name"],
+                "role": c["role"],
+                "cluster_color": c["cluster_color"],
+                "email": c["email"],
+                "phone": c["phone"],
+                "location": c["location"],
+                "summary": c["summary"],
+                "skills_count": len(c["skills"]),
+                "top_skills": c["top_skills"],
+                "projects_count": len(c["projects"]),
+                "achievements_count": len(c.get("achievements", [])),
+                "doc_name": c["doc_name"],
+                "peer_gaps": c["peer_gaps"]
+            }]}
+        else:
+            # Dynamic user candidate
+            prof_res = read_from_db("profiles", f"user_id = '{user_id}'").get("records", [])
+            prof = prof_res[0] if prof_res else None
+            auth_acc = next((a for a in USER_AUTH_ACCOUNTS.values() if a.get("id") == user_id or a.get("email") == user_id), None)
+            
+            uname = (prof.get("name") if prof else None) or (auth_acc.get("name") if auth_acc else None) or "User"
+            uemail = (prof.get("email") if prof else None) or (auth_acc.get("email") if auth_acc else None) or ""
+            urole = (prof.get("role") if prof else None) or (auth_acc.get("role") if auth_acc else None) or "Software Engineer"
+            uskills = prof.get("skills", []) if prof else []
+            if isinstance(uskills, str):
+                try: uskills = json.loads(uskills)
+                except Exception: uskills = [s.strip() for s in uskills.split(",") if s.strip()]
+
+            user_docs = [d for d in read_from_db("documents").get("records", []) if d.get("user_id") == user_id or d.get("id") == user_id]
+            doc_name = user_docs[0].get("filename", "User Resume") if user_docs else "Master Resume"
+
+            return {"status": "success", "candidates": [{
+                "id": user_id,
+                "name": uname,
+                "role": urole,
+                "cluster_color": "#38bdf8",
+                "email": uemail,
+                "phone": "",
+                "location": "Remote",
+                "summary": f"Career profile for {uname}.",
+                "skills_count": len(uskills),
+                "top_skills": uskills[:6],
+                "projects_count": 0,
+                "achievements_count": 0,
+                "doc_name": doc_name,
+                "peer_gaps": []
+            }]}
+
+    c_list = []
     for cid, c in CANDIDATES_REGISTRY.items():
         c_list.append({
             "id": c["id"],
@@ -2631,10 +2688,45 @@ def get_all_candidates():
 @app.get("/api/candidates/{candidate_id}")
 def get_candidate_details(candidate_id: str):
     """Returns detailed candidate profile including base resume markdown, achievements, education, and matched opportunities."""
-    if candidate_id not in CANDIDATES_REGISTRY:
-        candidate_id = "candidate_mohit"
-    
-    cand = CANDIDATES_REGISTRY[candidate_id]
+    if candidate_id in CANDIDATES_REGISTRY:
+        cand = CANDIDATES_REGISTRY[candidate_id]
+    else:
+        prof_res = read_from_db("profiles", f"user_id = '{candidate_id}'").get("records", [])
+        prof = prof_res[0] if prof_res else None
+        auth_acc = next((a for a in USER_AUTH_ACCOUNTS.values() if a.get("id") == candidate_id or a.get("email") == candidate_id), None)
+        user_docs = [d for d in read_from_db("documents").get("records", []) if d.get("user_id") == candidate_id or d.get("id") == candidate_id]
+
+        uname = (prof.get("name") if prof else None) or (auth_acc.get("name") if auth_acc else None) or "User"
+        uemail = (prof.get("email") if prof else None) or (auth_acc.get("email") if auth_acc else None) or ""
+        urole = (prof.get("role") if prof else None) or (auth_acc.get("role") if auth_acc else None) or "Software Engineer"
+        uskills = prof.get("skills", []) if prof else []
+        if isinstance(uskills, str):
+            try: uskills = json.loads(uskills)
+            except Exception: uskills = [s.strip() for s in uskills.split(",") if s.strip()]
+
+        raw_md = user_docs[0].get("raw_markdown") if user_docs else f"# {uname}\n**{urole}**\n{uemail}\n\n## Professional Summary\nUpload your resume to get started.\n"
+
+        cand = {
+            "id": candidate_id,
+            "name": uname,
+            "role": urole,
+            "cluster_color": "#38bdf8",
+            "email": uemail,
+            "phone": "",
+            "location": "Remote",
+            "summary": f"Career profile for {uname}.",
+            "skills": uskills,
+            "top_skills": uskills[:6],
+            "projects": [],
+            "experiences": [],
+            "achievements": [],
+            "education": [],
+            "certifications": [],
+            "doc_name": user_docs[0].get("filename", "User Resume") if user_docs else "Master Resume",
+            "peer_gaps": [],
+            "resume_markdown": raw_md
+        }
+
     opps = get_all_opportunities(candidate_id=candidate_id).get("opportunities", [])
     
     return {

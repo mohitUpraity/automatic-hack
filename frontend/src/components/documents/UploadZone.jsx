@@ -5,6 +5,7 @@ import { uploadDocument, uploadUrl, processResumePipeline, createPipelineWebSock
 import AutoPilotModal from '../autopilot/AutoPilotModal';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
+import { useAuth } from '../../context/AuthContext';
 
 const DOC_TYPES = ['Resume', 'Cover Letter', 'Certificate', 'Job Posting'];
 
@@ -20,6 +21,7 @@ const PIPELINE_STAGES = [
 ];
 
 export default function UploadZone({ onUploadSuccess, onPipelineComplete }) {
+  const { user } = useAuth();
   const [mode, setMode] = useState('file'); // 'file', 'url', 'text'
   const [docType, setDocType] = useState('Resume');
   const [isUploading, setIsUploading] = useState(false);
@@ -68,7 +70,7 @@ export default function UploadZone({ onUploadSuccess, onPipelineComplete }) {
     if (!file) return;
     setIsUploading(true);
     try {
-      const res = await uploadDocument(file, docType);
+      const res = await uploadDocument(file, docType, user?.id || 'default-user');
       setUploadResult(res);
       if (onUploadSuccess) onUploadSuccess(res);
     } catch (err) {
@@ -82,7 +84,7 @@ export default function UploadZone({ onUploadSuccess, onPipelineComplete }) {
     if (!url) return;
     setIsUploading(true);
     try {
-      const res = await uploadUrl(url, docType);
+      const res = await uploadUrl(url, docType, user?.id || 'default-user');
       setUploadResult(res);
       if (onUploadSuccess) onUploadSuccess(res);
     } catch (err) {
