@@ -67,10 +67,26 @@ export async function resetDatabase() {
   return await res.json();
 }
 
-export async function uploadDocument(file, docType = 'resume') {
+export async function loginWithGoogle(googleData) {
+  const res = await fetchWithConfig(`${API_BASE}/api/auth/google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(googleData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Google login failed' }));
+    throw new Error(err.detail || 'Google login failed');
+  }
+  return await res.json();
+}
+
+export async function uploadDocument(file, docType = 'resume', userId = null) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('doc_type', docType);
+  if (userId) {
+    formData.append('user_id', userId);
+  }
 
   const res = await fetchWithConfig(`${API_BASE}/api/documents/upload`, {
     method: 'POST',
@@ -83,11 +99,11 @@ export async function uploadDocument(file, docType = 'resume') {
   return await res.json();
 }
 
-export async function uploadUrl(url, docType = 'resume') {
+export async function uploadUrl(url, docType = 'resume', userId = null) {
   const res = await fetchWithConfig(`${API_BASE}/api/documents/upload-url`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, doc_type: docType }),
+    body: JSON.stringify({ url, doc_type: docType, user_id: userId }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Upload URL failed' }));
@@ -277,8 +293,11 @@ export async function fetchProfiles() {
   return await res.json();
 }
 
-export async function fetchDocuments() {
-  const res = await fetchWithConfig(`${API_BASE}/api/documents`);
+export async function fetchDocuments(userId = null) {
+  const url = userId
+    ? `${API_BASE}/api/documents?user_id=${encodeURIComponent(userId)}`
+    : `${API_BASE}/api/documents`;
+  const res = await fetchWithConfig(url);
   if (!res.ok) return { status: 'error', documents: [] };
   return await res.json();
 }

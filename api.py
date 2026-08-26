@@ -368,6 +368,100 @@ def login_endpoint(req: LoginReq):
     raise HTTPException(status_code=400, detail="Invalid login credentials.")
 
 
+class GoogleLoginReq(BaseModel):
+    email: str
+    name: Optional[str] = None
+    google_id: Optional[str] = None
+    avatar_url: Optional[str] = None
+    role: Optional[str] = "Software Engineer"
+
+
+@app.post("/api/auth/google")
+def google_auth_endpoint(req: GoogleLoginReq):
+    """Handles Google Sign-In with isolated candidate account and isolated documents."""
+    email_clean = req.email.strip().lower()
+    if not email_clean:
+        raise HTTPException(status_code=400, detail="Valid Google email is required.")
+
+    import hashlib
+    user_hash = hashlib.md5(email_clean.encode()).hexdigest()[:10]
+    user_id = f"google_{user_hash}"
+    display_name = req.name.strip() if req.name else email_clean.split('@')[0].replace('.', ' ').title()
+
+    if email_clean in USER_AUTH_ACCOUNTS:
+        account = USER_AUTH_ACCOUNTS[email_clean]
+        user_id = account["id"]
+        token = f"careeros_jwt_{uuid.uuid4().hex}"
+        return {
+            "status": "success",
+            "token": token,
+            "user": {
+                "id": user_id,
+                "email": account["email"],
+                "name": account["name"],
+                "role": account.get("role", "Software Engineer"),
+                "avatar_url": req.avatar_url or account.get("avatar_url")
+            }
+        }
+
+    # Create fresh isolated Google profile
+    new_account = {
+        "id": user_id,
+        "email": email_clean,
+        "name": display_name,
+        "role": req.role or "Software Engineer",
+        "avatar_url": req.avatar_url,
+        "provider": "google",
+        "google_id": req.google_id or user_id
+    }
+    USER_AUTH_ACCOUNTS[email_clean] = new_account
+
+    CANDIDATES_REGISTRY[user_id] = {
+        "id": user_id,
+        "name": display_name,
+        "role": req.role or "Software Engineer",
+        "cluster_color": "#38bdf8",
+        "email": email_clean,
+        "phone": "+91-0000000000",
+        "location": "Remote",
+        "summary": f"Fresh profile for {display_name}. Upload your master resume to begin.",
+        "skills": [],
+        "top_skills": [],
+        "projects": [],
+        "experiences": [],
+        "achievements": [],
+        "education": [],
+        "certifications": [],
+        "doc_name": "No Resume Uploaded",
+        "peer_gaps": [],
+        "resume_markdown": f"# {display_name}\n**{req.role or 'Software Engineer'}**\n{email_clean}\n\n## Professional Summary\nFresh profile. Upload your resume or paste markdown here to begin.\n\n## Technical Skills\n- **Languages**: \n\n## Experience\n\n## Projects\n\n## Education\n"
+    }
+
+    store_to_db("profiles", {
+        "id": user_id,
+        "user_id": user_id,
+        "name": display_name,
+        "role": req.role or "Software Engineer",
+        "email": email_clean,
+        "skills": [],
+        "search_keywords": ["software engineering jobs"]
+    })
+
+    token = f"careeros_jwt_{uuid.uuid4().hex}"
+    return {
+        "status": "success",
+        "token": token,
+        "user": {
+            "id": user_id,
+            "email": email_clean,
+            "name": display_name,
+            "role": req.role or "Software Engineer",
+            "avatar_url": req.avatar_url
+        },
+        "message": "Signed in with Google successfully."
+    }
+
+
 @app.get("/api/auth/me")
 def get_current_user_profile(authorization: Optional[str] = Header(None)):
     """Returns the authenticated user details."""
@@ -382,6 +476,7 @@ def get_current_user_profile(authorization: Optional[str] = Header(None)):
 @app.post("/api/auth/logout")
 def logout_endpoint():
     return {"status": "success", "message": "Signed out successfully."}
+
 
 
 @app.get("/")
@@ -1183,8 +1278,11 @@ def get_profile_opportunities(profile_id: str):
 
 
 @app.get("/api/documents")
-def get_all_documents():
-    res = read_from_db("documents")
+def get_all_documents(user_id: Optional[str] = None):
+    if user_id:
+        res = read_from_db("documents", f"user_id = '{user_id}'")
+    else:
+        res = read_from_db("documents")
     return {"status": "success", "documents": res.get("records", [])}
 
 
