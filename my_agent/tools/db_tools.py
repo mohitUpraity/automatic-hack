@@ -234,3 +234,128 @@ def delete_from_db(table: str, record_id: str) -> Dict[str, Any]:
     finally:
         conn.close()
 
+
+def wipe_and_reset_database() -> Dict[str, Any]:
+    """Wipes all stored database records across all tables and re-seeds clean authentic candidate data."""
+    tables = ["documents", "embeddings", "opportunities", "ranked_opportunities", "profiles", "resumes", "resume_analysis"]
+    
+    # 1. Supabase wipe if connected
+    sb = get_supabase()
+    if sb:
+        for t in tables:
+            try:
+                sb_t = _normalize_table_name(t)
+                sb.table(sb_t).delete().neq("id", "00000000-0000-0000-0000-000000000000").execute()
+            except Exception as e:
+                print(f"[Supabase Wipe Notice on {t}] {e}")
+
+    # 2. SQLite clean wipe & schema creation
+    conn = _get_sqlite_conn()
+    try:
+        for t in tables:
+            try:
+                conn.execute(f"DROP TABLE IF EXISTS {t}")
+            except Exception:
+                pass
+
+        # Create fresh tables
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS documents (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                filename TEXT,
+                doc_type TEXT,
+                raw_markdown TEXT,
+                metadata TEXT,
+                file_url TEXT,
+                created_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS embeddings (
+                id TEXT PRIMARY KEY,
+                document_id TEXT,
+                user_id TEXT,
+                chunk_text TEXT,
+                chunk_index INTEGER,
+                chunk_metadata TEXT,
+                embedding TEXT,
+                created_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS opportunities (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                profile_id TEXT,
+                title TEXT,
+                company TEXT,
+                company_name TEXT,
+                category TEXT,
+                location TEXT,
+                relevance_score REAL,
+                matched_candidate_id TEXT,
+                url TEXT,
+                description TEXT,
+                skills_required TEXT,
+                application_status TEXT,
+                deadline TEXT,
+                is_active INTEGER,
+                interest_alignment TEXT,
+                intelligence TEXT,
+                source TEXT,
+                engine TEXT,
+                created_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS ranked_opportunities (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                profile_id TEXT,
+                opportunity_id TEXT,
+                title TEXT,
+                company TEXT,
+                relevance_score REAL,
+                matched_candidate_id TEXT,
+                category TEXT,
+                created_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS profiles (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                name TEXT,
+                role TEXT,
+                email TEXT,
+                skills TEXT,
+                search_keywords TEXT,
+                created_at TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS resumes (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                markdown TEXT,
+                created_at TEXT
+            )
+        """)
+        conn.commit()
+    except Exception as e:
+        print(f"[SQLite Wipe Error] {e}")
+    finally:
+        conn.close()
+
+    # 3. Re-seed authentic candidate knowledge base
+    from my_agent.tools.knowledge_tools import seed_candidate_knowledge_bases
+    seed_res = seed_candidate_knowledge_bases(force=True)
+
+    return {
+        "status": "success",
+        "message": "Database wiped clean and re-seeded with authentic candidate vector knowledge base!",
+        "seeded": seed_res
+    }
+
+

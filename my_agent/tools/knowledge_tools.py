@@ -105,14 +105,15 @@ def get_rag_context(query: str, user_id: str = "default-user", top_k: int = 8) -
     return "\n\n".join(context_parts)
 
 
-def seed_candidate_knowledge_bases():
+def seed_candidate_knowledge_bases(force: bool = False):
     """Seeds rich chunk embeddings for all candidates into the vector knowledge base."""
     from my_agent.tools.embedding_tools import embed_text
     from my_agent.tools.db_tools import store_to_db, read_from_db
 
-    existing = read_from_db("embeddings").get("records", [])
-    if len(existing) >= 6:
-        return {"status": "already_seeded", "count": len(existing)}
+    if not force:
+        existing = read_from_db("embeddings").get("records", [])
+        if len(existing) >= 6:
+            return {"status": "already_seeded", "count": len(existing)}
 
     seed_chunks = [
         # Mohit Prasad Upraity Chunks

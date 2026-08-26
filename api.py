@@ -1018,6 +1018,15 @@ def get_audit_logs():
     return {"status": "success", "logs": global_armoriq.get_audit_trail()}
 
 
+@app.post("/api/database/reset")
+def reset_database_endpoint():
+    """Wipes all stored records in DB and re-seeds clean candidate knowledge base."""
+    from my_agent.tools.db_tools import wipe_and_reset_database
+    res = wipe_and_reset_database()
+    return res
+
+
+
 # ── Curated Multi-Candidate Opportunity Registry (Ground Truth) ─────────────
 CURATED_CANDIDATE_OPPORTUNITIES = [
     # Vishnu Kumar (Backend & Distributed Systems)
@@ -2750,6 +2759,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
             "candidates": get_all_candidates()["candidates"],
             "nodes": nodes,
             "edges": edges,
+            "links": edges,
             "metrics": {
                 "total_candidates": len(active_candidates),
                 "total_nodes": len(nodes),
