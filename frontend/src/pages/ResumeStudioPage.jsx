@@ -232,6 +232,13 @@ export default function ResumeStudioPage() {
     }
   };
 
+  const handleCustomPromptSubmit = async (e) => {
+    e.preventDefault();
+    if (!customPrompt.trim()) return;
+    await handleAiAction('custom_instruction', customPrompt);
+    setCustomPrompt('');
+  };
+
   const handleSaveMaster = async () => {
     setIsSavingMaster(true);
     try {
