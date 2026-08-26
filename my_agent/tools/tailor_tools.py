@@ -47,44 +47,58 @@ def _format_inline_markdown(text: str) -> str:
 
 
 def normalize_to_sections(raw_text: str) -> str:
-    """Ensures raw, OCR, or unformatted resume text is structured with clean ## Section headers and subheadings."""
+    """Ensures raw or unformatted resume text is cleanly formatted while preserving 100% of the data."""
     if not raw_text:
-        return raw_text
+        return ""
 
     text = raw_text.strip()
     # 1. Clean OCR page markers and notes
     text = re.sub(r'---\s*Page\s*\d+\s*---', '', text, flags=re.IGNORECASE)
     text = re.sub(r'(?i)now it looks kinda okay okay.*$', '', text).strip()
     
-    # 2. Convert bullet points (●, •) into standard - markdown
+    # 2. Standardize bullet characters
+    text = re.sub(r'^[●•]\s*', '- ', text, flags=re.MULTILINE)
     text = text.replace('●', '\n- ').replace('•', '\n- ')
 
-    # 3. Canonical Section Headers
+    # 3. Canonical Section Headers (Non-destructive line-based formatting)
     canonical_headers = [
         "Summary", "Professional Summary", "Executive Summary", "About Me", "Profile",
         "Technical Skills", "Skills", "Core Competencies",
         "Experience", "Work Experience", "Professional Experience", "Employment History",
-        "Projects", "Featured Projects", "Key Projects",
-        "Industry Project", "Industry Projects",
+        "Projects", "Featured Projects", "Key Projects", "Industry Projects", "Industry Project",
         "Achievements & Technical Outreach", "Achievements", "Honors & Awards", "Awards",
         "Education", "Academic Background"
     ]
-    canonical_headers.sort(key=len, reverse=True)
 
-    for h in canonical_headers:
-        text = re.sub(r'(?i)(^|\n|\.\s)(?:##\s*)?' + re.escape(h) + r'(:|\n|\s+[A-Z0-9●•\-])', r'\1\n\n## ' + h + r'\n', text)
+    lines = text.split("\n")
+    processed_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            processed_lines.append("")
+            continue
+        
+        # Check if line is a standalone header or missing ##
+        matched_header = False
+        for ch in canonical_headers:
+            if stripped.lower() == ch.lower() or stripped.lower() == f"{ch.lower()}:":
+                processed_lines.append(f"\n## {ch}\n")
+                matched_header = True
+                break
+            elif stripped.lower().startswith(f"## {ch.lower()}"):
+                # Already markdown header
+                processed_lines.append(f"\n## {ch}\n")
+                matched_header = True
+                break
+        
+        if not matched_header:
+            processed_lines.append(line)
 
-    # 4. Technical Skills Categories
-    skill_cats = [
-        "Languages & Frameworks", "Languages & Web", "Languages", "Frameworks",
-        "Databases", "Engineering Practices", "AI/ML & Vision", "AI/Security",
-        "Developer Tools", "Tools", "Cloud & DevOps"
-    ]
-    skill_cats.sort(key=len, reverse=True)
-    for sc in skill_cats:
-        text = re.sub(r'(?i)(^|\n|\.\s)' + re.escape(sc) + r'\s*:\s*', r'\n- **' + sc + r'**: ', text)
-
-    return text.strip()
+    result = "\n".join(processed_lines)
+    # Collapse multiple blank lines
+    result = re.sub(r'\n{3,}', '\n\n', result)
+    return result.strip()
 
 
 def _build_story_from_markdown(markdown_text: str):
@@ -414,8 +428,10 @@ def tailor_resume_for_opportunity(
     from my_agent.tools.llm_tools import call_groq_llm
     prompt = f"""You are an Expert In-Place ATS Resume Tailoring Engine.
 
-CRITICAL DIRECTIVE: You MUST PRESERVE the EXACT candidate identity, document template, layout, header format, personal contact line, section ordering, and bullet styling of the ORIGINAL RESUME below.
-Do NOT convert this resume into a generic template. Do NOT swap this candidate with any other candidate. Treat the original document structure as an IMMUTABLE STENCIL.
+CRITICAL DIRECTIVES:
+1. ZERO DATA LOSS: You MUST PRESERVE 100% of the candidate's projects, work experiences, accomplishments, metrics, technical skills, education, contact details, and bullet points.
+2. DO NOT SUMMARIZE OR TRUNCATE: If the original resume has 15 bullet points across experiences/projects, your tailored output MUST contain all 15 bullet points. Do NOT drop, merge, or omit ANY bullet points or project entries.
+3. IMMUTABLE STENCIL: Keep the EXACT candidate name, professional contact line, section ordering, subheadings, dates, and bullet structure.
 
 TARGET JOB SPECIFICATION:
 - Role Title: {opportunity_title}
@@ -431,25 +447,18 @@ FIRECRAWL DEEP COMPANY INTELLIGENCE:
 CANDIDATE GROUNDED CONTEXT:
 {rag_snippet}
 
-ORIGINAL RESUME (GOLDEN TEMPLATE):
+ORIGINAL RESUME (GOLDEN TEMPLATE — PRESERVE EVERY BULLET):
 \"\"\"
 {canonical_base_md}
 \"\"\"
 
-STRICT IN-PLACE TAILORING RULES:
-1. 100% CANDIDATE IDENTITY & STRUCTURE PRESERVATION:
-   - Keep the candidate's exact name, professional title, email, phone, LinkedIn, GitHub, Portfolio, and location from the original resume.
-   - Keep the EXACT same section headings in the EXACT same sequence as they appear in the ORIGINAL RESUME above.
-   - Retain the exact markdown formatting (bullet format `- `, bold titles `**...**`, dates, and dividers).
-
-2. SURGICAL IN-PLACE KEYWORD TAILORING (GROUNDED IN COMPANY CONTEXT):
-   - In Summary / Profile: Naturally weave in {company_name}'s technical priorities and target role competencies without exaggerating.
-   - In Technical Skills: Highlight and position the relevant technologies required by the JD and company tech stack while preserving authentic skills.
-   - In Work Experience & Projects: Rephrase bullet points to emphasize relevant architecture, performance, APIs, and impact aligned with {company_name}, keeping real company names and dates accurate.
-
-3. ZERO FABRICATION & ZERO DRIFT:
-   - Output ONLY the complete, tailored Markdown resume for this specific candidate.
-   - Do NOT include any conversational preamble, notes, or codeblock fences (` ```markdown `). Start directly with the candidate's name line.
+SURGICAL IN-PLACE TAILORING RULES:
+1. Contact & Header: Retain the candidate's exact name, professional title, email, phone, LinkedIn, GitHub, Portfolio, and location.
+2. Professional Summary: Naturally weave in {company_name}'s technical priorities and target competencies while maintaining authentic background.
+3. Technical Skills: Highlight matching tools, frameworks, and languages aligned with {company_name}'s stack without deleting existing skills.
+4. Experience & Projects (CRITICAL): Keep EVERY single project and experience role. Rephrase each bullet in-place to highlight relevant engineering depth, API throughput, architecture, and impact. Do NOT remove any project or bullet point!
+5. Honors, Awards & Education: Retain 100% of awards, hackathons, degrees, universities, and GPA details unchanged.
+6. Output Format: Output ONLY the complete, full-length Markdown resume. Start directly with `# Candidate Name`. Do NOT include codeblock fences or conversational text.
 """
     tailored_md = call_groq_llm(prompt)
 
