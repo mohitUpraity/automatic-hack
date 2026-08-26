@@ -206,7 +206,6 @@ export default function AutoPilotModal({
             candidate_id: selectedCandidateId,
             filename: file ? file.name : (selectedCandidateDetails?.doc_name || 'resume.pdf'),
             categories: categories,
-            profile_id: selectedCandidateId,
           })
         );
       };
