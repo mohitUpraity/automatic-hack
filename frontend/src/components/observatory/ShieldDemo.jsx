@@ -155,7 +155,9 @@ export default function ShieldDemo() {
                       </div>
                     </div>
                     <div className="mt-3 pt-3 border-t border-red-500/30 relative z-10">
-                      <span className="text-xs text-red-400 font-mono">Result: {attackResult.executed_result}</span>
+                      <span className="text-xs text-red-400 font-mono">
+                        Result: {typeof attackResult.executed_result === 'object' ? JSON.stringify(attackResult.executed_result) : String(attackResult.executed_result || '')}
+                      </span>
                     </div>
                   </div>
                 </motion.div>
