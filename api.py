@@ -42,7 +42,7 @@ from my_agent.tools.docling_tools import convert_document
 from my_agent.tools.embedding_tools import embed_chunks
 from my_agent.tools.db_tools import store_document, store_embeddings, get_supabase, store_to_db, read_from_db
 from my_agent.tools.knowledge_tools import search_knowledge_base, get_rag_context
-from my_agent.tools.tailor_tools import tailor_resume_for_opportunity, generate_tailored_pdf
+from my_agent.tools.tailor_tools import tailor_resume_for_opportunity, generate_tailored_pdf, _build_native_pdf_binary
 from my_agent.tools.llm_tools import call_groq_llm
 from my_agent.tools.search_tools import search_web
 from my_agent.tools.ranking_tools import rank_results
@@ -539,6 +539,11 @@ async def download_resume_pdf_endpoint(
     
     with open(target_path, "rb") as f:
         pdf_bytes = f.read()
+
+    # If the file on disk was saved as HTML or plain text, convert to pure binary PDF on the fly
+    if not pdf_bytes.startswith(b"%PDF"):
+        text_content = pdf_bytes.decode("utf-8", errors="ignore")
+        pdf_bytes = _build_native_pdf_binary(text_content)
 
     return Response(
         content=pdf_bytes,
