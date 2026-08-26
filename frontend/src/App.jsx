@@ -4,6 +4,7 @@ import Sidebar from './components/layout/Sidebar';
 import ChatPage from './pages/ChatPage';
 import DocumentsPage from './pages/DocumentsPage';
 import OpportunityPage from './pages/OpportunityPage';
+import OpportunitiesPage from './pages/OpportunitiesPage';
 import ObservatoryPage from './pages/ObservatoryPage';
 import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
 import ResumeStudioPage from './pages/ResumeStudioPage';
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/studio" element={<ResumeStudioPage />} />
             <Route path="/resume-studio" element={<ResumeStudioPage />} />
+            <Route path="/opportunities" element={<OpportunitiesPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
             <Route path="/opportunity/:id" element={<OpportunityPage />} />
             <Route path="/observatory" element={<ObservatoryPage />} />

@@ -1,10 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Users, ChevronDown, Wand2, MapPin, Mail, Sparkles, ShieldCheck } from 'lucide-react';
+import { FileText, Users, ChevronDown, Wand2, MapPin, Mail, Sparkles, ShieldCheck, CheckCircle2, Award, Briefcase, Trash2 } from 'lucide-react';
 import PageShell from '../components/layout/PageShell';
 import UploadZone from '../components/documents/UploadZone';
 import DocumentList from '../components/documents/DocumentList';
-import OpportunityFeed from '../components/opportunities/OpportunityFeed';
 import GlassCard from '../components/ui/GlassCard';
 import Badge from '../components/ui/Badge';
 import { fetchCandidates, fetchCandidateDetails } from '../api/client';
@@ -13,7 +12,7 @@ export default function DocumentsPage() {
   const navigate = useNavigate();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [candidatesList, setCandidatesList] = useState([]);
-  const [selectedCandidateId, setSelectedCandidateId] = useState('candidate_all');
+  const [selectedCandidateId, setSelectedCandidateId] = useState('candidate_mohit');
   const [activeCandidate, setActiveCandidate] = useState(null);
 
   useEffect(() => {
@@ -21,7 +20,8 @@ export default function DocumentsPage() {
       try {
         const cRes = await fetchCandidates();
         if (cRes.candidates && cRes.candidates.length > 0) {
-          setCandidatesList(cRes.candidates);
+          const valid = cRes.candidates.filter(c => c.id !== 'candidate_all');
+          setCandidatesList(valid);
         }
       } catch (err) {
         console.error('Failed to load candidate list:', err);
@@ -32,15 +32,13 @@ export default function DocumentsPage() {
 
   useEffect(() => {
     async function loadCandidate() {
-      if (selectedCandidateId !== 'candidate_all') {
+      if (selectedCandidateId) {
         try {
           const res = await fetchCandidateDetails(selectedCandidateId);
           if (res.candidate) setActiveCandidate(res.candidate);
         } catch (err) {
           console.error('Failed to load candidate details:', err);
         }
-      } else {
-        setActiveCandidate(null);
       }
     }
     loadCandidate();
@@ -52,92 +50,83 @@ export default function DocumentsPage() {
 
   return (
     <PageShell
-      title="Documents & Discovered Opportunities"
-      subtitle="Multi-candidate document ingestion, OCR embedding provenance & career discovery"
+      title="Candidate Documents & Master Stencils"
+      subtitle="Multi-candidate OCR document ingestion, vector provenance & master resume management"
       icon={FileText}
     >
-      <div className="space-y-6">
-        {/* Candidate Switcher Header Bar */}
-        <GlassCard className="p-4 bg-slate-900/80 border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-              <Users className="w-4 h-4 text-indigo-400" />
-              <span>Active Candidate Context:</span>
-            </div>
-            <div className="relative min-w-[260px]">
-              <select
-                value={selectedCandidateId}
-                onChange={(e) => setSelectedCandidateId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-bold appearance-none pr-8 cursor-pointer shadow-inner"
+      <div className="space-y-6 animate-fade-in">
+        {/* Candidate Selector Tabs */}
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900/80 p-2 rounded-2xl border border-slate-800 backdrop-blur-md shadow-xl">
+          {candidatesList.map((c) => {
+            const isSelected = selectedCandidateId === c.id;
+            return (
+              <button
+                key={c.id}
+                onClick={() => setSelectedCandidateId(c.id)}
+                className={`flex items-center gap-2.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg'
+                    : 'bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 border border-slate-800'
+                }`}
               >
-                {candidatesList.length === 0 ? (
-                  <option value="candidate_all">🌐 Multi-Candidate Global Network</option>
-                ) : (
-                  candidatesList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
-                    </option>
-                  ))
-                )}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
-            </div>
-          </div>
+                <Users className="w-3.5 h-3.5" />
+                <span>{c.name}</span>
+                <span className="text-[10px] opacity-80 font-normal">({c.role?.split('|')[0].trim()})</span>
+              </button>
+            );
+          })}
+        </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate(`/studio?candidateId=${selectedCandidateId === 'candidate_all' ? 'candidate_mohit' : selectedCandidateId}`)}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all cursor-pointer"
-            >
-              <Wand2 className="w-4 h-4" />
-              Open in AI Resume Studio
-            </button>
-          </div>
-        </GlassCard>
-
-        {/* Candidate Detail Strip if Single Candidate is Selected */}
+        {/* Candidate Stencil Highlight Card */}
         {activeCandidate && (
-          <div className="p-4 bg-slate-900/60 rounded-2xl border border-indigo-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center font-bold text-sm text-indigo-400">
+          <GlassCard className="p-5 bg-slate-900/80 border border-indigo-500/30 rounded-2xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center font-black text-base text-indigo-400 shadow-inner">
                 {activeCandidate.name?.slice(0, 2).toUpperCase()}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-white">{activeCandidate.name}</h3>
-                  <Badge variant="primary" size="sm">{activeCandidate.role?.split('|')[0].trim()}</Badge>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h3 className="text-base font-extrabold text-white">{activeCandidate.name}</h3>
+                  <Badge variant="primary" size="sm">{activeCandidate.role}</Badge>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400 mt-0.5">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-slate-500" /> {activeCandidate.location || 'Noida, India'}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Mail className="w-3 h-3 text-slate-500" /> {activeCandidate.email}
-                  </span>
+                <div className="flex items-center gap-4 text-xs text-slate-400">
+                  <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-500" /> {activeCandidate.location}</span>
+                  <span className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5 text-slate-500" /> {activeCandidate.email}</span>
+                </div>
+                <div className="flex items-center gap-1.5 pt-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Top Skills:</span>
+                  {(activeCandidate.top_skills || []).map((sk) => (
+                    <span key={sk} className="text-[10px] font-bold bg-slate-950 text-indigo-300 px-2 py-0.5 rounded-md border border-slate-800">
+                      {sk}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400 font-medium">Verified Resume:</span>
-              <span className="text-xs font-mono font-bold text-cyan-300 bg-slate-950 px-2 py-1 rounded border border-slate-800">
-                {activeCandidate.doc_name || 'Resume.pdf'}
-              </span>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full md:w-auto">
+              <button
+                onClick={() => navigate(`/studio?candidateId=${selectedCandidateId}`)}
+                className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                <Wand2 className="w-4 h-4" />
+                Tailor in Resume Studio
+              </button>
             </div>
-          </div>
+          </GlassCard>
         )}
 
-        {/* Upload Section */}
+        {/* Upload Zone */}
         <UploadZone
           onUploadSuccess={handleUploadSuccess}
           onPipelineComplete={handleUploadSuccess}
         />
 
-        {/* Split View: Documents + Filtered Opportunities */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <DocumentList refreshTrigger={refreshTrigger} />
-          <OpportunityFeed initialCandidateId={selectedCandidateId} />
-        </div>
+        {/* Ingested Documents List with Delete Action */}
+        <DocumentList 
+          refreshTrigger={refreshTrigger} 
+          selectedCandidateId={selectedCandidateId} 
+        />
       </div>
     </PageShell>
   );

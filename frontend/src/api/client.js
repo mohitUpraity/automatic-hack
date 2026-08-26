@@ -245,6 +245,17 @@ export async function fetchDocuments() {
   return await res.json();
 }
 
+export async function deleteDocument(docId) {
+  const res = await fetchWithConfig(`${API_BASE}/api/documents/${docId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to delete document' }));
+    throw new Error(err.detail || 'Failed to delete document');
+  }
+  return await res.json();
+}
+
 export async function fetchOpportunities(candidateId = null) {
   const url = candidateId && candidateId !== 'candidate_all'
     ? `${API_BASE}/api/opportunities?candidate_id=${encodeURIComponent(candidateId)}`

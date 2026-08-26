@@ -114,10 +114,11 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
     if (onSelectOpportunity) {
       onSelectOpportunity(opp);
     } else {
-      const cand = opp.matched_candidate_id || selectedCandidate || 'candidate_mohit';
-      navigate(`/opportunity/${opp.id}?candidateId=${cand}`);
+      setSelectedOppForDetail(opp);
+      setIsDetailModalOpen(true);
     }
   };
+
 
   const filteredOpportunities = useMemo(() => {
     let result = opportunities.filter((opp) => {

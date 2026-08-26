@@ -211,3 +211,26 @@ def read_from_db(table: str, query_filter: str = "") -> Dict[str, Any]:
         return {"status": "error", "message": f"SQLite read error: {str(e)}", "records": []}
     finally:
         conn.close()
+
+
+def delete_from_db(table: str, record_id: str) -> Dict[str, Any]:
+    """Universal record deleter supporting Supabase with SQLite fallback."""
+    sb_table = _normalize_table_name(table)
+    sb = get_supabase()
+    if sb:
+        try:
+            sb.table(sb_table).delete().eq("id", record_id).execute()
+        except Exception as e:
+            print(f"[Supabase Delete Notice] {e}")
+
+    # Fallback SQLite
+    conn = _get_sqlite_conn()
+    try:
+        conn.execute(f"DELETE FROM {table} WHERE id = ?", (record_id,))
+        conn.commit()
+        return {"status": "success", "id": record_id, "table": table}
+    except Exception as e:
+        return {"status": "error", "message": f"SQLite delete error: {str(e)}"}
+    finally:
+        conn.close()
+

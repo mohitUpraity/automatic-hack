@@ -41,7 +41,7 @@ from my_agent.armoriq_wrapper import ArmorIQClient, ArmorIQScopeViolationError
 # MCP & Tools
 from my_agent.tools.docling_tools import convert_document
 from my_agent.tools.embedding_tools import embed_chunks
-from my_agent.tools.db_tools import store_document, store_embeddings, get_supabase, store_to_db, read_from_db
+from my_agent.tools.db_tools import store_document, store_embeddings, get_supabase, store_to_db, read_from_db, delete_from_db
 from my_agent.tools.knowledge_tools import search_knowledge_base, get_rag_context
 from my_agent.tools.tailor_tools import tailor_resume_for_opportunity, generate_tailored_pdf, _build_native_pdf_binary
 from my_agent.tools.llm_tools import call_groq_llm
@@ -978,6 +978,13 @@ def get_profile_opportunities(profile_id: str):
 def get_all_documents():
     res = read_from_db("documents")
     return {"status": "success", "documents": res.get("records", [])}
+
+
+@app.delete("/api/documents/{doc_id}")
+def delete_document_endpoint(doc_id: str):
+    """Deletes an uploaded document from Supabase and SQLite records."""
+    res = delete_from_db("documents", doc_id)
+    return {"status": "success", "message": f"Document {doc_id} deleted successfully", "id": doc_id}
 
 
 @app.get("/api/stats")
