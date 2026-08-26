@@ -74,6 +74,8 @@ export default function ResumeStudioPage() {
   const [customPrompt, setCustomPrompt] = useState('');
   const [copied, setCopied] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [isSavingMaster, setIsSavingMaster] = useState(false);
+  const [masterSaved, setMasterSaved] = useState(false);
   const [history, setHistory] = useState([]);
 
   // Firecrawl Company Deep Research state
@@ -81,6 +83,12 @@ export default function ResumeStudioPage() {
   const [isCrawlingIntel, setIsCrawlingIntel] = useState(false);
   const [justTailored, setJustTailored] = useState(false);
   const [tailoredMeta, setTailoredMeta] = useState(null);
+
+  const handleCopyMarkdown = () => {
+    navigator.clipboard.writeText(markdown);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   useEffect(() => {
     if (user?.id) {
