@@ -58,8 +58,17 @@ export async function uploadUrl(url, docType = 'resume') {
   return await res.json();
 }
 
-export async function fetchKnowledgeGraph(userId = 'default-user') {
-  const res = await fetchWithConfig(`${API_BASE}/api/knowledge-graph/${userId}`);
+export async function fetchCandidates() {
+  const res = await fetchWithConfig(`${API_BASE}/api/candidates`);
+  if (!res.ok) return { status: 'error', candidates: [] };
+  return await res.json();
+}
+
+export async function fetchKnowledgeGraph(userId = 'default-user', candidateId = null) {
+  const url = candidateId
+    ? `${API_BASE}/api/knowledge-graph/${userId}?candidate_id=${encodeURIComponent(candidateId)}`
+    : `${API_BASE}/api/knowledge-graph/${userId}`;
+  const res = await fetchWithConfig(url);
   if (!res.ok) return { nodes: [], links: [] };
   return await res.json();
 }
