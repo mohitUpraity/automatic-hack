@@ -297,44 +297,47 @@ def refine_resume_markdown(
 
     action_prompts = {
         "ats_optimize": """You are an ATS Optimization Specialist.
-Rewrite the provided resume to maximize ATS scanner match rates:
-1. Ensure standard high-readability section headers (# Name, ## Professional Summary, ## Technical Competencies, ## Experience, ## Projects, ## Education).
-2. Incorporate high-value industry standard keywords seamlessly without keyword stuffing.
+Optimize the provided resume to maximize ATS match rates while STRICTLY PRESERVING the exact original layout and document structure:
+1. Preserve the EXACT section headings, ordering, candidate contact lines (email, phone, LinkedIn, GitHub), and formatting syntax of the original resume.
+2. Incorporate high-value industry standard keywords seamlessly into bullet points without keyword stuffing.
 3. Use bullet points starting with strong action verbs (Architected, Engineered, Spearheaded, Accelerated).
-4. Preserve all true facts and technical accuracy.
-5. Return ONLY clean Markdown.""",
+4. Preserve all true facts, company names, project titles, and dates.
+5. Return ONLY clean Markdown starting directly with the candidate's name line.""",
 
         "quantify_metrics": """You are an Executive Tech Resume Writer.
 Enhance the bullet points in the provided resume by quantifying impact and adding metrics:
-1. Emphasize measurable scale, percentages, latency reductions, user volume, and financial impact (e.g. 'Improved query latency by 42%', 'Scaled system to 100k+ MAU', 'Saved 15+ developer hours/week').
-2. Where exact figures are not specified, frame realistic, high-impact technical metrics consistent with the candidate's domain.
-3. Keep statements concise, punchy, and results-focused.
-4. Return ONLY clean Markdown.""",
+1. STRICTLY PRESERVE the exact section headings, section order, candidate contact lines, and document structure.
+2. Emphasize measurable scale, percentages, latency reductions, user volume, and financial impact within existing bullet points.
+3. Where exact figures are not specified, frame realistic, high-impact technical metrics consistent with the candidate's domain.
+4. Keep statements concise, punchy, and results-focused.
+5. Return ONLY clean Markdown starting directly with the candidate's name line.""",
 
-        "tailor_for_opp": f"""You are a Strategic Career Tailoring Agent.
-Tailor the candidate resume specifically for this target opportunity:
+        "tailor_for_opp": f"""You are a Strategic In-Place Career Tailoring Agent.
+Tailor the candidate resume specifically for this target opportunity while STRICTLY PRESERVING the exact original document template:
 Target Opportunity Context:
 {context or 'Modern High-Growth Tech Role'}
 
 Instructions:
-1. Align the Professional Summary and Core Competencies directly with the target requirements.
-2. Reorder or emphasize the most relevant projects and experience accomplishments.
-3. Return ONLY clean Markdown.""",
+1. STRICT TEMPLATE LOCK: Keep the EXACT same section headings in the EXACT same sequence. Keep the exact candidate name line and all contact details verbatim.
+2. Align the Professional Summary and Core Competencies directly with the target requirements.
+3. Surgically refine experience and project bullet points to highlight skills matching the target opportunity.
+4. Return ONLY clean Markdown starting directly with the candidate's name line.""",
 
         "hackathon_pitch": f"""You are a Hackathon & Competition Strategist.
-Transform the resume into a winning Competition Portfolio & Team Pitch:
-1. Highlight rapid prototyping capabilities, hackathon-relevant full-stack & AI skills, and standout flagship projects.
-2. Include a dedicated 'Hackathon & Innovation Highlights' section highlighting agile shipping and creative problem solving.
+Enhance the resume for competition and hackathon evaluation while preserving the candidate's authentic structure:
+1. Preserve the exact layout and contact details.
+2. Highlight rapid prototyping capabilities, full-stack & AI skills, and standout flagship projects.
 3. Frame achievements around velocity, innovation, and end-to-end delivery.
-4. Return ONLY clean Markdown.""",
+4. Return ONLY clean Markdown starting directly with the candidate's name line.""",
 
         "polish_summary": """You are a Career Branding Coach.
-Craft a compelling 3-line Executive Summary at the top of the resume that immediately hooks hiring managers and tech leads with the candidate's unique value proposition, primary tech stack, and strongest achievement.
-Keep the rest of the resume intact and return ONLY clean Markdown.""",
+Polish the Professional Summary at the top of the resume to highlight the candidate's unique value proposition and primary tech stack.
+Keep the rest of the resume structure, sections, and contact lines 100% intact.
+Return ONLY clean Markdown starting directly with the candidate's name line.""",
 
         "fix_grammar": """You are a Professional Copyeditor.
-Review the resume and polish all wording for perfect grammar, professional tone, active voice, and consistent tense.
-Return ONLY clean Markdown."""
+Review the resume and polish wording for perfect grammar, active voice, and consistent tense without altering the document structure, section headers, or contact details.
+Return ONLY clean Markdown starting directly with the candidate's name line."""
     }
 
     instruction = action_prompts.get(action, action_prompts["ats_optimize"])
@@ -349,6 +352,18 @@ Original Resume Markdown:
 """
 
     refined_md = call_groq_llm(prompt)
+
+    # Clean any accidental wrapping
+    if refined_md.startswith("```markdown"):
+        refined_md = refined_md[11:]
+    if refined_md.startswith("```"):
+        refined_md = refined_md[3:]
+    if refined_md.endswith("```"):
+        refined_md = refined_md[:-3]
+    refined_md = refined_md.strip()
+
+    if len(refined_md) < 80:
+        refined_md = resume_markdown
 
     # Generate preview PDF
     out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "temp_uploads", "tailored_resumes")
@@ -367,3 +382,4 @@ Original Resume Markdown:
         "ats_score": ats_score,
         "engine": pdf_res.get("engine", "WeasyPrint")
     }
+

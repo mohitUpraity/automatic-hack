@@ -6,6 +6,7 @@ while strictly preserving the candidate's original document layout, structure, a
 
 import os
 import io
+import re
 import time
 from typing import Any, Dict, Optional
 
@@ -158,38 +159,44 @@ def _build_native_pdf_binary(markdown_text: str) -> bytes:
             current_cmds.append(f"1 0 0 1 {margin_left} {y} Tm")
             current_cmds.append(f"({h3}) Tj")
         elif line.startswith("- ") or line.startswith("* "):
-            # Bullet point item
-            bullet_body = line[2:].strip()
-            clean_bullet = _escape_pdf_text(bullet_body.replace("**", "").replace("__", ""))
-            words = clean_bullet.split()
-            current_line = "* "
+            # Bullet item
+            bullet_text = line[2:].strip().replace("**", "").replace("__", "")
+            bullet_text = _escape_pdf_text(bullet_text)
+            
+            words = bullet_text.split()
+            current_line = ""
+            is_first = True
             for w in words:
-                if len(current_line) + len(w) > chars_per_line:
-                    y -= 11.5
+                prefix = "-  " if is_first else "   "
+                test_line = (current_line + " " + w).strip()
+                if len(test_line) > chars_per_line:
+                    y -= 11
                     if y < margin_bottom + 20:
                         start_new_page()
-                    current_cmds.append("/F1 9 Tf")
+                    current_cmds.append("/F1 8.5 Tf")
                     current_cmds.append("0.15 0.18 0.22 rg")
-                    current_cmds.append(f"1 0 0 1 {margin_left + 10} {y} Tm")
-                    current_cmds.append(f"({current_line}) Tj")
-                    current_line = "  " + w
+                    current_cmds.append(f"1 0 0 1 {margin_left + (0 if is_first else 10)} {y} Tm")
+                    current_cmds.append(f"({prefix + current_line}) Tj")
+                    current_line = w
+                    is_first = False
                 else:
-                    current_line += (" " if len(current_line) > 2 else "") + w
+                    current_line = test_line
             if current_line.strip():
-                y -= 11.5
+                prefix = "-  " if is_first else "   "
+                y -= 11
                 if y < margin_bottom + 20:
                     start_new_page()
-                current_cmds.append("/F1 9 Tf")
+                current_cmds.append("/F1 8.5 Tf")
                 current_cmds.append("0.15 0.18 0.22 rg")
-                current_cmds.append(f"1 0 0 1 {margin_left + 10} {y} Tm")
-                current_cmds.append(f"({current_line}) Tj")
+                current_cmds.append(f"1 0 0 1 {margin_left + (0 if is_first else 10)} {y} Tm")
+                current_cmds.append(f"({prefix + current_line}) Tj")
         else:
-            # Regular paragraph text (Contact line, summary text, dates)
-            clean_para = _escape_pdf_text(line.replace("**", "").replace("__", ""))
-            words = clean_para.split()
+            # Paragraph / contact line
+            p_text = _escape_pdf_text(line.replace("**", "").replace("__", ""))
+            words = p_text.split()
             current_line = ""
             for w in words:
-                if len(current_line) + len(w) > chars_per_line + 4:
+                if len(current_line + " " + w) > chars_per_line:
                     y -= 11.5
                     if y < margin_bottom + 20:
                         start_new_page()
@@ -341,27 +348,38 @@ def tailor_resume_for_opportunity(
 
     rag_context = get_rag_context(f"{opportunity_title} {company_name} {requirements}", user_id=user_id)
 
-    prompt = f"""You are a Precision ATS Resume Tailoring AI.
-YOUR MISSION: Take the candidate's authentic original resume below and surgically tailor ONLY the relevant keywords, summary, bullet points, skills, and project highlights to align 100% with the target opportunity.
+    prompt = f"""You are an Expert In-Place ATS Resume Tailoring Engine.
 
-TARGET OPPORTUNITY:
-- Target Role: {opportunity_title}
-- Target Organization: {company_name}
-- Role Requirements & Tech Stack: {requirements}
+CRITICAL DIRECTIVE: You MUST PRESERVE the EXACT document template, layout, header format, personal contact line, section ordering, and bullet styling of the ORIGINAL RESUME below.
+Do NOT convert this resume into a generic or standard template. Treat the original document structure as an IMMUTABLE STENCIL.
 
-CANDIDATE GROUNDED PORTFOLIO (RAG Context):
+TARGET JOB SPECIFICATION:
+- Role Title: {opportunity_title}
+- Company / Organization: {company_name}
+- Key Job Requirements & Tech Stack: {requirements}
+
+CANDIDATE GROUNDED PORTFOLIO CONTEXT (RAG):
 {rag_context}
 
-ORIGINAL RESUME (EXTRACTED FROM ORIGINAL DOCUMENT VIA DOCLING OCR):
+ORIGINAL RESUME (GOLDEN TEMPLATE):
 \"\"\"
 {base_markdown}
 \"\"\"
 
-STRICT TAILORING RULES:
-1. STRICT FORMAT & STRUCTURE PRESERVATION: Preserve the EXACT document structure, headers, personal styling, contact line, section ordering, and bullet point format of the original resume. DO NOT replace it with a generic or plain template.
-2. SURGICAL ATS KEYWORD INJECTION: Naturally weave high-priority ATS keywords and relevant competencies from the target role into the Professional Summary, Skills list, and relevant bullet points.
-3. ACCURACY & INTEGRITY: Keep all factual projects, true metrics, real companies, and genuine accomplishments accurate. Highlight the most relevant aspects for {company_name}.
-4. NO FILLER / NO MARKDOWN ARTIFACTS: Output ONLY the complete, tailored Markdown resume starting with the candidate's name header. Do NOT include conversational filler, notes, or codeblock fences.
+STRICT IN-PLACE TAILORING RULES:
+1. 100% TEMPLATE & STRUCTURE PRESERVATION:
+   - Keep the EXACT same section headings in the EXACT same sequence (e.g. if the resume has `## SUMMARY`, `## TECHNICAL SKILLS`, `## WORK EXPERIENCE`, `## PROJECTS`, `## EDUCATION`, do NOT change, reorder, rename, or drop any of these sections).
+   - Preserve the exact candidate name line and all contact details (Email, Phone, LinkedIn, GitHub, LeetCode, Portfolio, Location) verbatim.
+   - Retain the exact markdown formatting (bullet format `- `, bold titles `**...**`, dates `(2022 - 2024)`, and dividers).
+
+2. SURGICAL IN-PLACE KEYWORD TAILORING:
+   - In the Summary / Objective (if present): Naturally weave in the target title and key competencies sought by {company_name}.
+   - In Technical Skills: Highlight and position the relevant technologies, frameworks, languages, and tools required by the JD while preserving the candidate's authentic skillset.
+   - In Work Experience & Projects: Surgically refine the bullet points to highlight architecture, metrics, performance, and features directly relevant to {opportunity_title} at {company_name}, while keeping all company names, real project titles, dates, and genuine accomplishments accurate.
+
+3. ZERO DRIFT & CLEAN OUTPUT:
+   - Output ONLY the complete, tailored Markdown resume.
+   - Do NOT include any conversational preamble, notes, explanations, or codeblock fences (` ```markdown ` or ` ``` `). Start directly with the candidate's name line.
 """
     tailored_md = call_groq_llm(prompt)
 
@@ -373,6 +391,10 @@ STRICT TAILORING RULES:
     if tailored_md.endswith("```"):
         tailored_md = tailored_md[:-3]
     tailored_md = tailored_md.strip()
+
+    # Safety check: If the LLM returned empty or too short, fallback to base_markdown
+    if len(tailored_md) < 80:
+        tailored_md = base_markdown
 
     if not output_pdf_path:
         out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "temp_uploads", "tailored_resumes")

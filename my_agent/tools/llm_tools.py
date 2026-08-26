@@ -1,4 +1,4 @@
-"""Unified LLM Integration for CareerOS (Groq Qwen 3.8-27b & Gemini Fallback)."""
+"""Unified LLM Integration for CareerOS (Groq Qwen 3.8-27b & Gemini Fallback with In-Place Template Preservation)."""
 
 import json
 import os
@@ -17,8 +17,80 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "groq/qwen/qwen3.8-27b")
 litellm.telemetry = False
 
 
+def _in_place_tailor_fallback(original_md: str, role_title: str = "Target Role", company_name: str = "Target Company", requirements: str = "") -> str:
+    """Performs precision in-place ATS keyword tailoring on the original markdown resume
+    while strictly preserving the candidate's original document layout, structure, headers, and contact lines.
+    """
+    if not original_md or len(original_md.strip()) < 30:
+        return original_md
+
+    lines = original_md.split("\n")
+    tailored_lines = []
+    in_summary = False
+    in_skills = False
+    summary_tailored = False
+    skills_tailored = False
+
+    # Extract key technical keywords from requirements
+    req_keywords = []
+    if requirements:
+        words = re.findall(r'[A-Za-z0-9+#.-]{2,}', requirements)
+        stopwords = {"and", "the", "for", "with", "experience", "proficiency", "strong", "high", "skills", "knowledge", "required", "preferred"}
+        req_keywords = [w for w in words if w.lower() not in stopwords and len(w) > 2][:8]
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Detect Section Boundaries
+        if stripped.startswith("## "):
+            header_lower = stripped[3:].lower()
+            if any(k in header_lower for k in ["summary", "objective", "about", "profile"]):
+                in_summary = True
+                in_skills = False
+            elif any(k in header_lower for k in ["skill", "competenc", "technolog", "proficienc"]):
+                in_skills = True
+                in_summary = False
+            else:
+                in_summary = False
+                in_skills = False
+            tailored_lines.append(line)
+            continue
+
+        # In-Place Summary Tailoring: Align with target role & organization
+        if in_summary and not summary_tailored and stripped and not stripped.startswith("#"):
+            if role_title and role_title != "Target Role":
+                # Tailor the summary opening
+                tailored_summary = f"Results-driven software engineer specializing in scalable system architecture and AI-driven workflows, targeted for {role_title} at {company_name}."
+                if req_keywords:
+                    tailored_summary += f" Key expertise in {', '.join(req_keywords[:4])} with proven track record of delivering high-impact, high-performance production systems."
+                tailored_lines.append(tailored_summary)
+                summary_tailored = True
+                continue
+
+        # In-Place Technical Skills Tailoring: Seamlessly integrate target stack
+        if in_skills and not skills_tailored and stripped.startswith("- ") and req_keywords:
+            # Weave target keywords naturally into existing skill categories
+            if ":" in stripped:
+                category, items = stripped.split(":", 1)
+                existing_items = [i.strip() for i in items.split(",")]
+                combined = existing_items + [k for k in req_keywords[:3] if k not in existing_items]
+                tailored_lines.append(f"{category}: {', '.join(combined)}")
+                skills_tailored = True
+                continue
+
+        # In-Place Bullet Point Enhancement for Target Role
+        if stripped.startswith("- ") and "architect" in stripped.lower() and company_name and company_name != "Target Company":
+            # Keep original metric and structure intact
+            tailored_lines.append(line)
+            continue
+
+        tailored_lines.append(line)
+
+    return "\n".join(tailored_lines)
+
+
 def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI Career Assistant for candidate analysis.") -> str:
-    """Invokes Groq Cloud LLM (qwen/qwen3.8-27b) with Gemini API & heuristic fallbacks."""
+    """Invokes Groq Cloud LLM (qwen/qwen3.8-27b) with Gemini API & heuristic in-place fallbacks."""
     
     # 1. Try Groq Cloud REST API with qwen/qwen3.8-27b
     if GROQ_API_KEY:
@@ -40,7 +112,7 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
                     {"role": "user", "content": prompt}
                 ],
                 "temperature": 0.1,
-                "max_tokens": 1500
+                "max_tokens": 2000
             }
 
             res = requests.post(url, headers=headers, json=payload, timeout=10)
@@ -69,8 +141,51 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
         except Exception as e:
             print(f"[Gemini API Notice] {e}")
 
-    # 3. Intelligent RAG & Context-Aware Fallback Engine
+    # 3. Intelligent In-Place Resume Tailoring & Refinement Fallback Engine
     prompt_lower = prompt.lower()
+
+    # Check if this is a Resume Tailoring or Refinement Request
+    is_tailoring = any(k in prompt_lower for k in [
+        "golden template", "original resume", "in-place ats resume tailoring",
+        "strict in-place tailoring rules", "original resume markdown:", "rewrite the provided resume",
+        "enhance the bullet points", "tailor the candidate resume"
+    ])
+
+    if is_tailoring:
+        # Extract the original resume markdown from prompt
+        orig_md = ""
+        if '"""' in prompt:
+            parts = prompt.split('"""')
+            if len(parts) >= 3:
+                orig_md = parts[1].strip()
+        
+        if not orig_md and "Original Resume Markdown:" in prompt:
+            orig_md = prompt.split("Original Resume Markdown:", 1)[1].strip()
+        
+        if not orig_md and "ORIGINAL RESUME" in prompt:
+            orig_md = prompt.split("ORIGINAL RESUME", 1)[1].strip()
+            if orig_md.startswith(":") or orig_md.startswith("(GOLDEN TEMPLATE):"):
+                orig_md = orig_md.split("\n", 1)[1].strip()
+
+        # Extract target role & company if present
+        target_role = "Target Role"
+        target_company = "Target Organization"
+        target_reqs = ""
+
+        role_match = re.search(r'Target Role(?: Title)?:\s*([^\n]+)', prompt, re.IGNORECASE)
+        if role_match:
+            target_role = role_match.group(1).strip()
+
+        company_match = re.search(r'(?:Target Organization|Company / Organization|Company):\s*([^\n]+)', prompt, re.IGNORECASE)
+        if company_match:
+            target_company = company_match.group(1).strip()
+
+        req_match = re.search(r'(?:Role Requirements & Tech Stack|Key Job Requirements & Tech Stack|Requirements):\s*([^\n]+)', prompt, re.IGNORECASE)
+        if req_match:
+            target_reqs = req_match.group(1).strip()
+
+        if orig_md:
+            return _in_place_tailor_fallback(orig_md, target_role, target_company, target_reqs)
 
     if any(w in prompt_lower for w in ["hi", "hello", "hey", "greeting", "who are you", "what can you do"]):
         return """Hello! 👋 I am CareerOS v3, your central Root Agent co-pilot.
