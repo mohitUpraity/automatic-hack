@@ -1581,41 +1581,62 @@ CANDIDATES_REGISTRY = {
         "peer_gaps": ["TypeScript & Figma Design Systems (Mastered by Krati)", "Large-Scale Distributed Microservices (Mastered by Vishnu)"],
         "resume_markdown": """# Mohit Prasad Upraity
 **Software Engineer | Full-Stack Development | AI & Cybersecurity**
-Phone: +91-9568548130 | Email: mohitupraity123@gmail.com | Location: Noida, India
-GitHub: github.com/mohitupraity | LinkedIn: linkedin.com/in/mohitUpraity
++91-9568548130 | mohitupraity123@gmail.com | github.com/mohitupraity | linkedin.com/in/mohitUpraity
 
-## Professional Summary
-Full-stack Software Engineer with hands-on experience building and deploying production web applications, multi-agent AI systems, and IoT gait analysis algorithms. Winner of 1st Place at Hack With UP (State Hackathon) and Hack With Agra.
+## Summary
+Full-stack Software Engineer with hands-on experience building and deploying production web applications (React, Node.js, Firebase, MongoDB, PostgreSQL) alongside specialized work in AI-assisted systems and network security. Currently developing a Next Generation Firewall prototype at DRDO ADRDE. Proven ability to ship features end-to-end, integrate REST APIs and third-party services, and deliver working products under tight timelines — winner of 4 hackathons. Seeking a Software Developer role to apply strong coding fundamentals, debugging discipline, and collaborative engineering practices.
 
 ## Technical Skills
-- **Languages**: Python, JavaScript, TypeScript, C++, SQL
-- **AI & ML**: PyTorch, LangChain, TensorFlow Lite, Gemini 001 Embeddings, RAG Architectures
-- **Frontend & Backend**: React, FastAPI, Node.js, Tailwind CSS, REST APIs, WebSockets
-- **Databases & Cloud**: PostgreSQL, Supabase, pgvector, SQLite, Docker, Git
+Languages & Web: Python, JavaScript (ES6+), TypeScript, HTML, CSS, React.js, Next.js, Node.js, Express.js, React Native
+Databases: MongoDB, PostgreSQL, MySql, Firebase (SQL & NoSQL data modeling)
+Engineering Practices: REST API design & integration, Git version control, code collaboration, debugging & troubleshooting, Docker, Postman, Vercel deployment
+AI/Security: NLP, RAG, LLMs, Agentic AI, Prompt Engineering, Network Security, TCP/IP, Wireshark, Intrusion Detection, Kali Linux
 
 ## Experience
-### Full-Stack & AI Engineer | CloudScale Technologies
-*2023 - Present | Noida, India*
-- Engineered high-throughput multi-agent orchestration pipeline processing live career telemetry.
-- Implemented real-time WebSocket telemetry with sub-agent scope delegation and ArmorIQ security.
-- Optimized vector search retrieval latency by 38% through hybrid search ranking and cosine matching.
+### Defence Research & Development Organization (DRDO) – ADRDE, Agra
+Cybersecurity / AI Intern — Feb 2026 – Jun 2026
+- Engineered a Next Generation Firewall (NGFW) prototype to monitor simulated network traffic and detect anomalous packets in real time.
+- Built AI-assisted traffic analysis and intrusion detection mechanisms to flag suspicious network behavior.
+- Developed deep packet inspection modules for anomaly detection, strengthening secure network monitoring.
 
-## Honors & Awards
-- 🏆 **1st Place Winner** — Hack With UP State Hackathon (2025) for AI Smart Shoe IoT Wearable
-- 🏆 **1st Place Winner** — Hack With Agra Hackathon (2024) for AgriFarm Vision AI
-- 🏅 **Top 5 Finalist** — National Smart India Hackathon (SIH 2024)
+### SUREXA IT Solutions — Remote, India
+ML Research Intern — Apr 2026 – Present
+- Developed and optimized a machine learning pipeline for automated risk prediction, analyzing data patterns to forecast potential risks.
+- Conducted literature reviews of state-of-the-art AI/ML research to inform methodology decisions for upcoming pipeline projects.
+- Collaborated with cross-functional teams to troubleshoot and advance pending technical projects, improving delivery timelines and system reliability.
 
-## Featured Projects
-### CareerOS Multi-Agent Autonomous Pipeline
-- Built an autonomous career pipeline integrating Docling OCR, Gemini vector embeddings, and real-time Firecrawl opportunity scouting.
-- Designed ATS resume tailoring engine with instant vector citation provenance and 100% valid binary PDF generation.
+### Novonixsoft (Startup), Agra, India
+Software Engineer — May 2025 – Present
+- Built and shipped 5+ web application modules using React, Node.js, and Firebase.
+- Implemented authentication systems and integrated REST APIs across production features.
+- Collaborated with the engineering team to build scalable backend services and deploy features to production.
 
-### AI Smart Shoe Gait Analysis & Fall Prevention System (IoT)
-- Developed an embedded IoT wearable system with real-time ML gait analysis and fall prevention telemetry.
-- Programmed microcontrollers with C++ and MicroPython for sensor data acquisition and edge inference.
+## Projects
+### AgriFarm AI — Full-Stack & IoT Platform (Live) | Aug 2025 – Present
+- Engineered a full-stack AI/IoT platform with React/Next.js, Firebase, and connected IoT sensors for real-time soil monitoring and automated crop alerts.
+- Integrated 3+ IoT sensors (moisture, temperature, nutrients) with cloud APIs to deliver live farm insights through a responsive web interface.
+- Processed sensor data to generate actionable crop recommendations, improving monitoring efficiency for data-driven farming decisions.
 
-### AgriFarm Vision AI
-- Deployed edge computer vision model for automated crop disease diagnosis and soil sensor telemetry.
+### LawBot360 (Live) — AI Legal Assistant
+- Built a real-time conversational AI legal assistant with contract analysis capabilities.
+
+### SkillSync 2.0 (Live) — AI Skill-Matching Platform
+- Developed an AI-powered platform connecting recruiters with candidates by bridging skill gaps in the hiring pipeline.
+
+## Industry Project
+### Dawar Group Pvt. Ltd., Agra — AI Smart Shoe System
+- Designed the concept for an AI-enabled smart footwear system for gait and usage analysis and built a working prototype.
+
+## Achievements & Technical Outreach
+- 1st Place — Hack With UP, Chandigarh University, Lucknow — built SkillSync 2.0.
+- 1st Place — Hack With Agra — developed LawBot360.
+- 2nd Place — SISTEC Innovation Hackathon, Bhopal — built AgriFarm AI.
+- 2nd Place — HackShodh, CSJMU Kanpur — built LawBot360.
+- Presented LawBot360, AgriFarm-AI, and SkillSync 2.0 to research officials at CSIR-NEERI.
+- Demonstrated AgriFarm-AI to the Deputy Director of Agriculture (Mathura) for potential deployment.
+
+## Education
+### Anand Engineering College — B.E. in Computer Science Engineering, Agra, India | 2023 – 2027
 """
     },
     "candidate_krati": {
