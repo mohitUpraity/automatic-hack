@@ -59,11 +59,7 @@ from my_agent.mcp_servers.mcp_docproc_server import process_and_embed_document
 from my_agent.mcp_servers.mcp_knowledge_server import build_knowledge_base
 from my_agent.mcp_servers.mcp_tailor_server import tailor_resume
 
-# Ensure knowledge base vector embeddings are initialized
-try:
-    seed_candidate_knowledge_bases()
-except Exception as _e:
-    pass
+# Knowledge base vector embeddings initialized on-demand per user
 
 app = FastAPI(title="CareerOS v3 API Server", version="3.0")
 
@@ -150,6 +146,26 @@ class CustomScoutReq(BaseModel):
 class DownloadPdfReq(BaseModel):
     markdown: Optional[str] = None
     pdf_path: Optional[str] = None
+
+
+def extract_social_links_from_text(text: str) -> dict:
+    """Extracts LinkedIn, GitHub, LeetCode, Portfolio, Email, and Phone from resume markdown."""
+    linkedin_match = re.search(r'(?:https?://)?(?:www\.)?linkedin\.com/in/([a-zA-Z0-9_-]+)', text, re.I)
+    github_match = re.search(r'(?:https?://)?(?:www\.)?github\.com/([a-zA-Z0-9_-]+)', text, re.I)
+    leetcode_match = re.search(r'(?:https?://)?(?:www\.)?leetcode\.com/(?:u/)?([a-zA-Z0-9_-]+)', text, re.I)
+    codeforces_match = re.search(r'(?:https?://)?(?:www\.)?codeforces\.com/profile/([a-zA-Z0-9_-]+)', text, re.I)
+    portfolio_match = re.search(r'(?:https?://)?([a-zA-Z0-9_-]+\.(?:dev|me|io|app|tech|ai|vercel\.app|github\.io))', text, re.I)
+    email_match = re.search(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', text)
+    phone_match = re.search(r'(\+?[0-9]{1,3}?[-. ]?\(?[0-9]{2,4}\)?[-. ]?[0-9]{3,4}[-. ]?[0-9]{3,4})', text)
+
+    return {
+        "linkedin_url": f"https://linkedin.com/in/{linkedin_match.group(1)}" if linkedin_match else "",
+        "github_url": f"https://github.com/{github_match.group(1)}" if github_match else "",
+        "leetcode_url": f"https://leetcode.com/u/{leetcode_match.group(1)}" if leetcode_match else (f"https://codeforces.com/profile/{codeforces_match.group(1)}" if codeforces_match else ""),
+        "portfolio_url": f"https://{portfolio_match.group(1)}" if portfolio_match else "",
+        "email": email_match.group(1) if email_match else "",
+        "phone": phone_match.group(1) if phone_match else "",
+    }
 
 
 class AttackRequest(BaseModel):
@@ -632,9 +648,11 @@ Candidate Knowledge Base Context (RAG):
 async def upload_document(
     file: UploadFile = File(...),
     doc_type: str = Form("resume"),
-    user_id: str = Depends(get_current_user)
+    user_id: Optional[str] = Form(None),
+    auth_user: str = Depends(get_current_user)
 ):
-    """Upload ANY document (PDF, DOCX, Images, OCR). Docling converts, Gemini embeds, stored in DB."""
+    """Upload ANY document (PDF, DOCX, Images, OCR). Docling converts, Gemini embeds, extracts profile, updates Knowledge Graph & ranks opportunities."""
+    effective_user = user_id or auth_user or "default-user"
     temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_uploads")
     os.makedirs(temp_dir, exist_ok=True)
     # Sanitize filename
@@ -646,28 +664,97 @@ async def upload_document(
         with open(temp_path, "wb") as f:
             f.write(contents)
 
-        doc_res = convert_document(temp_path)
+        doc_res = convert_document(temp_path, doc_type=doc_type)
+        raw_markdown = doc_res.get("markdown", "")
         doc_id = store_document(
-            user_id=user_id,
+            user_id=effective_user,
             filename=file.filename,
             doc_type=doc_type,
-            raw_markdown=doc_res["markdown"],
-            metadata={"chunk_count": doc_res["chunk_count"]}
+            raw_markdown=raw_markdown,
+            metadata={"chunk_count": doc_res.get("chunk_count", 0), "is_uploaded": True}
         )
 
-        embedded = embed_chunks(doc_res["chunks"])
-        stored_count = store_embeddings(doc_id, user_id, embedded)
+        embedded = embed_chunks(doc_res.get("chunks", []))
+        stored_count = store_embeddings(doc_id, effective_user, embedded)
+
+        # ── Run Automatic Entity Extraction & Profile Update ──
+        from my_agent.tools.resume_tools import extract_resume
+        
+        extracted_resume = extract_resume(raw_markdown)
+        social_links = extract_social_links_from_text(raw_markdown)
+
+        skills_list = extracted_resume.get("skills", [])
+        proj_list = extracted_resume.get("projects", [])
+        exp_list = extracted_resume.get("experience", [])
+        edu_list = extracted_resume.get("education", [])
+        certs_list = extracted_resume.get("certifications", [])
+        cand_name = extracted_resume.get("name") or "Candidate"
+        cand_email = extracted_resume.get("email") or social_links.get("email") or ""
+        cand_phone = extracted_resume.get("phone") or social_links.get("phone") or ""
+
+        prof_payload = {
+            "user_id": effective_user,
+            "name": cand_name,
+            "role": "Software Engineer" if not exp_list else (exp_list[0].get("role") if isinstance(exp_list[0], dict) else "Software Engineer"),
+            "email": cand_email,
+            "phone": cand_phone,
+            "location": "Remote",
+            "skills": json.dumps(skills_list) if isinstance(skills_list, list) else str(skills_list),
+            "projects": json.dumps(proj_list) if isinstance(proj_list, list) else str(proj_list),
+            "experiences": json.dumps(exp_list) if isinstance(exp_list, list) else str(exp_list),
+            "education": json.dumps(edu_list) if isinstance(edu_list, list) else str(edu_list),
+            "raw_markdown": raw_markdown
+        }
+        store_to_db("profiles", prof_payload)
+
+        # Update in-memory candidate registry
+        CANDIDATES_REGISTRY[effective_user] = {
+            "id": effective_user,
+            "name": cand_name,
+            "role": prof_payload["role"],
+            "cluster_color": "#38bdf8",
+            "email": cand_email,
+            "phone": cand_phone,
+            "location": "Remote",
+            "summary": f"Autonomous career intelligence profile for {cand_name}.",
+            "skills": skills_list or ["Software Engineering", "AI/ML"],
+            "top_skills": skills_list[:6] if skills_list else ["Software Engineering", "AI/ML"],
+            "projects": proj_list,
+            "experiences": exp_list,
+            "achievements": certs_list,
+            "education": edu_list,
+            "certifications": certs_list,
+            "doc_name": file.filename,
+            "peer_gaps": [],
+            "resume_markdown": raw_markdown
+        }
+
+        # Automatically rank and score opportunities for this newly ingested candidate
+        all_opps = list(CURATED_CANDIDATE_OPPORTUNITIES)
+        raw_res = read_from_db("opportunities").get("records", [])
+        all_opps.extend(raw_res)
+
+        ranked = rank_and_match_opportunities_semantically(
+            all_opps,
+            CANDIDATES_REGISTRY,
+            target_candidate_id=effective_user
+        )
 
         return {
             "status": "success",
             "document_id": doc_id,
             "filename": file.filename,
             "doc_type": doc_type,
-            "chunk_count": doc_res["chunk_count"],
+            "chunk_count": doc_res.get("chunk_count", 0),
             "embedded_count": stored_count,
-            "markdown_preview": doc_res["markdown"][:400]
+            "skills_extracted": len(skills_list),
+            "projects_extracted": len(proj_list),
+            "opportunities_ranked": len(ranked),
+            "markdown_preview": raw_markdown[:400]
         }
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Document upload error: {str(e)}")
     finally:
         if os.path.exists(temp_path):
@@ -1216,12 +1303,14 @@ def update_user_profile(req: UserProfileReq, user_id: str = Depends(get_current_
 @app.post("/api/user/upload-template")
 async def upload_user_template(
     file: UploadFile = File(...),
-    candidate_id: str = Form("candidate_mohit"),
-    user_id: str = Depends(get_current_user)
+    candidate_id: Optional[str] = Form(None),
+    user_id: Optional[str] = Form(None),
+    auth_user: str = Depends(get_current_user)
 ):
     """Uploads a candidate's original resume (PDF/DOCX/image), parses via Docling OCR,
-    extracts social links and contact info, and saves as the candidate's active Golden Template.
+    extracts social links, skills, projects, and contact info, and saves as the active Golden Template.
     """
+    effective_user = candidate_id or user_id or auth_user or "default-user"
     temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_uploads")
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, f"template_{uuid.uuid4()}_{file.filename}")
@@ -1238,10 +1327,9 @@ async def upload_user_template(
         # Extract social links & contact fields
         extracted = extract_social_links_from_text(raw_markdown)
 
-        # Store in Supabase documents
-        target_uid = USER_PROFILE_STORE.get(candidate_id, {}).get("user_id", user_id)
+        # Store in Supabase / SQLite documents
         doc_id = store_document(
-            user_id=target_uid,
+            user_id=effective_user,
             filename=file.filename,
             doc_type="resume",
             raw_markdown=raw_markdown,
@@ -1251,31 +1339,82 @@ async def upload_user_template(
         if doc_res.get("chunks"):
             try:
                 embedded = embed_chunks(doc_res["chunks"])
-                store_embeddings(doc_id, target_uid, embedded)
+                store_embeddings(doc_id, effective_user, embedded)
             except Exception as e:
                 print(f"[Embedding Notice] {e}")
 
-        # Update candidate registry and profile store
-        cand_key = candidate_id if candidate_id in CANDIDATES_REGISTRY else "candidate_mohit"
-        CANDIDATES_REGISTRY[cand_key]["resume_markdown"] = raw_markdown
-        CANDIDATES_REGISTRY[cand_key]["doc_name"] = file.filename
+        # Extract structured entities
+        from my_agent.tools.resume_tools import extract_resume
+        extracted_resume = extract_resume(raw_markdown)
 
-        if cand_key in USER_PROFILE_STORE:
-            USER_PROFILE_STORE[cand_key]["custom_resume_markdown"] = raw_markdown
-            if extracted.get("linkedin_url"): USER_PROFILE_STORE[cand_key]["linkedin_url"] = extracted["linkedin_url"]
-            if extracted.get("github_url"): USER_PROFILE_STORE[cand_key]["github_url"] = extracted["github_url"]
-            if extracted.get("leetcode_url"): USER_PROFILE_STORE[cand_key]["leetcode_url"] = extracted["leetcode_url"]
-            if extracted.get("portfolio_url"): USER_PROFILE_STORE[cand_key]["portfolio_url"] = extracted["portfolio_url"]
-            if extracted.get("phone"): USER_PROFILE_STORE[cand_key]["phone"] = extracted["phone"]
-            if extracted.get("email"): USER_PROFILE_STORE[cand_key]["email"] = extracted["email"]
+        skills_list = extracted_resume.get("skills", [])
+        proj_list = extracted_resume.get("projects", [])
+        exp_list = extracted_resume.get("experience", [])
+        edu_list = extracted_resume.get("education", [])
+        certs_list = extracted_resume.get("certifications", [])
+        cand_name = extracted_resume.get("name") or extracted.get("name") or "Candidate"
+        cand_email = extracted_resume.get("email") or extracted.get("email") or ""
+        cand_phone = extracted_resume.get("phone") or extracted.get("phone") or ""
+
+        # Update profiles table
+        prof_payload = {
+            "user_id": effective_user,
+            "name": cand_name,
+            "role": "Software Engineer" if not exp_list else (exp_list[0].get("role") if isinstance(exp_list[0], dict) else "Software Engineer"),
+            "email": cand_email,
+            "phone": cand_phone,
+            "location": "Remote",
+            "skills": json.dumps(skills_list) if isinstance(skills_list, list) else str(skills_list),
+            "projects": json.dumps(proj_list) if isinstance(proj_list, list) else str(proj_list),
+            "experiences": json.dumps(exp_list) if isinstance(exp_list, list) else str(exp_list),
+            "education": json.dumps(edu_list) if isinstance(edu_list, list) else str(edu_list),
+            "raw_markdown": raw_markdown
+        }
+        store_to_db("profiles", prof_payload)
+
+        # Update candidate registry and profile store
+        CANDIDATES_REGISTRY[effective_user] = {
+            "id": effective_user,
+            "name": cand_name,
+            "role": prof_payload["role"],
+            "cluster_color": "#38bdf8",
+            "email": cand_email,
+            "phone": cand_phone,
+            "location": "Remote",
+            "summary": f"Candidate profile for {cand_name}.",
+            "skills": skills_list or ["Software Engineering", "AI/ML"],
+            "top_skills": skills_list[:6] if skills_list else ["Software Engineering", "AI/ML"],
+            "projects": proj_list,
+            "experiences": exp_list,
+            "achievements": certs_list,
+            "education": edu_list,
+            "certifications": certs_list,
+            "doc_name": file.filename,
+            "peer_gaps": [],
+            "resume_markdown": raw_markdown
+        }
+
+        # Automatically rank opportunities
+        all_opps = list(CURATED_CANDIDATE_OPPORTUNITIES)
+        raw_res = read_from_db("opportunities").get("records", [])
+        all_opps.extend(raw_res)
+
+        ranked = rank_and_match_opportunities_semantically(
+            all_opps,
+            CANDIDATES_REGISTRY,
+            target_candidate_id=effective_user
+        )
 
         return {
             "status": "success",
             "doc_id": doc_id,
             "filename": file.filename,
             "extracted": extracted,
+            "skills_extracted": len(skills_list),
+            "projects_extracted": len(proj_list),
+            "opportunities_ranked": len(ranked),
             "resume_markdown": raw_markdown,
-            "message": f"Successfully parsed {file.filename} via Docling OCR and extracted contact & social links!"
+            "message": f"Successfully parsed {file.filename} via Docling OCR, extracted skills & contact info, and ranked opportunities!"
         }
     except Exception as e:
         import traceback
@@ -1709,9 +1848,46 @@ def get_all_opportunities(candidate_id: Optional[str] = None):
             seen_keys.add(key)
 
     # 3. True Mathematical Semantic Vector Retrieval & Ranking
+    registry = dict(CANDIDATES_REGISTRY)
+    if candidate_id and candidate_id not in ("all", "candidate_all"):
+        if candidate_id not in registry:
+            prof_res = read_from_db("profiles", f"user_id = '{candidate_id}'")
+            prof = prof_res.get("records", [])[0] if prof_res.get("records") else None
+            user_docs = read_from_db("documents", f"user_id = '{candidate_id}'").get("records", [])
+
+            user_skills = prof.get("skills", []) if prof else []
+            if isinstance(user_skills, str):
+                try: user_skills = json.loads(user_skills)
+                except Exception: user_skills = [s.strip() for s in user_skills.split(",") if s.strip()]
+
+            user_name = prof.get("name") if prof else "Candidate"
+            user_role = prof.get("role") if prof else "Software Engineer"
+            user_raw_md = user_docs[0].get("raw_markdown", "") if user_docs else ""
+
+            registry[candidate_id] = {
+                "id": candidate_id,
+                "name": user_name,
+                "role": user_role,
+                "cluster_color": "#38bdf8",
+                "email": prof.get("email", "") if prof else "",
+                "phone": prof.get("phone", "") if prof else "",
+                "location": "Remote",
+                "summary": f"Candidate profile for {user_name}.",
+                "skills": user_skills or ["Software Engineering", "Problem Solving", "Full Stack Development"],
+                "top_skills": (user_skills[:6] if user_skills else ["Software Engineering", "Problem Solving", "Full Stack Development"]),
+                "projects": json.loads(prof.get("projects", "[]")) if (prof and isinstance(prof.get("projects"), str)) else (prof.get("projects") if prof else []),
+                "experiences": json.loads(prof.get("experiences", "[]")) if (prof and isinstance(prof.get("experiences"), str)) else (prof.get("experiences") if prof else []),
+                "achievements": [],
+                "education": json.loads(prof.get("education", "[]")) if (prof and isinstance(prof.get("education"), str)) else (prof.get("education") if prof else []),
+                "certifications": [],
+                "doc_name": user_docs[0].get("filename", "User Resume") if user_docs else "Master Resume",
+                "peer_gaps": [],
+                "resume_markdown": user_raw_md
+            }
+
     matched_results = rank_and_match_opportunities_semantically(
         all_opps,
-        CANDIDATES_REGISTRY,
+        registry,
         target_candidate_id=candidate_id
     )
 
@@ -2828,17 +3004,35 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 # Dynamic isolated user profile from DB
                 prof_res = read_from_db("profiles", f"user_id = '{focused_id}'")
                 prof = prof_res.get("records", [])[0] if prof_res.get("records") else None
+                user_docs = read_from_db("documents", f"user_id = '{focused_id}'").get("records", [])
+
                 user_name = prof.get("name") if prof else (focused_id.replace("google_", "").replace("user_", "").replace("_", " ").title())
                 user_role = prof.get("role") if prof else "Software Engineer"
                 user_email = prof.get("email") if prof else f"{focused_id}@careeros.ai"
+                
                 user_skills = prof.get("skills", []) if prof else []
                 if isinstance(user_skills, str):
-                    try:
-                        user_skills = json.loads(user_skills)
-                    except Exception:
-                        user_skills = [s.strip() for s in user_skills.split(",") if s.strip()]
+                    try: user_skills = json.loads(user_skills)
+                    except Exception: user_skills = [s.strip() for s in user_skills.split(",") if s.strip()]
 
-                user_docs = [d for d in documents if d.get("user_id") == focused_id] or [d for d in documents if d.get("id") == focused_id]
+                user_projs = json.loads(prof.get("projects", "[]")) if (prof and isinstance(prof.get("projects"), str)) else (prof.get("projects", []) if prof else [])
+                user_exps = json.loads(prof.get("experiences", "[]")) if (prof and isinstance(prof.get("experiences"), str)) else (prof.get("experiences", []) if prof else [])
+                user_edus = json.loads(prof.get("education", "[]")) if (prof and isinstance(prof.get("education"), str)) else (prof.get("education", []) if prof else [])
+                user_ach = json.loads(prof.get("achievements", "[]")) if (prof and isinstance(prof.get("achievements"), str)) else (prof.get("achievements", []) if prof else [])
+
+                # Dynamic fallback extraction from user documents if fields were empty
+                if user_docs and (not user_projs or not user_skills):
+                    raw_md_text = user_docs[0].get("raw_markdown", "")
+                    try:
+                        from my_agent.tools.resume_tools import extract_resume
+                        parsed = extract_resume(raw_md_text)
+                        if not user_skills: user_skills = parsed.get("skills", [])
+                        if not user_projs: user_projs = parsed.get("projects", [])
+                        if not user_exps: user_exps = parsed.get("experience", [])
+                        if not user_edus: user_edus = parsed.get("education", [])
+                        if parsed.get("name") and user_name in ("Candidate", "User"): user_name = parsed["name"]
+                    except Exception as e:
+                        print(f"[KG Parse Notice] {e}")
 
                 active_candidates = {
                     focused_id: {
@@ -2847,19 +3041,19 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                         "role": user_role,
                         "cluster_color": "#38bdf8",
                         "email": user_email,
-                        "phone": "+91-0000000000",
+                        "phone": prof.get("phone", "") if prof else "",
                         "location": "Remote",
                         "summary": f"Personal career intelligence graph for {user_name}.",
-                        "skills": user_skills,
-                        "top_skills": user_skills[:6],
-                        "projects": [],
-                        "experiences": [],
-                        "achievements": [],
-                        "education": [],
+                        "skills": user_skills or ["Software Engineering", "AI Systems", "Full Stack Development"],
+                        "top_skills": (user_skills[:6] if user_skills else ["Software Engineering", "AI Systems", "Full Stack Development"]),
+                        "projects": user_projs,
+                        "experiences": user_exps,
+                        "achievements": user_ach,
+                        "education": user_edus,
                         "certifications": [],
-                        "doc_name": user_docs[0].get("filename", "User Resume") if user_docs else "Uploaded Resume",
+                        "doc_name": user_docs[0].get("filename", "User Resume") if user_docs else "Master Resume",
                         "peer_gaps": [],
-                        "resume_markdown": ""
+                        "resume_markdown": user_docs[0].get("raw_markdown", "") if user_docs else ""
                     }
                 }
         else:
@@ -2956,20 +3150,31 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
             for idx, proj in enumerate(cinfo["projects"]):
                 proj_id = f"proj_{cid}_{idx}"
-                v_ref = find_vector_reference(proj["title"], fallback_doc=cinfo["doc_name"])
+                if isinstance(proj, str):
+                    p_title = proj.split(":")[0].strip() if ":" in proj else (proj[:30] + "...")
+                    p_desc = proj
+                    p_tech = "Full Stack / AI"
+                    p_skills = [s for s in cinfo["skills"] if s.lower() in proj.lower()]
+                else:
+                    p_title = proj.get("title") or f"Project {idx+1}"
+                    p_desc = proj.get("desc") or proj.get("description") or ""
+                    p_tech = proj.get("tech") or proj.get("tech_stack") or "Tech"
+                    p_skills = proj.get("skills", [])
+
+                v_ref = find_vector_reference(p_title, fallback_doc=cinfo["doc_name"])
 
                 if proj_id not in added_node_ids:
                     nodes.append({
                         "id": proj_id,
-                        "label": f"💻 {proj['title']}",
+                        "label": f"💻 {p_title}",
                         "group": "project",
                         "val": 8,
                         "vector_reference": v_ref,
                         "attributes": {
-                            "title": proj["title"],
+                            "title": p_title,
                             "author": cinfo["name"],
-                            "description": proj["desc"],
-                            "tech_stack": proj["tech"],
+                            "description": p_desc,
+                            "tech_stack": p_tech,
                             "source_document": cinfo["doc_name"]
                         }
                     })
@@ -2982,7 +3187,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                     })
 
                 # Connect project to its skills
-                for p_skill in proj.get("skills", []):
+                for p_skill in p_skills:
                     s_id = f"skill_{p_skill.lower().replace(' ', '_').replace('&', 'and').replace('+', 'p')}"
                     if s_id in added_node_ids:
                         edges.append({
@@ -2999,22 +3204,33 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
             for idx, exp in enumerate(cinfo["experiences"]):
                 exp_id = f"exp_{cid}_{idx}"
-                v_ref = find_vector_reference(exp["company"], fallback_doc=cinfo["doc_name"])
+                if isinstance(exp, str):
+                    e_role = exp.split(" at ")[0].strip() if " at " in exp else (exp.split(",")[0].strip() if "," in exp else exp[:30])
+                    e_comp = exp.split(" at ")[-1].strip() if " at " in exp else "Tech Organization"
+                    e_desc = exp
+                    e_period = "2023 - Present"
+                else:
+                    e_role = exp.get("role") or "Engineer"
+                    e_comp = exp.get("company") or exp.get("organization") or "Organization"
+                    e_desc = exp.get("desc") or exp.get("description") or ""
+                    e_period = exp.get("period", "2023 - Present")
+
+                v_ref = find_vector_reference(e_comp, fallback_doc=cinfo["doc_name"])
 
                 if exp_id not in added_node_ids:
                     nodes.append({
                         "id": exp_id,
-                        "label": f"💼 {exp['role']} @ {exp['company'].split('(')[0].strip()}",
+                        "label": f"💼 {e_role} @ {e_comp.split('(')[0].strip()}",
                         "group": "experience",
                         "val": 7,
                         "vector_reference": v_ref,
                         "attributes": {
                             "candidate": cinfo["name"],
-                            "role": exp["role"],
-                            "company": exp["company"],
-                            "period": exp["period"],
-                            "location": exp.get("location", "Noida, India"),
-                            "achievements": exp["desc"]
+                            "role": e_role,
+                            "company": e_comp,
+                            "period": e_period,
+                            "location": "Remote",
+                            "achievements": e_desc
                         }
                     })
                     added_node_ids.add(exp_id)
@@ -3032,20 +3248,31 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
             for idx, ach in enumerate(cinfo.get("achievements", [])):
                 ach_id = f"ach_{cid}_{idx}"
-                v_ref = find_vector_reference(ach["title"], fallback_doc=cinfo["doc_name"])
+                if isinstance(ach, str):
+                    a_title = ach[:30]
+                    a_org = "Organization"
+                    a_year = "2024"
+                    a_desc = ach
+                else:
+                    a_title = ach.get("title") or f"Award {idx+1}"
+                    a_org = ach.get("organization") or "Industry"
+                    a_year = ach.get("year") or "2024"
+                    a_desc = ach.get("desc") or ""
+
+                v_ref = find_vector_reference(a_title, fallback_doc=cinfo["doc_name"])
 
                 if ach_id not in added_node_ids:
                     nodes.append({
                         "id": ach_id,
-                        "label": ach["title"],
+                        "label": a_title,
                         "group": "achievement",
                         "val": 8,
                         "vector_reference": v_ref,
                         "attributes": {
-                            "title": ach["title"],
-                            "organization": ach["organization"],
-                            "year": ach["year"],
-                            "impact": ach["desc"],
+                            "title": a_title,
+                            "organization": a_org,
+                            "year": a_year,
+                            "impact": a_desc,
                             "winner": cinfo["name"]
                         }
                     })
@@ -3065,24 +3292,35 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
             # Education
             for idx, edu in enumerate(cinfo.get("education", [])):
                 edu_id = f"edu_{cid}_{idx}"
+                if isinstance(edu, str):
+                    ed_deg = edu.split(" at ")[0].strip() if " at " in edu else edu[:30]
+                    ed_inst = edu.split(" at ")[-1].strip() if " at " in edu else "University"
+                    ed_period = "2020 - 2024"
+                    ed_details = edu
+                else:
+                    ed_deg = edu.get("degree") or "Degree"
+                    ed_inst = edu.get("institution") or edu.get("university") or "University"
+                    ed_period = edu.get("period") or "2020 - 2024"
+                    ed_details = edu.get("details") or ""
+
                 if edu_id not in added_node_ids:
                     nodes.append({
                         "id": edu_id,
-                        "label": f"🎓 {edu['degree']}",
+                        "label": f"🎓 {ed_deg}",
                         "group": "education",
                         "val": 7,
                         "vector_reference": {
                             "source_doc": cinfo["doc_name"],
                             "chunk_index": 0,
-                            "chunk_excerpt": f"Academic degree in {edu['degree']} from {edu['institution']}. {edu['details']}",
+                            "chunk_excerpt": f"Academic degree in {ed_deg} from {ed_inst}. {ed_details}",
                             "embedding_model": "Gemini 001 (768-dim Vector)",
                             "similarity_score": 98.0
                         },
                         "attributes": {
-                            "degree": edu["degree"],
-                            "institution": edu["institution"],
-                            "period": edu["period"],
-                            "details": edu["details"]
+                            "degree": ed_deg,
+                            "institution": ed_inst,
+                            "period": ed_period,
+                            "details": ed_details
                         }
                     })
                     added_node_ids.add(edu_id)
@@ -3096,23 +3334,27 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
             # Certifications
             for idx, cert in enumerate(cinfo.get("certifications", [])):
                 cert_id = f"cert_{cid}_{idx}"
+                c_name = cert if isinstance(cert, str) else (cert.get("name") or f"Cert {idx+1}")
+                c_issuer = "Professional Authority" if isinstance(cert, str) else cert.get("issuer", "Authority")
+                c_year = "2024" if isinstance(cert, str) else cert.get("year", "2024")
+
                 if cert_id not in added_node_ids:
                     nodes.append({
                         "id": cert_id,
-                        "label": f"📜 {cert['name']}",
+                        "label": f"📜 {c_name}",
                         "group": "certification",
                         "val": 6,
                         "vector_reference": {
                             "source_doc": cinfo["doc_name"],
                             "chunk_index": 0,
-                            "chunk_excerpt": f"Professional certification: {cert['name']} issued by {cert['issuer']} ({cert['year']}).",
+                            "chunk_excerpt": f"Professional certification: {c_name} issued by {c_issuer} ({c_year}).",
                             "embedding_model": "Gemini 001 (768-dim Vector)",
                             "similarity_score": 97.0
                         },
                         "attributes": {
-                            "name": cert["name"],
-                            "issuer": cert["issuer"],
-                            "year": cert["year"]
+                            "name": c_name,
+                            "issuer": c_issuer,
+                            "year": c_year
                         }
                     })
                     added_node_ids.add(cert_id)

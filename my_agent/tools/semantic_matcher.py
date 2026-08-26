@@ -246,11 +246,16 @@ def rank_and_match_opportunities_semantically(
 
     # 3. Filtering & Sorting
     if target_candidate_id and target_candidate_id != "candidate_all":
-        # Strict semantic filtering: Return only opportunities where target candidate is the best match
-        filtered = [o for o in scored_opps if o.get("matched_candidate_id") == target_candidate_id]
-        # Sort descending by semantic similarity
-        filtered.sort(key=lambda x: x.get("semantic_cosine_similarity", 0), reverse=True)
-        return filtered
+        # Score each opportunity specifically against the target candidate's profile vector
+        for o in scored_opps:
+            target_sim = o.get("candidate_similarities", {}).get(target_candidate_id, 0.0)
+            o["semantic_cosine_similarity"] = round(target_sim, 4)
+            o["relevance_score"] = int(min(99, max(60, round(60 + (target_sim * 45)))))
+            o["matched_candidate_id"] = target_candidate_id
+        
+        # Sort descending by the target candidate's exact semantic similarity
+        scored_opps.sort(key=lambda x: x.get("semantic_cosine_similarity", 0), reverse=True)
+        return scored_opps
 
     # Global view: Sort descending by fit score
     scored_opps.sort(key=lambda x: x.get("semantic_cosine_similarity", 0), reverse=True)
