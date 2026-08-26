@@ -116,46 +116,62 @@ def cosine_similarity(v1: List[float], v2: List[float]) -> float:
 
 def build_candidate_semantic_doc(candidate: Dict[str, Any]) -> str:
     """Constructs a dense semantic text representation of candidate skills, resume, and projects."""
+    if not isinstance(candidate, dict):
+        return ""
+
     parts = [
-        candidate.get("name", ""),
-        candidate.get("role", ""),
-        candidate.get("summary", ""),
-        " ".join(candidate.get("skills", [])),
-        " ".join(candidate.get("top_skills", []))
+        str(candidate.get("name") or ""),
+        str(candidate.get("role") or ""),
+        str(candidate.get("summary") or ""),
+        " ".join([str(s) for s in candidate.get("skills", []) if s]),
+        " ".join([str(s) for s in candidate.get("top_skills", []) if s])
     ]
     for p in candidate.get("projects", []):
-        parts.append(f"{p.get('title', '')} {p.get('desc', '')} {p.get('tech', '')}")
+        if isinstance(p, dict):
+            parts.append(f"{p.get('title') or ''} {p.get('desc') or ''} {p.get('tech') or ''}")
     for exp in candidate.get("experiences", []):
-        parts.append(f"{exp.get('role', '')} {exp.get('company', '')} {exp.get('desc', '')}")
+        if isinstance(exp, dict):
+            parts.append(f"{exp.get('role') or ''} {exp.get('company') or ''} {exp.get('desc') or ''}")
     for ach in candidate.get("achievements", []):
-        parts.append(f"{ach.get('title', '')} {ach.get('desc', '')}")
+        if isinstance(ach, dict):
+            parts.append(f"{ach.get('title') or ''} {ach.get('desc') or ''}")
     
-    resume_md = candidate.get("resume_markdown", "")
-    if resume_md:
+    resume_md = candidate.get("resume_markdown")
+    if resume_md and isinstance(resume_md, str):
         parts.append(resume_md[:1200])
 
-    return " ".join(parts)
+    # Filter out empty or None strings safely
+    return " ".join([str(p) for p in parts if p is not None and str(p).strip()])
 
 
 def build_opportunity_semantic_doc(opp: Dict[str, Any]) -> str:
     """Constructs a dense semantic text representation of an opportunity."""
+    if not isinstance(opp, dict):
+        return ""
+
     parts = [
-        opp.get("title", ""),
-        opp.get("company", "") or opp.get("company_name", ""),
-        opp.get("category", ""),
-        opp.get("location", ""),
-        opp.get("description", ""),
-        opp.get("skills_required", ""),
-        " ".join(opp.get("requirements", []) if isinstance(opp.get("requirements"), list) else [str(opp.get("requirements", ""))])
+        str(opp.get("title") or ""),
+        str(opp.get("company") or opp.get("company_name") or ""),
+        str(opp.get("category") or ""),
+        str(opp.get("location") or ""),
+        str(opp.get("description") or ""),
+        str(opp.get("skills_required") or "")
     ]
+    reqs = opp.get("requirements", [])
+    if isinstance(reqs, list):
+        parts.append(" ".join([str(r) for r in reqs if r]))
+    elif reqs:
+        parts.append(str(reqs))
+
     intel = opp.get("intelligence") or opp.get("company_intel") or {}
     if isinstance(intel, dict):
-        parts.append(intel.get("overview", ""))
-        parts.append(intel.get("engineering_culture", ""))
-        parts.append(" ".join(intel.get("tech_stack", [])))
-        parts.append(" ".join(intel.get("ats_keywords", [])))
+        parts.append(str(intel.get("overview") or ""))
+        parts.append(str(intel.get("engineering_culture") or ""))
+        parts.append(" ".join([str(t) for t in intel.get("tech_stack", []) if t]))
+        parts.append(" ".join([str(k) for k in intel.get("ats_keywords", []) if k]))
 
-    return " ".join(parts)
+    # Filter out empty or None strings safely
+    return " ".join([str(p) for p in parts if p is not None and str(p).strip()])
 
 
 def get_candidate_vector(candidate_id: str, candidate_data: Dict[str, Any]) -> List[float]:
