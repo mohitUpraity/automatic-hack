@@ -54,7 +54,11 @@ import {
   Link as LinkIcon,
   Focus,
   Radio,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Workflow,
+  Orbit,
+  GitFork,
+  Boxes
 } from 'lucide-react';
 
 const NODE_COLORS = {
@@ -101,6 +105,13 @@ const EDGE_TYPES = {
   SOURCES_CANDIDATE_DATA: { label: 'Doc Source', color: '#38bdf8', desc: 'Provenance grounding source doc' },
 };
 
+const TOPOLOGY_MODES = [
+  { id: 'organic', name: '🌐 Organic Constellation', desc: 'Dynamic force web with open repulsion', icon: Boxes },
+  { id: 'tree_td', name: '🌲 Top-Down Tree DAG', desc: 'Structured hierarchy: Candidate at top → Entities below', icon: GitFork },
+  { id: 'flow_lr', name: '➡️ Pipeline Flow DAG', desc: 'Horizontal flow from experience to skills to jobs', icon: Workflow },
+  { id: 'radial', name: '🪐 Concentric Orbit', desc: 'Planetary multi-orbit ring structure', icon: Orbit },
+];
+
 export default function KnowledgeGraph({ userId = 'default-user' }) {
   const navigate = useNavigate();
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
@@ -114,10 +125,14 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [copiedExcerpt, setCopiedExcerpt] = useState(false);
   const [copiedAttribute, setCopiedAttribute] = useState(false);
 
+  // ── Topology & Structural Layout Engine ────────────────────────────────────
+  const [topologyMode, setTopologyMode] = useState('organic');   // 'organic' | 'tree_td' | 'flow_lr' | 'radial'
+  const [dagLevelDistance, setDagLevelDistance] = useState(130); // Distance between hierarchy levels
+
   // ── Physics & Distance Controls State ──────────────────────────────────────
-  const [nodeRepulsion, setNodeRepulsion] = useState(900);       // Repulsion strength
-  const [linkDistance, setLinkDistance] = useState(140);         // Link spring distance
-  const [centerGravity, setCenterGravity] = useState(0.04);      // Pull toward center
+  const [nodeRepulsion, setNodeRepulsion] = useState(1000);      // Repulsion strength
+  const [linkDistance, setLinkDistance] = useState(150);         // Link spring distance
+  const [centerGravity, setCenterGravity] = useState(0.035);     // Pull toward center
   const [particleSpeed, setParticleSpeed] = useState(0.006);     // Flow speed
   const [showParticles, setShowParticles] = useState(true);
   const [labelMode, setLabelMode] = useState('smart');           // 'smart' | 'always' | 'key_only' | 'hover'
@@ -130,7 +145,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [linkWidthScale, setLinkWidthScale] = useState(1.5);
   const [isolateFocus, setIsolateFocus] = useState(false);       // Dims unrelated nodes on selection
   const [nodeSizingMode, setNodeSizingMode] = useState('degree'); // 'degree' (hub size) | 'category' | 'uniform'
-  const [activeTabControls, setActiveTabControls] = useState('physics'); // 'physics' | 'connections' | 'display'
+  const [activeTabControls, setActiveTabControls] = useState('topology'); // 'topology' | 'physics' | 'connections' | 'display'
 
   // Active Connection Types Toggles
   const [activeEdgeTypes, setActiveEdgeTypes] = useState({
@@ -241,7 +256,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     loadGraph(selectedCandidate);
   }, [selectedCandidate, userId, loadGraph]);
 
-  // 3. Dynamic D3 Force Engine Settings (Real-time Spacing Update)
+  // 3. Dynamic D3 Force Engine Settings (Real-time Spacing & Topology Update)
   useEffect(() => {
     if (fgRef.current) {
       const charge = fgRef.current.d3Force('charge');
@@ -259,7 +274,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
       }
       fgRef.current.d3ReheatSimulation();
     }
-  }, [nodeRepulsion, linkDistance, centerGravity, graphData]);
+  }, [nodeRepulsion, linkDistance, centerGravity, topologyMode, graphData]);
 
   // Dynamic window resizing
   useEffect(() => {
@@ -348,32 +363,32 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
 
   // Quick Spacing Boosters
   const handleSpreadApart = () => {
-    setNodeRepulsion((prev) => Math.min(2400, prev + 250));
-    setLinkDistance((prev) => Math.min(320, prev + 35));
+    setNodeRepulsion((prev) => Math.min(2600, prev + 300));
+    setLinkDistance((prev) => Math.min(350, prev + 40));
     setActivePreset('custom');
   };
 
   const handleTighten = () => {
-    setNodeRepulsion((prev) => Math.max(250, prev - 250));
-    setLinkDistance((prev) => Math.max(50, prev - 35));
+    setNodeRepulsion((prev) => Math.max(250, prev - 300));
+    setLinkDistance((prev) => Math.max(50, prev - 40));
     setActivePreset('custom');
   };
 
   const applyPreset = (presetName) => {
     setActivePreset(presetName);
     if (presetName === 'spacious') {
-      setNodeRepulsion(1000);
-      setLinkDistance(160);
-      setCenterGravity(0.04);
+      setNodeRepulsion(1100);
+      setLinkDistance(170);
+      setCenterGravity(0.035);
       setLinkCurvature(0.15);
     } else if (presetName === 'expansive') {
-      setNodeRepulsion(1700);
-      setLinkDistance(240);
+      setNodeRepulsion(1800);
+      setLinkDistance(250);
       setCenterGravity(0.02);
       setLinkCurvature(0.2);
     } else if (presetName === 'balanced') {
-      setNodeRepulsion(600);
-      setLinkDistance(110);
+      setNodeRepulsion(650);
+      setLinkDistance(120);
       setCenterGravity(0.08);
       setLinkCurvature(0.1);
     } else if (presetName === 'clustered') {
@@ -498,11 +513,11 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
         {/* Floating Top Control Bar */}
         <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
           {/* Search Box */}
-          <div className="pointer-events-auto relative w-64 sm:w-72">
+          <div className="pointer-events-auto relative w-60 sm:w-68">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search people, skills, projects, awards..."
+              placeholder="Search people, skills, projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-lg"
@@ -517,25 +532,24 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             )}
           </div>
 
-          {/* Group Visibility Toggles */}
-          <div className="pointer-events-auto hidden lg:flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg flex-wrap max-w-xl">
-            {Object.keys(NODE_COLORS).map((group) => {
-              const isActive = activeGroups[group];
+          {/* Topology Structure Quick Selector */}
+          <div className="pointer-events-auto flex items-center gap-1 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg">
+            {TOPOLOGY_MODES.map((mode) => {
+              const Icon = mode.icon;
+              const isActive = topologyMode === mode.id;
               return (
                 <button
-                  key={group}
-                  onClick={() => toggleGroup(group)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer ${
+                  key={mode.id}
+                  onClick={() => setTopologyMode(mode.id)}
+                  title={`${mode.name}: ${mode.desc}`}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-slate-800 text-slate-100 shadow-sm'
-                      : 'text-slate-500 opacity-60 hover:opacity-100'
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                   }`}
                 >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: NODE_COLORS[group] }}
-                  />
-                  <span className="capitalize">{group}s</span>
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden xl:inline">{mode.name.split(' ')[1]}</span>
                 </button>
               );
             })}
@@ -649,11 +663,12 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             </div>
 
             {/* Controls Tabs */}
-            <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <div className="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
               {[
-                { id: 'physics', label: '⚡ Physics & Dist' },
-                { id: 'connections', label: '🔗 Edge Types' },
-                { id: 'display', label: '🎨 Styling & Export' },
+                { id: 'topology', label: '📐 Structure' },
+                { id: 'physics', label: '⚡ Physics' },
+                { id: 'connections', label: '🔗 Edges' },
+                { id: 'display', label: '🎨 Styling' },
               ].map((t) => (
                 <button
                   key={t.id}
@@ -668,6 +683,58 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                 </button>
               ))}
             </div>
+
+            {/* ── TAB 0: Topology & Layout Structure ───────────────────────── */}
+            {activeTabControls === 'topology' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 block mb-2">Graph Layout Topologies</label>
+                  <div className="space-y-2">
+                    {TOPOLOGY_MODES.map((mode) => {
+                      const Icon = mode.icon;
+                      const isActive = topologyMode === mode.id;
+                      return (
+                        <button
+                          key={mode.id}
+                          onClick={() => setTopologyMode(mode.id)}
+                          className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer text-left ${
+                            isActive
+                              ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-md'
+                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                          }`}
+                        >
+                          <div className={`p-2 rounded-lg shrink-0 ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold">{mode.name}</div>
+                            <div className="text-[11px] opacity-75 mt-0.5 leading-relaxed">{mode.desc}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {topologyMode !== 'organic' && (
+                  <div className="pt-2 border-t border-slate-800">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-semibold text-slate-300">Hierarchy Level Separation</span>
+                      <span className="font-mono text-cyan-400 font-bold">{dagLevelDistance}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="60"
+                      max="260"
+                      step="10"
+                      value={dagLevelDistance}
+                      onChange={(e) => setDagLevelDistance(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── TAB 1: Physics & Distance ───────────────────────────────── */}
             {activeTabControls === 'physics' && (
@@ -720,7 +787,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                     />
                     <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
                       <span>Tight (200)</span>
-                      <span>Spacious (900)</span>
+                      <span>Spacious (1000)</span>
                       <span>Expansive (2400)</span>
                     </div>
                   </div>
@@ -973,8 +1040,15 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             height={dimensions.height}
             graphData={filteredData}
             backgroundColor="#030712"
+            dagMode={
+              topologyMode === 'tree_td' ? 'td' :
+              topologyMode === 'flow_lr' ? 'lr' :
+              topologyMode === 'radial' ? 'radialout' :
+              null
+            }
+            dagLevelDistance={dagLevelDistance}
             nodeRelSize={6}
-            linkCurvature={linkCurvature}
+            linkCurvature={topologyMode === 'organic' ? linkCurvature : 0}
             nodeVal={(node) => {
               if (nodeSizingMode === 'degree') {
                 return (node.degree || 2) * 2.5 + (node.group === 'user' ? 8 : 4);
