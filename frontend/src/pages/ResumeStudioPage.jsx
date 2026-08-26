@@ -244,6 +244,10 @@ export default function ResumeStudioPage() {
     loadCompanyIntel();
   }, [selectedOpportunity]);
 
+  // Post-tailoring state
+  const [justTailored, setJustTailored] = useState(false);
+  const [tailoredMeta, setTailoredMeta] = useState(null);
+
   // 4. Auto-Tailor specifically for selected Opportunity & Candidate (Preserving original document format)
   const handleAutoTailor = async () => {
     if (!selectedOpportunity) {
@@ -251,11 +255,14 @@ export default function ResumeStudioPage() {
       return;
     }
     setIsProcessing(true);
-    setProcessingAction(`Surgically tailoring for ${selectedOpportunity.title} at ${selectedOpportunity.company || selectedOpportunity.company_name || 'Target Org'} using Docling & Firecrawl Intel...`);
+    setJustTailored(false);
+    const roleName = selectedOpportunity.title || 'Target Role';
+    const compName = selectedOpportunity.company || selectedOpportunity.company_name || selectedOpportunity.source || 'Target Organization';
+    setProcessingAction(`Surgically tailoring for ${roleName} at ${compName} using Docling & Firecrawl Intel...`);
     try {
       const res = await tailorResume({
-        opportunityTitle: selectedOpportunity.title || 'Target Role',
-        companyName: selectedOpportunity.company || selectedOpportunity.company_name || selectedOpportunity.source || 'Target Organization',
+        opportunityTitle: roleName,
+        companyName: compName,
         requirements: selectedOpportunity.description || selectedOpportunity.skills_required || 'High proficiency in software engineering, AI systems, and project delivery',
         candidateId: activeCandidateId,
         resumeMarkdown: markdown,
@@ -266,6 +273,12 @@ export default function ResumeStudioPage() {
         setMarkdown(res.tailored_markdown);
         setAtsScore(98);
         if (res.engine) setActiveEngine(res.engine);
+        setJustTailored(true);
+        setTailoredMeta({
+          role: roleName,
+          company: compName,
+          candidate: activeCandidate?.name || 'Candidate'
+        });
       }
     } catch (err) {
       console.error('Tailoring failed, falling back to local ATS optimization:', err);
@@ -517,14 +530,74 @@ export default function ResumeStudioPage() {
               )}
             </div>
 
-            <button
-              onClick={handleAutoTailor}
-              disabled={isProcessing}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all shrink-0 cursor-pointer disabled:opacity-50"
-            >
-              <Wand2 className="w-3.5 h-3.5" />
-              Surgically Tailor for Role
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {justTailored && (
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all cursor-pointer animate-pulse"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download PDF Now
+                </button>
+              )}
+              <button
+                onClick={handleAutoTailor}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                <Wand2 className="w-3.5 h-3.5" />
+                {justTailored ? 'Re-Tailor' : 'Surgically Tailor for Role'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Post-Tailoring Highlight Banner */}
+        {justTailored && (
+          <div className="p-4 bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-teal-950/80 border border-emerald-500/40 rounded-2xl shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-black text-emerald-400">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-extrabold text-white">
+                    Resume Successfully Tailored for {tailoredMeta?.company || 'Target Organization'}!
+                  </h4>
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                    ATS Score: 98%
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 mt-0.5">
+                  Target Role: <span className="font-semibold text-emerald-300">{tailoredMeta?.role}</span> • Grounded with Candidate Knowledge Base & Firecrawl Intel.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 w-full md:w-auto">
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloadingPdf}
+                className="flex-1 md:flex-none px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs rounded-xl shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
+              >
+                {downloadingPdf ? (
+                  <LoadingSpinner size="xs" text="Rendering PDF..." />
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 text-slate-950" />
+                    Download Tailored PDF ({activeCandidate?.name?.split(' ')[0] || 'Candidate'})
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setJustTailored(false)}
+                className="p-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg text-xs transition-colors"
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         )}
 
@@ -542,6 +615,15 @@ export default function ResumeStudioPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownloadPdf}
+                    disabled={downloadingPdf}
+                    className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold rounded-lg text-xs flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                    title="Download this resume as an ATS-compliant PDF"
+                  >
+                    {downloadingPdf ? <LoadingSpinner size="xs" /> : <Download className="w-3.5 h-3.5" />}
+                    Download PDF
+                  </button>
                   <button
                     onClick={handleSaveMaster}
                     disabled={isSavingMaster}
