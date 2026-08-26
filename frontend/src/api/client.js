@@ -99,6 +99,30 @@ export async function fetchOpportunityById(id) {
   return await res.json();
 }
 
+export async function deepResearchOpportunity(oppId) {
+  const res = await fetchWithConfig(`${API_BASE}/api/opportunities/${oppId}/deep-research`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Deep research failed' }));
+    throw new Error(err.detail || 'Deep research failed');
+  }
+  return await res.json();
+}
+
+export async function deepResearchCompany(companyName, jobTitle = 'Software Engineer', jobUrl = null) {
+  const res = await fetchWithConfig(`${API_BASE}/api/company/deep-research`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ company_name: companyName, job_title: jobTitle, job_url: jobUrl }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Company research failed' }));
+    throw new Error(err.detail || 'Company research failed');
+  }
+  return await res.json();
+}
+
 export function createPipelineWebSocket(sessionId) {
   const wsBase = API_BASE.replace(/^http/, 'ws');
   return new WebSocket(`${wsBase}/ws/pipeline/${sessionId}`);
@@ -159,6 +183,8 @@ export async function tailorResume(arg1, arg2, arg3, arg4, arg5) {
       requirements: arg1.requirements || 'Technical excellence',
       candidate_id: arg1.candidateId || arg1.candidate_id || null,
       resume_markdown: arg1.resumeMarkdown || arg1.resume_markdown || null,
+      job_url: arg1.jobUrl || arg1.job_url || null,
+      company_intel: arg1.companyIntel || arg1.company_intel || null,
     };
   } else {
     payload = {

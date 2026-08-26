@@ -13,7 +13,8 @@ import {
   downloadResumePdf,
   fetchCandidates,
   fetchCandidateDetails,
-  saveCandidateTemplate
+  saveCandidateTemplate,
+  deepResearchCompany
 } from '../api/client';
 import {
   Wand2,
@@ -37,7 +38,11 @@ import {
   MapPin,
   Mail,
   Network,
-  Save
+  Save,
+  Flame,
+  Cpu,
+  Building2,
+  Lightbulb
 } from 'lucide-react';
 
 const CANDIDATE_THEMES = {
@@ -182,6 +187,35 @@ export default function ResumeStudioPage() {
     }
   };
 
+  // 3.5 Load Firecrawl Company Intel when target opportunity changes
+  const [companyIntel, setCompanyIntel] = useState(null);
+  const [isCrawlingIntel, setIsCrawlingIntel] = useState(false);
+
+  useEffect(() => {
+    async function loadCompanyIntel() {
+      if (selectedOpportunity) {
+        if (selectedOpportunity.intelligence || selectedOpportunity.company_intel) {
+          setCompanyIntel(selectedOpportunity.intelligence || selectedOpportunity.company_intel);
+        } else {
+          setIsCrawlingIntel(true);
+          try {
+            const comp = selectedOpportunity.company || selectedOpportunity.company_name || selectedOpportunity.source || 'Tech Company';
+            const title = selectedOpportunity.title || 'Software Engineer';
+            const res = await deepResearchCompany(comp, title, selectedOpportunity.url);
+            setCompanyIntel(res);
+          } catch (e) {
+            console.error('Failed to pre-crawl company intel:', e);
+          } finally {
+            setIsCrawlingIntel(false);
+          }
+        }
+      } else {
+        setCompanyIntel(null);
+      }
+    }
+    loadCompanyIntel();
+  }, [selectedOpportunity]);
+
   // 4. Auto-Tailor specifically for selected Opportunity & Candidate (Preserving original document format)
   const handleAutoTailor = async () => {
     if (!selectedOpportunity) {
@@ -189,7 +223,7 @@ export default function ResumeStudioPage() {
       return;
     }
     setIsProcessing(true);
-    setProcessingAction(`Surgically tailoring for ${selectedOpportunity.title} at ${selectedOpportunity.company || selectedOpportunity.company_name || 'Target Org'}...`);
+    setProcessingAction(`Surgically tailoring for ${selectedOpportunity.title} at ${selectedOpportunity.company || selectedOpportunity.company_name || 'Target Org'} using Docling & Firecrawl Intel...`);
     try {
       const res = await tailorResume({
         opportunityTitle: selectedOpportunity.title || 'Target Role',
@@ -197,6 +231,8 @@ export default function ResumeStudioPage() {
         requirements: selectedOpportunity.description || selectedOpportunity.skills_required || 'High proficiency in software engineering, AI systems, and project delivery',
         candidateId: activeCandidateId,
         resumeMarkdown: markdown,
+        jobUrl: selectedOpportunity.url,
+        companyIntel: companyIntel
       });
       if (res.tailored_markdown) {
         setMarkdown(res.tailored_markdown);
@@ -408,6 +444,59 @@ export default function ResumeStudioPage() {
                 <span className="font-extrabold text-emerald-400">{atsScore}%</span>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Firecrawl Deep Company Intelligence Context Banner */}
+        {selectedOpportunity && (
+          <div className="bg-gradient-to-r from-slate-900/95 via-cyan-950/20 to-slate-900/95 border border-cyan-500/30 p-4 rounded-2xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="space-y-1.5 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-amber-400" />
+                  Firecrawl Company Intel: {selectedOpportunity.company || selectedOpportunity.company_name || 'Target Org'}
+                </span>
+                {isCrawlingIntel && (
+                  <span className="text-[10px] text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded-full animate-pulse flex items-center gap-1">
+                    <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Crawling Tech Stack...
+                  </span>
+                )}
+                {companyIntel && !isCrawlingIntel && (
+                  <span className="text-[10px] text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-2.5 h-2.5" /> AI Grounding Active
+                  </span>
+                )}
+              </div>
+
+              {companyIntel ? (
+                <div className="text-xs text-slate-300 space-y-1">
+                  <p className="line-clamp-1 text-slate-200">
+                    <span className="font-bold text-slate-400">Mission:</span> {companyIntel.overview}
+                  </p>
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[10px] font-bold text-indigo-400">Target Tech Stack:</span>
+                    {(companyIntel.tech_stack || []).slice(0, 7).map((t, idx) => (
+                      <span key={idx} className="px-1.5 py-0.5 bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 font-mono text-[10px] rounded">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400">
+                  Target Role: <span className="text-white font-bold">{selectedOpportunity.title}</span> — AI will inject company-specific keywords into your tailored resume.
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={handleAutoTailor}
+              disabled={isProcessing}
+              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              Surgically Tailor for Role
+            </button>
           </div>
         )}
 

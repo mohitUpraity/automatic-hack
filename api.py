@@ -48,6 +48,7 @@ from my_agent.tools.llm_tools import call_groq_llm
 from my_agent.tools.search_tools import search_web
 from my_agent.tools.ranking_tools import rank_results
 from my_agent.tools.autopilot_tools import run_career_autopilot, refine_resume_markdown
+from my_agent.tools.company_intel_tools import deep_research_company_and_role
 
 from my_agent.mcp_servers.mcp_extractor_server import extract_and_store_resume
 from my_agent.mcp_servers.mcp_analyzer_server import analyze_and_store_resume
@@ -111,6 +112,15 @@ class TailorReq(BaseModel):
     requirements: str
     candidate_id: Optional[str] = None
     resume_markdown: Optional[str] = None
+    job_url: Optional[str] = None
+    company_intel: Optional[dict] = None
+
+
+class CompanyResearchReq(BaseModel):
+    company_name: str
+    job_title: Optional[str] = "Software Engineer"
+    job_url: Optional[str] = None
+
 
 
 class AutoPilotReq(BaseModel):
@@ -383,7 +393,7 @@ async def knowledge_search(req: KnowledgeSearchReq, user_id: str = Depends(get_c
 # ── 3. Resume Tailoring Endpoint ───────────────────────────────────────────
 @app.post("/api/tailor")
 async def tailor_resume_endpoint(req: TailorReq, user_id: str = Depends(get_current_user)):
-    """Generates company-specific tailored resume content preserving original layout and generates PDF."""
+    """Generates company-specific tailored resume content with Docling round-trip and Firecrawl company intelligence."""
     try:
         res = tailor_resume_for_opportunity(
             opportunity_title=req.opportunity_title,
@@ -391,11 +401,56 @@ async def tailor_resume_endpoint(req: TailorReq, user_id: str = Depends(get_curr
             requirements=req.requirements,
             user_id=user_id,
             original_markdown=req.resume_markdown,
-            candidate_id=req.candidate_id
+            candidate_id=req.candidate_id,
+            job_url=req.job_url,
+            company_intel=req.company_intel
         )
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Tailoring error: {str(e)}")
+
+
+@app.post("/api/company/deep-research")
+async def deep_research_company_endpoint(req: CompanyResearchReq):
+    """Executes Firecrawl deep research over company domain, careers portal, tech stack, and engineering culture."""
+    try:
+        intel = deep_research_company_and_role(
+            company_name=req.company_name,
+            job_title=req.job_title or "Software Engineer",
+            job_url=req.job_url
+        )
+        return intel
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Company deep research error: {str(e)}")
+
+
+@app.post("/api/opportunities/{opp_id}/deep-research")
+async def deep_research_opportunity_endpoint(opp_id: str):
+    """Fetches opportunity and performs Firecrawl deep research on the target company and role."""
+    try:
+        raw_opps = read_from_db("opportunities").get("records", [])
+        opp = next((o for o in raw_opps if str(o.get("id")) == str(opp_id)), None)
+        
+        company = "Tech Organization"
+        title = "Software Engineer"
+        url = None
+        
+        if opp:
+            company = opp.get("company") or opp.get("company_name") or opp.get("source") or company
+            title = opp.get("title") or title
+            url = opp.get("url") or url
+            
+        intel = deep_research_company_and_role(company_name=company, job_title=title, job_url=url)
+        return {
+            "status": "success",
+            "opportunity_id": opp_id,
+            "company_name": company,
+            "job_title": title,
+            "intelligence": intel
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Deep research failed: {str(e)}")
+
 
 
 # ── 4. Process Resume Endpoint (Full 8-Agent Governed Pipeline) ───────────

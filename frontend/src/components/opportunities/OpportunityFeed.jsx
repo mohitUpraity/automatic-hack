@@ -4,6 +4,7 @@ import { Compass, RefreshCw, Filter, Search, Zap, Sparkles, Trophy, Briefcase, W
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchOpportunities, scoutProfileOpportunities, fetchProfiles, customSearchOpportunities, fetchCandidates } from '../../api/client';
 import OpportunityCard from './OpportunityCard';
+import OpportunityDetailModal from './OpportunityDetailModal';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 import LoadingSpinner from '../ui/LoadingSpinner';
@@ -25,6 +26,8 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
   const [isLoading, setIsLoading] = useState(true);
   const [isScouting, setIsScouting] = useState(false);
   const [isAutoPilotOpen, setIsAutoPilotOpen] = useState(false);
+  const [selectedOppForDetail, setSelectedOppForDetail] = useState(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // Custom Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -159,42 +162,57 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
           </div>
         </div>
 
+        {/* Live Scout & AutoPilot Actions */}
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => loadData(selectedCandidate)}
-            disabled={isLoading}
-            className="p-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white rounded-xl text-xs transition-colors cursor-pointer"
-            title="Refresh Feed"
+            onClick={() => setIsAutoPilotOpen(true)}
+            className="px-3.5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl shadow flex items-center gap-1.5 transition-all cursor-pointer"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <Sparkles className="w-3.5 h-3.5" />
+            Run Auto-Pilot
           </button>
           <button
             onClick={handleScout}
             disabled={isScouting}
-            className="px-3.5 py-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
-            <Sparkles className="w-3.5 h-3.5" />
+            <RefreshCw className={`w-3.5 h-3.5 ${isScouting ? 'animate-spin' : ''}`} />
             {isScouting ? 'Scouting Web...' : 'Scout Opportunities'}
-          </button>
-          <button
-            onClick={() => setIsAutoPilotOpen(true)}
-            className="px-3.5 py-2 bg-purple-600/80 hover:bg-purple-600 text-white font-bold text-xs rounded-xl border border-purple-500/30 flex items-center gap-1.5 transition-all cursor-pointer"
-          >
-            <Wand2 className="w-3.5 h-3.5" />
-            Auto-Pilot
           </button>
         </div>
       </GlassCard>
 
-      {/* Filter Tabs & Search */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+      {/* Search Input Bar */}
+      <form onSubmit={handleCustomSearch} className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-3 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by role, company, or skills (e.g. 'React Developer', 'DRDO AI', 'Hackathon 2026')..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 shadow-inner"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isSearching}
+          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+        >
+          <Search className="w-3.5 h-3.5" />
+          Search
+        </button>
+      </form>
+
+      {/* Categories & Filter Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-950/60 p-2 rounded-2xl border border-slate-800/60">
+        {/* Category Tabs */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
               onClick={() => setCategory(cat)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 category === cat
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
@@ -255,6 +273,14 @@ export default function OpportunityFeed({ onSelectOpportunity, initialCandidateI
         isOpen={isAutoPilotOpen}
         onClose={() => setIsAutoPilotOpen(false)}
         candidateId={selectedCandidate}
+      />
+
+      {/* Opportunity Detail Modal with Firecrawl Deep Company Intelligence */}
+      <OpportunityDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        opportunity={selectedOppForDetail}
+        candidateId={selectedCandidate === 'candidate_all' ? (selectedOppForDetail?.matched_candidate_id || 'candidate_mohit') : selectedCandidate}
       />
     </div>
   );

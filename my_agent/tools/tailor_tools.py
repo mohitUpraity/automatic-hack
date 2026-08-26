@@ -1,7 +1,10 @@
-"""Resume Tailoring & High-Fidelity PDF Generation Engine with Strict Template Preservation.
+"""Resume Tailoring & High-Fidelity PDF Generation Engine with Docling Round-Trip & Deep Company Intelligence.
 
-Surgically tailors ATS keywords and relevant competencies for targeted job opportunities
-while strictly preserving the candidate's authentic original document layout, structure, and styling.
+Pipeline:
+1. Input Resume -> Docling Document AST -> Semantic Structured Markdown
+2. Opportunity & Company -> Firecrawl Deep Research -> Rich Company Context
+3. Grounded AI Tailoring (120B SOTA) -> Tailored Markdown
+4. Tailored Markdown -> Docling Document AST -> Publication-Grade 2-Page PDF
 """
 
 import os
@@ -27,6 +30,7 @@ except ImportError:
     HAS_MARKDOWN = False
 
 from my_agent.tools.knowledge_tools import get_rag_context
+from my_agent.tools.company_intel_tools import deep_research_company_and_role
 from my_agent.tools.llm_tools import call_groq_llm
 from my_agent.tools.db_tools import store_to_db, read_from_db
 from my_agent.models.schemas import TailoredResumeSchema
@@ -34,17 +38,12 @@ from my_agent.models.schemas import TailoredResumeSchema
 
 def _format_inline_markdown(text: str) -> str:
     """Converts standard markdown bold, italic, and links to ReportLab XML tags."""
-    # Escape XML ampersands
     text = re.sub(r'&(?!(?:amp|lt|gt|quot|apos|bull);)', '&amp;', text)
-    # Bold: **text** or __text__ -> <b>text</b>
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'__(.+?)__', r'<b>\1</b>', text)
-    # Italic: *text* or _text_ -> <i>\1</i>
     text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
     text = re.sub(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)', r'<i>\1</i>', text)
-    # Links: [label](url) -> <font color="#1d4ed8"><u>label</u></font>
     text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'<font color="#1d4ed8"><u>\1</u></font>', text)
-    # Clean code ticks
     text = re.sub(r'`([^`]+)`', r'<font name="Helvetica-Bold">\1</font>', text)
     return text.strip()
 
@@ -56,7 +55,6 @@ def normalize_to_sections(raw_text: str) -> str:
 
     text = raw_text.strip()
 
-    # Known canonical section headers
     known_headers = [
         "Summary", "Professional Summary", "Executive Summary", "About Me", "Profile",
         "Technical Skills", "Skills", "Core Competencies", "Technologies",
@@ -67,11 +65,9 @@ def normalize_to_sections(raw_text: str) -> str:
         "Education", "Academic Background"
     ]
 
-    # If the text already has ## headers, return as is
     if "## " in text:
         return text
 
-    # Otherwise, inject ## before recognized headers
     for h in known_headers:
         pattern = r'(?i)(?:^|\n)\s*(?:##\s*)?(' + re.escape(h) + r')\s*(?:\n|:|$)'
         text = re.sub(pattern, r'\n\n## \1\n', text)
@@ -166,7 +162,6 @@ def _build_story_from_markdown(markdown_text: str):
 
     story = []
 
-    # If the text has ## sections, split cleanly by section
     if "## " in md:
         parts = md.split("## ")
         
@@ -210,27 +205,21 @@ def _build_story_from_markdown(markdown_text: str):
             ))
 
             for line in sec_lines[1:]:
-                # Bullet line
                 if line.startswith(("- ", "* ", "● ", "• ")):
                     bullet_text = line.lstrip('-*●• ').strip()
                     story.append(Paragraph(f"&bull; {_format_inline_markdown(bullet_text)}", bullet_style))
-                # Subheading (###, ##, or #)
                 elif line.startswith("#"):
                     h3_text = line.lstrip('#').strip()
                     story.append(Paragraph(_format_inline_markdown(h3_text), h3_style))
-                # Category line (e.g. Languages & Web:)
                 elif any(line.startswith(k) for k in ['Languages & Web:', 'Databases:', 'Engineering Practices:', 'AI/Security:', 'Languages:', 'Frameworks:']):
                     cat_name, cat_val = line.split(':', 1)
                     story.append(Paragraph(f"<b>{cat_name.strip()}:</b> {_format_inline_markdown(cat_val.strip())}", body_style))
-                # Role / Dates line (e.g. Cybersecurity / AI Intern — Feb 2026 – Jun 2026)
                 elif '—' in line and any(yr in line for yr in ['2023', '2024', '2025', '2026', '2027', 'Present']):
                     story.append(Paragraph(f"<i>{_format_inline_markdown(line)}</i>", role_style))
-                # Standard paragraph line
                 else:
                     story.append(Paragraph(_format_inline_markdown(line), body_style))
 
     else:
-        # Fallback for plain text
         lines = [l.strip() for l in md.split("\n") if l.strip()]
         for line in lines:
             if line.startswith(("- ", "* ", "● ", "• ")):
@@ -286,7 +275,6 @@ def generate_tailored_pdf(tailored_markdown: str, output_path: str) -> Dict[str,
 
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
-    # 1. Primary High-Fidelity Engine: ReportLab
     if HAS_REPORTLAB:
         try:
             pdf_path = _generate_reportlab_pdf(tailored_markdown, output_path)
@@ -299,7 +287,6 @@ def generate_tailored_pdf(tailored_markdown: str, output_path: str) -> Dict[str,
         except Exception as e:
             print(f"[ReportLab Notice] {e}")
 
-    # 2. Secondary Engine: WeasyPrint (if installed)
     try:
         if HAS_MARKDOWN:
             html_body = markdown.markdown(tailored_markdown, extensions=['tables', 'fenced_code'])
@@ -332,12 +319,18 @@ def tailor_resume_for_opportunity(
     user_id: str = "default-user",
     original_markdown: Optional[str] = None,
     candidate_id: Optional[str] = None,
-    output_pdf_path: Optional[str] = None
+    output_pdf_path: Optional[str] = None,
+    job_url: Optional[str] = None,
+    company_intel: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    """Retrieves candidate RAG context, performs precision in-place ATS keyword injection
-    while strictly preserving the candidate's original document layout, headers, and formatting.
+    """Docling Round-Trip Tailoring Engine grounded in Firecrawl Deep Company Intelligence.
+    
+    1. Base Resume -> Docling Document -> Structured Semantic Markdown
+    2. Company & Role -> Firecrawl Deep Intelligence Dossier
+    3. Grounded AI Tailoring -> Tailored Markdown
+    4. Tailored Markdown -> Docling AST -> Publication-Grade PDF
     """
-    # 1. Retrieve candidate base resume if not directly provided
+    # 1. Retrieve candidate base resume
     base_markdown = original_markdown or ""
     if not base_markdown and candidate_id:
         from api import CANDIDATES_REGISTRY
@@ -350,14 +343,37 @@ def tailor_resume_for_opportunity(
         if docs:
             base_markdown = docs[0].get("raw_markdown", "")
 
-    # Fallback to Mohit Prasad Upraity portfolio if still empty
     if not base_markdown:
         from api import CANDIDATES_REGISTRY
         base_markdown = CANDIDATES_REGISTRY["candidate_mohit"]["resume_markdown"]
 
+    # Step 1: Normalize through Docling Document parser
+    from my_agent.tools.docling_tools import convert_resume_to_docling, markdown_to_docling_doc
+    docling_parse_res = convert_resume_to_docling(base_markdown)
+    canonical_base_md = normalize_to_sections(docling_parse_res.get("markdown") or base_markdown)
+
+    # Step 2: Fetch Firecrawl Deep Company Intelligence if not provided
+    if not company_intel and company_name:
+        try:
+            company_intel = deep_research_company_and_role(company_name, opportunity_title, job_url)
+        except Exception as e:
+            print(f"[Deep Company Research Notice] {e}")
+
+    company_summary = ""
+    target_stack = ""
+    engineering_values = ""
+    ats_keywords_str = ""
+
+    if company_intel:
+        company_summary = company_intel.get("overview", "")
+        target_stack = ", ".join(company_intel.get("tech_stack", []))
+        engineering_values = company_intel.get("engineering_culture", "")
+        ats_keywords_str = ", ".join(company_intel.get("ats_keywords", []))
+
     rag_context = get_rag_context(f"{opportunity_title} {company_name} {requirements}", user_id=user_id)
     rag_snippet = (rag_context[:300] + '...') if (rag_context and len(rag_context) > 300) else (rag_context or "Verified candidate achievements.")
 
+    # Step 3: Grounded AI In-Place Tailoring with Company Intelligence Context
     prompt = f"""You are an Expert In-Place ATS Resume Tailoring Engine.
 
 CRITICAL DIRECTIVE: You MUST PRESERVE the EXACT document template, layout, header format, personal contact line, section ordering, and bullet styling of the ORIGINAL RESUME below.
@@ -366,14 +382,20 @@ Do NOT convert this resume into a generic or standard template. Treat the origin
 TARGET JOB SPECIFICATION:
 - Role Title: {opportunity_title}
 - Company / Organization: {company_name}
-- Key Job Requirements & Tech Stack: {requirements}
+- Key Job Requirements: {requirements}
+
+FIRECRAWL DEEP COMPANY INTELLIGENCE:
+- Company Overview: {company_summary}
+- Company Engineering Tech Stack: {target_stack}
+- Engineering Values & Culture: {engineering_values}
+- Priority ATS Terminology: {ats_keywords_str}
 
 CANDIDATE GROUNDED CONTEXT:
 {rag_snippet}
 
 ORIGINAL RESUME (GOLDEN TEMPLATE):
 \"\"\"
-{base_markdown}
+{canonical_base_md}
 \"\"\"
 
 STRICT IN-PLACE TAILORING RULES:
@@ -382,18 +404,17 @@ STRICT IN-PLACE TAILORING RULES:
    - Preserve the exact candidate name line and all contact details (Email, Phone, LinkedIn, GitHub, LeetCode, Portfolio, Location) verbatim.
    - Retain the exact markdown formatting (bullet format `- `, bold titles `**...**`, dates, and dividers).
 
-2. SURGICAL IN-PLACE KEYWORD TAILORING:
-   - In the Summary: Naturally weave in the target title and key competencies sought by {company_name}.
-   - In Technical Skills: Highlight and position the relevant technologies, frameworks, languages, and tools required by the JD while preserving the candidate's authentic skillset.
-   - In Work Experience & Projects: Surgically refine the bullet points to highlight architecture, metrics, performance, and features directly relevant to {opportunity_title} at {company_name}, while keeping all company names, real project titles, dates, and genuine accomplishments accurate.
+2. SURGICAL IN-PLACE KEYWORD TAILORING (GROUNDED IN COMPANY CONTEXT):
+   - In Summary: Naturally weave in {company_name}'s technical priorities and target role competencies without exaggerating.
+   - In Technical Skills: Highlight and position the relevant technologies required by the JD and company tech stack while preserving authentic skills.
+   - In Work Experience & Projects: Rephrase bullet points to emphasize relevant architecture, performance, APIs, and impact aligned with {company_name}, keeping real company names and dates accurate.
 
-3. ZERO DRIFT & CLEAN OUTPUT:
+3. ZERO FABRICATION & ZERO DRIFT:
    - Output ONLY the complete, tailored Markdown resume.
-   - Do NOT include any conversational preamble, notes, explanations, or codeblock fences (` ```markdown ` or ` ``` `). Start directly with the candidate's name line.
+   - Do NOT include any conversational preamble, notes, or codeblock fences (` ```markdown `). Start directly with the candidate's name line.
 """
     tailored_md = call_groq_llm(prompt)
 
-    # Clean any accidental wrapping
     if tailored_md.startswith("```markdown"):
         tailored_md = tailored_md[11:]
     if tailored_md.startswith("```"):
@@ -402,9 +423,12 @@ STRICT IN-PLACE TAILORING RULES:
         tailored_md = tailored_md[:-3]
     tailored_md = tailored_md.strip()
 
-    # Safety check: If the LLM returned empty or too short, fallback to base_markdown
     if len(tailored_md) < 80:
-        tailored_md = base_markdown
+        tailored_md = canonical_base_md
+
+    # Step 4: Convert Tailored Markdown back into Docling Document AST & Compile PDF
+    tailored_md = normalize_to_sections(tailored_md)
+    docling_ast_res = markdown_to_docling_doc(tailored_md)
 
     if not output_pdf_path:
         out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "temp_uploads", "tailored_resumes")
@@ -421,7 +445,7 @@ STRICT IN-PLACE TAILORING RULES:
         pdf_url=pdf_res["pdf_path"],
         ats_score=98,
         keyword_matches=[opportunity_title, company_name],
-        company_alignment_notes=f"Surgically tailored for {opportunity_title} at {company_name} while preserving authentic original layout"
+        company_alignment_notes=f"Docling round-trip tailored for {opportunity_title} at {company_name} with Firecrawl company intelligence"
     )
 
     validated_payload = pydantic_model.model_dump() if hasattr(pydantic_model, "model_dump") else pydantic_model.dict()
@@ -431,8 +455,10 @@ STRICT IN-PLACE TAILORING RULES:
         "status": "success",
         "company_name": company_name,
         "opportunity_title": opportunity_title,
+        "company_intel": company_intel,
         "tailored_markdown": tailored_md,
         "pdf_path": pdf_res["pdf_path"],
         "engine": pdf_res["engine"],
+        "docling_doc_status": docling_ast_res.get("status"),
         "ats_score": 98
     }
