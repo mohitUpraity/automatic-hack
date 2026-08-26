@@ -35,16 +35,26 @@ import {
   Network,
   Share2,
   BookOpen,
-  Wand2
+  Wand2,
+  GraduationCap,
+  Award,
+  Medal,
+  MapPin,
+  Calendar,
+  Building,
+  Target
 } from 'lucide-react';
 
 const NODE_COLORS = {
-  user: '#6366f1',        // indigo
-  skill: '#10b981',       // emerald
-  project: '#8b5cf6',     // violet
-  experience: '#ec4899',  // pink/rose
-  opportunity: '#f97316', // orange/amber
-  document: '#06b6d4',    // cyan
+  user: '#6366f1',          // indigo
+  skill: '#10b981',         // emerald
+  project: '#8b5cf6',       // violet
+  experience: '#ec4899',    // rose/pink
+  achievement: '#f59e0b',   // amber/gold
+  education: '#06b6d4',     // cyan
+  certification: '#14b8a6', // teal
+  opportunity: '#f97316',   // orange
+  document: '#38bdf8',      // sky
 };
 
 const CANDIDATE_COLORS = {
@@ -59,7 +69,10 @@ const NODE_ICONS = {
   skill: Code,
   project: Cpu,
   experience: Briefcase,
-  opportunity: Trophy,
+  achievement: Trophy,
+  education: GraduationCap,
+  certification: Award,
+  opportunity: Target,
   document: FileText,
 };
 
@@ -74,11 +87,16 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [hoverNode, setHoverNode] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedExcerpt, setCopiedExcerpt] = useState(false);
+  const [copiedAttribute, setCopiedAttribute] = useState(false);
+
   const [activeGroups, setActiveGroups] = useState({
     user: true,
     skill: true,
     project: true,
     experience: true,
+    achievement: true,
+    education: true,
+    certification: true,
     opportunity: true,
     document: true,
   });
@@ -135,7 +153,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
           setTimeout(() => {
             if (fgRef.current && targetNode.x !== undefined) {
               fgRef.current.centerAt(targetNode.x, targetNode.y, 800);
-              fgRef.current.zoom(2.2, 800);
+              fgRef.current.zoom(2.0, 800);
             }
           }, 300);
         }
@@ -173,10 +191,13 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const filteredData = useMemo(() => {
     const validNodes = graphData.nodes.filter((node) => {
       const groupMatch = activeGroups[node.group] !== false;
-      const searchMatch = !searchQuery || (
-        (node.label && node.label.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (node.attributes?.name && node.attributes.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (node.attributes?.skill_name && node.attributes.skill_name.toLowerCase().includes(searchQuery.toLowerCase()))
+      const q = searchQuery.toLowerCase().trim();
+      const searchMatch = !q || (
+        (node.label && node.label.toLowerCase().includes(q)) ||
+        (node.attributes?.name && node.attributes.name.toLowerCase().includes(q)) ||
+        (node.attributes?.title && node.attributes.title.toLowerCase().includes(q)) ||
+        (node.attributes?.company && node.attributes.company.toLowerCase().includes(q)) ||
+        (node.attributes?.skill_name && node.attributes.skill_name.toLowerCase().includes(q))
       );
       return groupMatch && searchMatch;
     });
@@ -217,6 +238,12 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     }
   };
 
+  const handleCopyText = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedAttribute(true);
+    setTimeout(() => setCopiedAttribute(false), 2000);
+  };
+
   const handleCopyExcerpt = (text) => {
     navigator.clipboard.writeText(text);
     setCopiedExcerpt(true);
@@ -250,18 +277,18 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   return (
     <div className="space-y-6">
       {/* Top Multi-Candidate Controls Header */}
-      <GlassCard className="p-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+      <GlassCard className="p-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl">
         {/* Candidate Switcher Dropdown */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
             <Users className="w-4 h-4 text-indigo-400" />
             <span>Candidate Perspective:</span>
           </div>
-          <div className="relative min-w-[240px]">
+          <div className="relative min-w-[260px]">
             <select
               value={selectedCandidate}
               onChange={(e) => setSelectedCandidate(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-semibold appearance-none pr-8 cursor-pointer shadow-inner"
+              className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-bold appearance-none pr-8 cursor-pointer shadow-inner"
             >
               {candidatesList.length === 0 ? (
                 <option value="candidate_all">🌐 Multi-Candidate Global Network</option>
@@ -286,13 +313,13 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-950/60 border border-slate-800 rounded-lg text-xs">
             <Code className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-slate-400 font-medium">Shared Skill Hubs:</span>
+            <span className="text-slate-400 font-medium">Skill Hubs:</span>
             <span className="font-bold text-emerald-300">{graphMetrics.shared_skills_count || 5}</span>
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-950/60 border border-slate-800 rounded-lg text-xs">
-            <Network className="w-3.5 h-3.5 text-purple-400" />
-            <span className="text-slate-400 font-medium">Total Graph Nodes:</span>
-            <span className="font-bold text-purple-300">{filteredData.nodes.length}</span>
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-slate-400 font-medium">Entities:</span>
+            <span className="font-bold text-purple-300">{filteredData.nodes.length} Nodes</span>
           </div>
         </div>
       </GlassCard>
@@ -306,7 +333,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
-              placeholder="Search people, skills, projects..."
+              placeholder="Search people, skills, projects, awards..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-indigo-500 shadow-lg"
@@ -314,15 +341,15 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-200"
+                className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-200 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Group Visibility Toggles */}
-          <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg flex-wrap">
+          {/* Group Visibility Toggles (All Granular Types) */}
+          <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg flex-wrap max-w-2xl">
             {Object.keys(NODE_COLORS).map((group) => {
               const Icon = NODE_ICONS[group] || Sparkles;
               const isActive = activeGroups[group];
@@ -381,10 +408,10 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
         </div>
 
         {/* Force Graph Container */}
-        <div ref={containerRef} className="w-full h-[620px] relative">
+        <div ref={containerRef} className="w-full h-[640px] relative">
           {loading && (
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 flex items-center justify-center">
-              <LoadingSpinner size="lg" text="Synthesizing multi-candidate Graph RAG embeddings..." />
+              <LoadingSpinner size="lg" text="Synthesizing multi-candidate Graph RAG embeddings & entities..." />
             </div>
           )}
 
@@ -395,38 +422,39 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             graphData={filteredData}
             backgroundColor="#030712"
             nodeRelSize={6}
-            nodeVal={(node) => node.val || 5}
-            nodeLabel={(node) => `${node.label} (${node.group})`}
-            linkColor={(link) => (link.type === 'TEAM_SYNERGY' ? '#818cf8' : '#334155')}
+            nodeVal={(node) => node.val || 6}
+            nodeLabel={(node) => `${node.label} (${node.group?.toUpperCase()})`}
+            linkColor={(link) => (link.type === 'TEAM_SYNERGY' ? '#818cf8' : link.type === 'USES_TECH' ? '#64748b' : '#334155')}
             linkWidth={(link) => (link.type === 'TEAM_SYNERGY' ? 2.5 : 1.2)}
-            linkDirectionalParticles={(link) => (link.type === 'TEAM_SYNERGY' ? 4 : 2)}
+            linkDirectionalParticles={(link) => (link.type === 'TEAM_SYNERGY' ? 4 : link.type === 'USES_TECH' ? 1 : 2)}
             linkDirectionalParticleSpeed={0.006}
             linkDirectionalParticleWidth={(link) => (link.type === 'TEAM_SYNERGY' ? 3 : 2)}
             linkDirectionalParticleColor={(link) => (link.type === 'TEAM_SYNERGY' ? '#c084fc' : '#818cf8')}
             onNodeClick={handleNodeClick}
             onNodeHover={(node) => setHoverNode(node || null)}
-            cooldownTicks={120}
+            cooldownTicks={140}
             nodeCanvasObject={(node, ctx, globalScale) => {
               const isSelected = selectedNode?.id === node.id;
               const isHovered = hoverNode?.id === node.id;
               const isCandidate = node.group === 'user';
               const isSharedSkill = node.is_shared;
+              const isAchievement = node.group === 'achievement';
               
               const nodeColor = isCandidate
                 ? CANDIDATE_COLORS[node.id] || '#6366f1'
                 : NODE_COLORS[node.group] || '#94a3b8';
 
-              const radius = isCandidate ? 11 : isSharedSkill ? 8.5 : (node.val || 5) * 1.1;
+              const radius = isCandidate ? 12 : isSharedSkill || isAchievement ? 9 : (node.val || 6) * 1.1;
 
-              // Outer glowing aura for selected or hovered nodes
-              if (isSelected || isHovered || isCandidate || isSharedSkill) {
+              // Outer glowing aura
+              if (isSelected || isHovered || isCandidate || isSharedSkill || isAchievement) {
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, radius + (isSelected ? 6 : 3), 0, 2 * Math.PI, false);
-                ctx.fillStyle = isCandidate ? `${nodeColor}44` : isSharedSkill ? '#10b98133' : `${nodeColor}33`;
+                ctx.arc(node.x, node.y, radius + (isSelected ? 6 : 3.5), 0, 2 * Math.PI, false);
+                ctx.fillStyle = isCandidate ? `${nodeColor}44` : isSharedSkill ? '#10b98133' : isAchievement ? '#f59e0b33' : `${nodeColor}33`;
                 ctx.fill();
 
-                if (isSelected || isSharedSkill) {
-                  ctx.strokeStyle = isSharedSkill ? '#34d399' : '#818cf8';
+                if (isSelected || isSharedSkill || isAchievement) {
+                  ctx.strokeStyle = isSharedSkill ? '#34d399' : isAchievement ? '#fbbf24' : '#818cf8';
                   ctx.lineWidth = 1.5;
                   ctx.stroke();
                 }
@@ -444,17 +472,16 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               ctx.stroke();
 
               // Draw Node Label below
-              if (globalScale > 0.85 || isSelected || isHovered || isCandidate || isSharedSkill) {
+              if (globalScale > 0.8 || isSelected || isHovered || isCandidate || isSharedSkill || isAchievement) {
                 const label = node.label || node.id;
-                const fontSize = isCandidate ? 12 / globalScale : isSharedSkill ? 10.5 / globalScale : 9.5 / globalScale;
-                ctx.font = `${isCandidate || isSharedSkill ? 'bold' : 'normal'} ${fontSize}px Inter, sans-serif`;
+                const fontSize = isCandidate ? 12 / globalScale : (isSharedSkill || isAchievement) ? 10.5 / globalScale : 9.5 / globalScale;
+                ctx.font = `${isCandidate || isSharedSkill || isAchievement ? 'bold' : 'normal'} ${fontSize}px Inter, sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'top';
 
-                // Label background pill
                 const textWidth = ctx.measureText(label).width;
                 const bckgDimensions = [textWidth + 6, fontSize + 3];
-                ctx.fillStyle = 'rgba(3, 7, 18, 0.85)';
+                ctx.fillStyle = 'rgba(3, 7, 18, 0.88)';
                 ctx.fillRect(
                   node.x - bckgDimensions[0] / 2,
                   node.y + radius + 2,
@@ -462,7 +489,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                   bckgDimensions[1]
                 );
 
-                ctx.fillStyle = isCandidate ? '#ffffff' : isSharedSkill ? '#a7f3d0' : '#cbd5e1';
+                ctx.fillStyle = isCandidate ? '#ffffff' : isSharedSkill ? '#a7f3d0' : isAchievement ? '#fef3c7' : '#cbd5e1';
                 ctx.fillText(label, node.x, node.y + radius + 3.5);
               }
             }}
@@ -470,24 +497,20 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
         </div>
 
         {/* Bottom Legend Overlay */}
-        <div className="absolute bottom-4 left-4 z-20 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-800 shadow-xl pointer-events-auto flex items-center gap-4 text-xs">
+        <div className="absolute bottom-4 left-4 z-20 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-800 shadow-xl pointer-events-auto flex items-center gap-4 text-xs flex-wrap">
           <div className="flex items-center gap-2 font-bold text-slate-300">
             <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Legend:</span>
+            <span>Entities:</span>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="flex items-center gap-1 text-slate-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#6366f1]" /> Mohit (AI/IoT)
-            </span>
-            <span className="flex items-center gap-1 text-slate-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#ec4899]" /> Krati (UI/UX)
-            </span>
-            <span className="flex items-center gap-1 text-slate-400">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" /> Vishnu (Backend)
-            </span>
-            <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-              <Zap className="w-3 h-3 text-emerald-400" /> ⚡ Shared Skill Hub
-            </span>
+          <div className="flex items-center gap-3 flex-wrap text-slate-400">
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#6366f1]" /> Candidate</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" /> Skill</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" /> Project</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#ec4899]" /> Experience</span>
+            <span className="flex items-center gap-1 text-amber-300 font-semibold"><span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" /> 🏆 Award</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#06b6d4]" /> 🎓 Education</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#14b8a6]" /> 📜 Cert</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#f97316]" /> Opportunity</span>
           </div>
         </div>
       </div>
@@ -499,23 +522,23 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
           <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"
+                className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
                 style={{
                   backgroundColor: selectedNode.cluster_color || NODE_COLORS[selectedNode.group] || '#6366f1',
                 }}
               >
                 {React.createElement(NODE_ICONS[selectedNode.group] || Sparkles, {
-                  className: 'w-5 h-5 text-white',
+                  className: 'w-6 h-6 text-white',
                 })}
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant={selectedNode.group === 'user' ? 'primary' : 'secondary'} size="sm">
                     {selectedNode.group?.toUpperCase()} NODE
                   </Badge>
                   {selectedNode.is_shared && (
                     <Badge variant="success" size="sm">
-                      ⚡ SHARED ACROSS {selectedNode.shared_count} CANDIDATES
+                      ⚡ SHARED SKILL HUB
                     </Badge>
                   )}
                   <span className="text-xs text-slate-500 font-mono">ID: {selectedNode.id}</span>
@@ -593,24 +616,6 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                     </div>
                   </div>
 
-                  {/* Skill Gap Suggestions for this Candidate */}
-                  {selectedNode.attributes?.peer_gaps && (
-                    <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/20 space-y-2">
-                      <div className="flex items-center gap-2 text-xs font-bold text-amber-300 uppercase">
-                        <BookOpen className="w-4 h-4 text-amber-400" />
-                        <span>Recommended Peer Skill Gaps to Explore</span>
-                      </div>
-                      <ul className="space-y-1.5 text-xs text-slate-300">
-                        {selectedNode.attributes.peer_gaps.map((gap, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                            <span>{gap}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
                   {/* Action Buttons */}
                   <div className="flex items-center gap-3 pt-2">
                     <button
@@ -627,6 +632,103 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                       <User className="w-4 h-4 text-indigo-400" />
                       Focus Graph on {selectedNode.label.split(' ')[0]}
                     </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Achievement / Award Node View */}
+              {selectedNode.group === 'achievement' && (
+                <div className="space-y-4">
+                  <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-400 uppercase flex items-center gap-1.5">
+                        <Trophy className="w-4 h-4" /> Verified Honor & Competition Award
+                      </span>
+                      <span className="text-xs font-bold text-white font-mono">{selectedNode.attributes?.year}</span>
+                    </div>
+                    <h3 className="text-base font-extrabold text-white">{selectedNode.attributes?.title}</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed">{selectedNode.attributes?.impact}</p>
+                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
+                      <span className="text-slate-400">Issuing Body: <span className="text-slate-200 font-semibold">{selectedNode.attributes?.organization}</span></span>
+                      <span className="text-amber-300 font-bold">Winner: {selectedNode.attributes?.winner}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleCopyText(`- **${selectedNode.attributes?.title}** (${selectedNode.attributes?.year}) — ${selectedNode.attributes?.impact}`)}
+                    className="px-4 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    {copiedAttribute ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    {copiedAttribute ? 'Copied Award Markdown!' : 'Copy Award to Clipboard for Resume'}
+                  </button>
+                </div>
+              )}
+
+              {/* Education Node View */}
+              {selectedNode.group === 'education' && (
+                <div className="space-y-4">
+                  <div className="bg-cyan-950/20 p-4 rounded-xl border border-cyan-500/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-cyan-400 uppercase flex items-center gap-1.5">
+                        <GraduationCap className="w-4 h-4" /> Academic Degree
+                      </span>
+                      <span className="text-xs font-mono text-slate-400">{selectedNode.attributes?.period}</span>
+                    </div>
+                    <h3 className="text-base font-bold text-white">{selectedNode.attributes?.degree}</h3>
+                    <p className="text-xs text-slate-300">{selectedNode.attributes?.institution}</p>
+                    <p className="text-xs text-slate-400 pt-1">{selectedNode.attributes?.details}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Certification Node View */}
+              {selectedNode.group === 'certification' && (
+                <div className="space-y-4">
+                  <div className="bg-teal-950/20 p-4 rounded-xl border border-teal-500/30 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-teal-400 uppercase flex items-center gap-1.5">
+                        <Award className="w-4 h-4" /> Professional Certification
+                      </span>
+                      <span className="text-xs font-mono text-slate-400">{selectedNode.attributes?.year}</span>
+                    </div>
+                    <h3 className="text-base font-bold text-white">{selectedNode.attributes?.name}</h3>
+                    <p className="text-xs text-slate-300">Issued by: <span className="font-semibold text-teal-300">{selectedNode.attributes?.issuer}</span></p>
+                  </div>
+                </div>
+              )}
+
+              {/* Project Node View */}
+              {selectedNode.group === 'project' && (
+                <div className="space-y-4">
+                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <span className="text-xs font-bold text-purple-400 uppercase flex items-center gap-1.5">
+                      <Cpu className="w-4 h-4" /> Featured Engineering Project
+                    </span>
+                    <h3 className="text-base font-bold text-white">{selectedNode.attributes?.title}</h3>
+                    <p className="text-xs text-slate-300 leading-relaxed">{selectedNode.attributes?.description}</p>
+                    {selectedNode.attributes?.tech_stack && (
+                      <div className="pt-2">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">Tech Stack:</span>
+                        <span className="text-xs font-semibold text-purple-300">{selectedNode.attributes.tech_stack}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Work Experience Node View */}
+              {selectedNode.group === 'experience' && (
+                <div className="space-y-4">
+                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-pink-400 uppercase flex items-center gap-1.5">
+                        <Briefcase className="w-4 h-4" /> Work Experience
+                      </span>
+                      <span className="text-xs font-mono text-slate-400">{selectedNode.attributes?.period}</span>
+                    </div>
+                    <h3 className="text-base font-bold text-white">{selectedNode.attributes?.role}</h3>
+                    <p className="text-xs text-slate-300">{selectedNode.attributes?.company}</p>
+                    <p className="text-xs text-slate-300 leading-relaxed pt-2">{selectedNode.attributes?.achievements}</p>
                   </div>
                 </div>
               )}
@@ -698,22 +800,6 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Project / Experience Node View */}
-              {(selectedNode.group === 'project' || selectedNode.group === 'experience') && (
-                <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase">Entity Highlights</span>
-                  <p className="text-xs text-slate-200 leading-relaxed">
-                    {selectedNode.attributes?.description || selectedNode.attributes?.achievements || 'Verified portfolio component.'}
-                  </p>
-                  {selectedNode.attributes?.tech_stack && (
-                    <div className="pt-2">
-                      <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">Tech Stack:</span>
-                      <span className="text-xs font-semibold text-purple-300">{selectedNode.attributes.tech_stack}</span>
-                    </div>
-                  )}
                 </div>
               )}
 

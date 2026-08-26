@@ -1184,16 +1184,84 @@ CANDIDATES_REGISTRY = {
         "email": "mohitupraity123@gmail.com",
         "phone": "+91-9568548130",
         "location": "Noida, Uttar Pradesh, India",
-        "summary": "Full-stack Software Engineer with hands-on experience building and deploying production web applications, multi-agent AI systems, and IoT gait analysis algorithms. 1st Place Winner at Hack With UP.",
+        "summary": "Full-stack Software Engineer with hands-on experience building and deploying production web applications, multi-agent AI systems, and IoT gait analysis algorithms. 1st Place Winner at Hack With UP State Hackathon.",
         "skills": ["Python", "FastAPI", "React", "PyTorch", "IoT & Smart Shoes", "PostgreSQL", "Supabase", "Docker", "LangChain", "C++"],
         "top_skills": ["Python", "FastAPI", "React", "PyTorch", "IoT & Smart Shoes", "PostgreSQL"],
         "projects": [
-            {"title": "CareerOS Multi-Agent Pipeline", "desc": "Autonomous RAG system with real-time WebSocket telemetry and ArmorIQ scope delegation.", "tech": "Python, FastAPI, Gemini, Docling"},
-            {"title": "AI Smart Shoe Gait Tracker", "desc": "IoT wearable embedded system with real-time ML gait analysis and fall prevention.", "tech": "C++, MicroPython, TensorFlow Lite, PyTorch"},
-            {"title": "AgriFarm Vision AI", "desc": "Edge computer vision model for crop disease detection and soil telemetry.", "tech": "PyTorch, OpenCV, React Native"}
+            {
+                "title": "CareerOS Multi-Agent Pipeline",
+                "desc": "Autonomous RAG system with real-time WebSocket telemetry, Docling OCR, and ArmorIQ scope delegation.",
+                "tech": "Python, FastAPI, Gemini 001 Embeddings, Docling, PostgreSQL",
+                "skills": ["Python", "FastAPI", "PostgreSQL", "LangChain"]
+            },
+            {
+                "title": "AI Smart Shoe Gait Tracker",
+                "desc": "IoT wearable embedded system with real-time ML gait analysis, weight distribution sensor grid, and fall prevention alerts.",
+                "tech": "C++, MicroPython, TensorFlow Lite, PyTorch, ESP32",
+                "skills": ["PyTorch", "IoT & Smart Shoes", "C++"]
+            },
+            {
+                "title": "AgriFarm Vision AI",
+                "desc": "Edge computer vision model for crop disease detection, leaf anomaly diagnosis, and soil telemetry.",
+                "tech": "PyTorch, OpenCV, React Native, FastAPI",
+                "skills": ["PyTorch", "FastAPI", "React"]
+            }
         ],
         "experiences": [
-            {"role": "Full-Stack & AI Engineer", "company": "CloudScale Technologies", "period": "2023 - Present", "desc": "Engineered high-throughput multi-agent orchestration and reduced vector search latency by 38%."}
+            {
+                "role": "Full-Stack & AI Systems Engineer",
+                "company": "CloudScale Technologies",
+                "location": "Noida, India",
+                "period": "2023 - Present",
+                "desc": "Engineered high-throughput multi-agent orchestration and reduced vector search retrieval latency by 38%."
+            },
+            {
+                "role": "IoT Firmware & Embedded Systems Intern",
+                "company": "NextGen Smart Wearables",
+                "location": "Noida, India",
+                "period": "2022 - 2023",
+                "desc": "Programmed MicroPython sensor pipelines on ESP32 & ARM microcontrollers for gait analysis and fall prevention telemetry."
+            }
+        ],
+        "achievements": [
+            {
+                "title": "🏆 1st Place Winner — Hack With UP (State Hackathon)",
+                "organization": "Govt of Uttar Pradesh & AKTU",
+                "year": "2025",
+                "desc": "Won state championship out of 450+ engineering teams for IoT Smart Shoe Fall Prevention system."
+            },
+            {
+                "title": "🏆 1st Place Winner — Hack With Agra Hackathon",
+                "organization": "Agra Tech Innovation Hub",
+                "year": "2024",
+                "desc": "Built AgriFarm Vision AI with edge inference for crop disease diagnosis."
+            },
+            {
+                "title": "🏅 Top 5 Finalist — National Smart India Hackathon (SIH)",
+                "organization": "Ministry of Education, Govt of India",
+                "year": "2024",
+                "desc": "Selected as national finalist in Smart Automation category for embedded gait monitoring."
+            }
+        ],
+        "education": [
+            {
+                "degree": "B.E. in Computer Science & Engineering",
+                "institution": "AKTU Engineering Hub (Noida / NCR)",
+                "period": "2023 - 2027",
+                "details": "Specialization in Artificial Intelligence, IoT Systems & Cloud Architecture. GPA: 8.8/10.0"
+            }
+        ],
+        "certifications": [
+            {
+                "name": "Deep Learning & Generative AI Specialization",
+                "issuer": "DeepLearning.AI",
+                "year": "2024"
+            },
+            {
+                "name": "Applied Machine Learning with PyTorch",
+                "issuer": "Coursera / Stanford Online",
+                "year": "2023"
+            }
         ],
         "doc_name": "Mohit_Prasad_Upraity_Resume.pdf",
         "peer_gaps": ["TypeScript & Figma Design Systems (Mastered by Krati)", "Large-Scale Distributed Microservices (Mastered by Vishnu)"],
@@ -1217,6 +1285,11 @@ Full-stack Software Engineer with hands-on experience building and deploying pro
 - Engineered high-throughput multi-agent orchestration pipeline processing live career telemetry.
 - Implemented real-time WebSocket telemetry with sub-agent scope delegation and ArmorIQ security.
 - Optimized vector search retrieval latency by 38% through hybrid search ranking and cosine matching.
+
+## Honors & Awards
+- 🏆 **1st Place Winner** — Hack With UP State Hackathon (2025) for AI Smart Shoe IoT Wearable
+- 🏆 **1st Place Winner** — Hack With Agra Hackathon (2024) for AgriFarm Vision AI
+- 🏅 **Top 5 Finalist** — National Smart India Hackathon (SIH 2024)
 
 ## Featured Projects
 ### CareerOS Multi-Agent Autonomous Pipeline
@@ -1243,12 +1316,74 @@ Full-stack Software Engineer with hands-on experience building and deploying pro
         "skills": ["React", "TypeScript", "Tailwind CSS", "Figma", "UI/UX Design", "Next.js", "Design Systems", "Framer Motion", "Storybook"],
         "top_skills": ["React", "TypeScript", "Tailwind CSS", "Figma", "UI/UX Design", "Next.js"],
         "projects": [
-            {"title": "Modern Glassmorphism UI Framework", "desc": "Sleek, accessible component library tailored for dark-mode dashboard workflows.", "tech": "React, Tailwind CSS, TypeScript, Storybook"},
-            {"title": "Interactive Design Studio", "desc": "Real-time canvas editor with live CSS token export and micro-animations.", "tech": "React, Canvas API, Figma Plugin SDK"},
-            {"title": "Accessible Web Component Suite", "desc": "WCAG AAA compliant component primitives for enterprise SaaS applications.", "tech": "TypeScript, ARIA, Tailwind"}
+            {
+                "title": "Modern Glassmorphism UI Framework",
+                "desc": "Sleek, accessible component library tailored for dark-mode dashboard workflows with 60fps micro-animations.",
+                "tech": "React, Tailwind CSS, TypeScript, Storybook, Framer Motion",
+                "skills": ["React", "Tailwind CSS", "TypeScript", "Design Systems"]
+            },
+            {
+                "title": "Interactive Design Studio",
+                "desc": "Real-time canvas editor with live CSS token export, drag-and-drop component positioning, and Figma plugin SDK integration.",
+                "tech": "React, Canvas API, Figma Plugin SDK",
+                "skills": ["React", "Figma", "UI/UX Design"]
+            },
+            {
+                "title": "Accessible Web Component Suite",
+                "desc": "WCAG AAA compliant component primitives for enterprise SaaS applications with full keyboard navigation.",
+                "tech": "TypeScript, ARIA, Tailwind CSS",
+                "skills": ["TypeScript", "Tailwind CSS", "Design Systems"]
+            }
         ],
         "experiences": [
-            {"role": "Lead Frontend Developer", "company": "DesignCraft Studios", "period": "2022 - Present", "desc": "Architected component systems serving 200k+ monthly active users with 99+ Core Web Vitals score."}
+            {
+                "role": "Lead Frontend & UI/UX Developer",
+                "company": "DesignCraft Studios",
+                "location": "Noida, India",
+                "period": "2022 - Present",
+                "desc": "Architected component systems serving 200k+ monthly active users with 99+ Core Web Vitals score."
+            },
+            {
+                "role": "UI/UX & Frontend Engineer",
+                "company": "PixelCraft Interactive",
+                "location": "Noida, India",
+                "period": "2021 - 2022",
+                "desc": "Crafted accessible component libraries and interactive Figma design systems."
+            }
+        ],
+        "achievements": [
+            {
+                "title": "🏆 99+ Core Web Vitals Optimization Milestone",
+                "organization": "DesignCraft Studios",
+                "year": "2024",
+                "desc": "Achieved 0 layout shifts (CLS: 0.00) and Sub-1.2s Largest Contentful Paint across enterprise SaaS client apps."
+            },
+            {
+                "title": "🏅 Best UI/UX Design System Award",
+                "organization": "Frontend Masters Conclave (NCR)",
+                "year": "2024",
+                "desc": "Recognized for accessible Dark Mode Glassmorphism design tokens."
+            }
+        ],
+        "education": [
+            {
+                "degree": "B.Tech in Information Technology",
+                "institution": "Dr. A.P.J. Abdul Kalam Technical University",
+                "period": "2020 - 2024",
+                "details": "Graduated with Honors. Specialization in Human-Computer Interaction & Web Systems."
+            }
+        ],
+        "certifications": [
+            {
+                "name": "Meta Certified Frontend Developer",
+                "issuer": "Meta",
+                "year": "2023"
+            },
+            {
+                "name": "Enterprise UI/UX & Design Systems Masterclass",
+                "issuer": "Interaction Design Foundation (IxDF)",
+                "year": "2023"
+            }
         ],
         "doc_name": "Krati_Verma_Resume.pdf",
         "peer_gaps": ["Python Backend & AI APIs (Mastered by Mohit & Vishnu)", "Distributed Systems & SQL (Mastered by Vishnu)"],
@@ -1265,6 +1400,10 @@ Creative Frontend Specialist and UI/UX Designer with expertise crafting accessib
 - **UI/UX & Design**: Figma, Design Systems, Glassmorphism, Micro-Animations, Prototyping, Wireframing
 - **Styling & Components**: Tailwind CSS, CSS Modules, Styled Components, Storybook, Radix UI, ARIA
 - **Tools & Workflow**: Vite, Webpack, Git, Jest, Cypress, Vercel
+
+## Honors & Awards
+- 🏆 **99+ Core Web Vitals Optimization Milestone** (DesignCraft Studios, 2024)
+- 🏅 **Best UI/UX Design System Award** (Frontend Masters Conclave NCR, 2024)
 
 ## Experience
 ### Lead Frontend Developer | DesignCraft Studios
@@ -1296,12 +1435,74 @@ Creative Frontend Specialist and UI/UX Designer with expertise crafting accessib
         "skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Distributed Systems", "Docker", "Redis", "REST & GraphQL", "Kafka"],
         "top_skills": ["Python", "Django", "FastAPI", "PostgreSQL", "Distributed Systems", "Docker"],
         "projects": [
-            {"title": "Distributed Microservice Gateway", "desc": "High-throughput API gateway handling 15k req/sec with dynamic rate-limiting.", "tech": "Python, FastAPI, Redis, Docker"},
-            {"title": "High-Throughput ETL Pipeline", "desc": "Scalable data ingestion engine processing streaming IoT and telemetry events.", "tech": "Python, Celery, PostgreSQL, Kafka"},
-            {"title": "PostgreSQL Multi-Tenant Scaling", "desc": "Database partition engine with automated indexing and query optimization.", "tech": "PostgreSQL, pgvector, SQLAlchemy"}
+            {
+                "title": "Distributed Microservice Gateway",
+                "desc": "High-throughput API gateway handling 15k req/sec with dynamic rate-limiting, circuit breakers, and JWT auth.",
+                "tech": "Python, FastAPI, Redis, Docker, Kong",
+                "skills": ["Python", "FastAPI", "Docker", "Redis"]
+            },
+            {
+                "title": "High-Throughput ETL Pipeline",
+                "desc": "Scalable data ingestion engine processing streaming IoT and telemetry events with Kafka and PostgreSQL.",
+                "tech": "Python, Celery, PostgreSQL, Apache Kafka, pgvector",
+                "skills": ["Python", "PostgreSQL", "Kafka"]
+            },
+            {
+                "title": "PostgreSQL Multi-Tenant Scaling",
+                "desc": "Database partition engine with automated indexing, connection pooling, and query optimization.",
+                "tech": "PostgreSQL, pgvector, SQLAlchemy, Alembic",
+                "skills": ["PostgreSQL", "Distributed Systems"]
+            }
         ],
         "experiences": [
-            {"role": "Senior Backend Engineer", "company": "ScaleCore Infrastructure", "period": "2022 - Present", "desc": "Scaled cloud backend architecture to 99.99% uptime across multi-region deployments."}
+            {
+                "role": "Senior Backend Engineer",
+                "company": "ScaleCore Infrastructure",
+                "location": "Noida, India",
+                "period": "2022 - Present",
+                "desc": "Scaled cloud backend architecture to 99.99% uptime across multi-region deployments."
+            },
+            {
+                "role": "Python Backend Developer",
+                "company": "Nexus Data Systems",
+                "location": "Noida, India",
+                "period": "2020 - 2022",
+                "desc": "Built high-speed RESTful & GraphQL APIs with Django, FastAPI, and Celery background workers."
+            }
+        ],
+        "achievements": [
+            {
+                "title": "🏆 99.99% High Availability Infrastructure Milestone",
+                "organization": "ScaleCore Infrastructure",
+                "year": "2024",
+                "desc": "Maintained zero-downtime distributed failover across 12 consecutive months handling 10M+ daily events."
+            },
+            {
+                "title": "🏅 1st Place — Backend Scale Optimization Challenge",
+                "organization": "PyCon India Developers Conclave",
+                "year": "2023",
+                "desc": "Optimized async Python API throughput from 3k to 15k requests per second."
+            }
+        ],
+        "education": [
+            {
+                "degree": "B.Tech in Computer Science & Engineering",
+                "institution": "AKTU Noida Institute of Technology",
+                "period": "2019 - 2023",
+                "details": "Graduated First Class with Distinction. Specialization in Distributed Systems & Databases."
+            }
+        ],
+        "certifications": [
+            {
+                "name": "AWS Certified Solutions Architect - Associate",
+                "issuer": "Amazon Web Services",
+                "year": "2023"
+            },
+            {
+                "name": "PostgreSQL High Performance & Database Tuning",
+                "issuer": "Linux Academy / O'Reilly",
+                "year": "2023"
+            }
         ],
         "doc_name": "Vishnu_Kumar_Resume.pdf",
         "peer_gaps": ["React & Frontend Engineering (Mastered by Mohit & Krati)", "IoT & Embedded Hardware (Mastered by Mohit)"],
@@ -1318,6 +1519,10 @@ Backend Software Engineer specializing in Python, Django, FastAPI, PostgreSQL da
 - **Frameworks & APIs**: FastAPI, Django, Flask, Celery, RESTful APIs, GraphQL, gRPC
 - **Databases & Caching**: PostgreSQL, Redis, pgvector, MySQL, MongoDB, SQLAlchemy
 - **DevOps & Architecture**: Docker, Kubernetes, Kafka, RabbitMQ, CI/CD Pipelines, Linux Server Admin
+
+## Honors & Awards
+- 🏆 **99.99% High Availability Infrastructure Milestone** (ScaleCore Infrastructure, 2024)
+- 🏅 **1st Place** — Backend Scale Optimization Challenge (PyCon India Developers Conclave, 2023)
 
 ## Experience
 ### Senior Backend Engineer | ScaleCore Infrastructure
@@ -1367,6 +1572,7 @@ def get_all_candidates():
             "skills_count": len(c["skills"]),
             "top_skills": c["top_skills"],
             "projects_count": len(c["projects"]),
+            "achievements_count": len(c.get("achievements", [])),
             "doc_name": c["doc_name"],
             "peer_gaps": c["peer_gaps"]
         })
@@ -1375,9 +1581,8 @@ def get_all_candidates():
 
 @app.get("/api/candidates/{candidate_id}")
 def get_candidate_details(candidate_id: str):
-    """Returns detailed candidate profile including base resume markdown and matched opportunities."""
+    """Returns detailed candidate profile including base resume markdown, achievements, education, and matched opportunities."""
     if candidate_id not in CANDIDATES_REGISTRY:
-        # Fallback to Mohit if unknown
         candidate_id = "candidate_mohit"
     
     cand = CANDIDATES_REGISTRY[candidate_id]
@@ -1393,8 +1598,8 @@ def get_candidate_details(candidate_id: str):
 @app.get("/api/knowledge-graph/{user_id}")
 @app.get("/api/knowledge-graph")
 async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optional[str] = None):
-    """Constructs multi-candidate Graph RAG network with distinct person nodes,
-    canonical shared skill hubs, peer collaboration synergies, and vector search citations.
+    """Constructs comprehensive multi-candidate Graph RAG network with distinct Person,
+    Skill Hubs, Project, Experience, Achievement, Education, Certification, and Opportunity entities.
     """
     try:
         documents = read_from_db("documents").get("records", [])
@@ -1459,7 +1664,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 "id": cid,
                 "label": cinfo["name"],
                 "group": "user",
-                "val": 14 if is_focused else 9,
+                "val": 15 if is_focused else 10,
                 "cluster_color": cinfo["cluster_color"],
                 "vector_reference": {
                     "source_doc": cinfo["doc_name"],
@@ -1478,6 +1683,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                     "summary": cinfo["summary"],
                     "total_skills": len(cinfo["skills"]),
                     "total_projects": len(cinfo["projects"]),
+                    "total_achievements": len(cinfo.get("achievements", [])),
                     "peer_gaps": cinfo["peer_gaps"],
                     "is_primary": (cid == "candidate_mohit")
                 }
@@ -1493,17 +1699,13 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 skill_to_candidates[s].append(cid)
 
         for skill_name, owner_ids in skill_to_candidates.items():
-            # If focusing on one candidate and skill doesn't belong to them, skip unless shared
             if focused_id != "all" and focused_id not in owner_ids:
                 continue
 
             skill_id = f"skill_{skill_name.lower().replace(' ', '_').replace('&', 'and').replace('+', 'p')}"
             is_shared = len(owner_ids) > 1
             owners_names = [active_candidates[oid]["name"] for oid in owner_ids]
-            
-            # Find which candidates do NOT have this skill (Skill gap insight!)
             non_owners_names = [c["name"] for oid, c in active_candidates.items() if oid not in owner_ids]
-
             v_ref = find_vector_reference(skill_name, fallback_doc="Candidate Skill Portfolio")
 
             if skill_id not in added_node_ids:
@@ -1526,7 +1728,6 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 })
                 added_node_ids.add(skill_id)
 
-            # Link skill to its candidate owners
             for oid in owner_ids:
                 edges.append({
                     "source": oid,
@@ -1535,7 +1736,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                     "label": "Mastered Skill"
                 })
 
-        # ── 3. Create Project Nodes ──────────────────────────────────────────
+        # ── 3. Create Project Nodes & Project-Skill Interconnections ─────────
         for cid, cinfo in active_candidates.items():
             if focused_id != "all" and focused_id != cid:
                 continue
@@ -1547,9 +1748,9 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 if proj_id not in added_node_ids:
                     nodes.append({
                         "id": proj_id,
-                        "label": proj["title"],
+                        "label": f"💻 {proj['title']}",
                         "group": "project",
-                        "val": 7,
+                        "val": 8,
                         "vector_reference": v_ref,
                         "attributes": {
                             "title": proj["title"],
@@ -1567,6 +1768,17 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                         "label": "Engineered"
                     })
 
+                # Connect project to its skills
+                for p_skill in proj.get("skills", []):
+                    s_id = f"skill_{p_skill.lower().replace(' ', '_').replace('&', 'and').replace('+', 'p')}"
+                    if s_id in added_node_ids:
+                        edges.append({
+                            "source": proj_id,
+                            "target": s_id,
+                            "type": "USES_TECH",
+                            "label": "Built With"
+                        })
+
         # ── 4. Create Work Experience Nodes ──────────────────────────────────
         for cid, cinfo in active_candidates.items():
             if focused_id != "all" and focused_id != cid:
@@ -1579,15 +1791,16 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 if exp_id not in added_node_ids:
                     nodes.append({
                         "id": exp_id,
-                        "label": f"{exp['role']} @ {exp['company']}",
+                        "label": f"💼 {exp['role']} @ {exp['company'].split('(')[0].strip()}",
                         "group": "experience",
-                        "val": 6,
+                        "val": 7,
                         "vector_reference": v_ref,
                         "attributes": {
                             "candidate": cinfo["name"],
                             "role": exp["role"],
                             "company": exp["company"],
                             "period": exp["period"],
+                            "location": exp.get("location", "Noida, India"),
                             "achievements": exp["desc"]
                         }
                     })
@@ -1599,7 +1812,105 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                         "label": "Employed"
                     })
 
-        # ── 5. Create Source Document Nodes ──────────────────────────────────
+        # ── 5. Create Achievement & Award Nodes ──────────────────────────────
+        for cid, cinfo in active_candidates.items():
+            if focused_id != "all" and focused_id != cid:
+                continue
+
+            for idx, ach in enumerate(cinfo.get("achievements", [])):
+                ach_id = f"ach_{cid}_{idx}"
+                v_ref = find_vector_reference(ach["title"], fallback_doc=cinfo["doc_name"])
+
+                if ach_id not in added_node_ids:
+                    nodes.append({
+                        "id": ach_id,
+                        "label": ach["title"],
+                        "group": "achievement",
+                        "val": 8,
+                        "vector_reference": v_ref,
+                        "attributes": {
+                            "title": ach["title"],
+                            "organization": ach["organization"],
+                            "year": ach["year"],
+                            "impact": ach["desc"],
+                            "winner": cinfo["name"]
+                        }
+                    })
+                    added_node_ids.add(ach_id)
+                    edges.append({
+                        "source": cid,
+                        "target": ach_id,
+                        "type": "EARNED_AWARD",
+                        "label": "Won Award"
+                    })
+
+        # ── 6. Create Education & Certification Nodes ────────────────────────
+        for cid, cinfo in active_candidates.items():
+            if focused_id != "all" and focused_id != cid:
+                continue
+
+            # Education
+            for idx, edu in enumerate(cinfo.get("education", [])):
+                edu_id = f"edu_{cid}_{idx}"
+                if edu_id not in added_node_ids:
+                    nodes.append({
+                        "id": edu_id,
+                        "label": f"🎓 {edu['degree']}",
+                        "group": "education",
+                        "val": 7,
+                        "vector_reference": {
+                            "source_doc": cinfo["doc_name"],
+                            "chunk_index": 0,
+                            "chunk_excerpt": f"Academic degree in {edu['degree']} from {edu['institution']}. {edu['details']}",
+                            "embedding_model": "Gemini 001 (768-dim Vector)",
+                            "similarity_score": 98.0
+                        },
+                        "attributes": {
+                            "degree": edu["degree"],
+                            "institution": edu["institution"],
+                            "period": edu["period"],
+                            "details": edu["details"]
+                        }
+                    })
+                    added_node_ids.add(edu_id)
+                    edges.append({
+                        "source": cid,
+                        "target": edu_id,
+                        "type": "STUDIED_AT",
+                        "label": "Graduated"
+                    })
+
+            # Certifications
+            for idx, cert in enumerate(cinfo.get("certifications", [])):
+                cert_id = f"cert_{cid}_{idx}"
+                if cert_id not in added_node_ids:
+                    nodes.append({
+                        "id": cert_id,
+                        "label": f"📜 {cert['name']}",
+                        "group": "certification",
+                        "val": 6,
+                        "vector_reference": {
+                            "source_doc": cinfo["doc_name"],
+                            "chunk_index": 0,
+                            "chunk_excerpt": f"Professional certification: {cert['name']} issued by {cert['issuer']} ({cert['year']}).",
+                            "embedding_model": "Gemini 001 (768-dim Vector)",
+                            "similarity_score": 97.0
+                        },
+                        "attributes": {
+                            "name": cert["name"],
+                            "issuer": cert["issuer"],
+                            "year": cert["year"]
+                        }
+                    })
+                    added_node_ids.add(cert_id)
+                    edges.append({
+                        "source": cid,
+                        "target": cert_id,
+                        "type": "ACQUIRED_CERT",
+                        "label": "Certified"
+                    })
+
+        # ── 7. Create Source Document Nodes ──────────────────────────────────
         for cid, cinfo in active_candidates.items():
             if focused_id != "all" and focused_id != cid:
                 continue
@@ -1610,7 +1921,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                     "id": doc_id,
                     "label": f"📄 {cinfo['doc_name']}",
                     "group": "document",
-                    "val": 5,
+                    "val": 6,
                     "vector_reference": {
                         "source_doc": cinfo["doc_name"],
                         "chunk_index": 0,
@@ -1632,7 +1943,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                     "label": "Grounds Profile"
                 })
 
-        # ── 6. Create Peer Collaborative Synergies (Graph RAG Bridges) ──────
+        # ── 8. Create Peer Collaborative Synergies (Graph RAG Bridges) ──────
         if focused_id == "all":
             synergies = [
                 {
@@ -1660,7 +1971,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
             for syn in synergies:
                 edges.append(syn)
 
-        # ── 7. Discovered & Tailored Opportunity Nodes ───────────────────────
+        # ── 9. Discovered & Tailored Opportunity Nodes ───────────────────────
         cand_opps = get_all_opportunities(candidate_id=focused_id if focused_id != "all" else None).get("opportunities", [])
         for opp in cand_opps[:8]:
             opp_id = f"opp_{opp.get('id')}"
@@ -1675,7 +1986,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                     "id": opp_id,
                     "label": f"[{cat.upper()}] {title} ({company})",
                     "group": "opportunity",
-                    "val": 7,
+                    "val": 8,
                     "vector_reference": {
                         "source_doc": f"Live Discovery ({company})",
                         "chunk_index": 0,
@@ -1696,7 +2007,6 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 })
                 added_node_ids.add(opp_id)
 
-                # Link to candidate
                 link_target = focused_id if focused_id != "all" else matched_cand
                 if link_target in added_node_ids:
                     edges.append({
