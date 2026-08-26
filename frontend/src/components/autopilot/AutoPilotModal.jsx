@@ -11,6 +11,7 @@ import {
   Link as LinkIcon,
   FileText,
   User,
+  Users,
   ArrowRight,
   Briefcase,
   Trophy,
@@ -22,43 +23,23 @@ import {
   ExternalLink,
   Cpu,
   Search,
+  MapPin,
+  Mail,
+  Check,
+  ChevronDown
 } from 'lucide-react';
 import {
   createAutoPilotWebSocket,
-  fetchProfiles,
-  fetchDocuments,
+  fetchCandidates,
+  fetchCandidateDetails,
   downloadResumePdf,
 } from '../../api/client';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 
-const SAMPLE_RESUME_TEXT = `# Alex Mercer
-Senior Full-Stack & AI Systems Engineer | San Francisco, CA | alex.mercer@email.com | (555) 234-5678
-
-## Professional Summary
-High-impact Full-Stack and AI Systems Engineer with 4+ years of experience architecting distributed cloud platforms, multi-agent AI pipelines, and responsive React web applications. Scaled microservices to 500k+ users and reduced query latency by 45%.
-
-## Core Skills
-- Languages: TypeScript, JavaScript, Python, Go, SQL
-- Frameworks: React, Next.js, FastAPI, Node.js, Tailwind CSS, PyTorch
-- Databases: PostgreSQL, SQLite, pgvector, Redis, Supabase
-- AI & Cloud: LLM Agents, RAG pipelines, Docker, AWS (Lambda, ECS, S3)
-
-## Experience
-- Senior Software Engineer at CloudScale Technologies (2023 - Present)
-  - Engineered high-throughput multi-agent orchestration pipeline processing 2.5M daily events.
-  - Optimized vector search retrieval latency by 38% through hybrid search ranking.
-- Software Engineer at DataVibe AI (2021 - 2022)
-  - Built real-time collaborative workspace using WebSockets.
-  - Implemented automated resume parsing and ATS evaluation pipeline.
-
-## Education
-B.S. Computer Science, University of California, Berkeley (GPA: 3.85/4.0)
-`;
-
 const AGENT_STAGES = [
-  { id: 1, name: 'Ingestion & OCR', agent: 'document_processor', desc: 'Docling OCR parsing & 768-dim vector embeddings' },
-  { id: 2, name: 'Resume Extraction', agent: 'resume_extractor', desc: 'Parsing candidate skills, experience, and contact' },
+  { id: 1, name: 'Candidate Ingestion & OCR', agent: 'document_processor', desc: 'Docling OCR parsing & 768-dim vector embeddings' },
+  { id: 2, name: 'Resume Entity Extraction', agent: 'resume_extractor', desc: 'Parsing candidate skills, experience, and contact' },
   { id: 3, name: 'Skill & Trajectory Analysis', agent: 'resume_analyzer', desc: 'Analyzing strengths, gaps, and domain focus' },
   { id: 4, name: 'Candidate Profiler', agent: 'profile_maker', desc: 'Synthesizing multi-domain search strategies' },
   { id: 5, name: 'Live Opportunity Scouting', agent: 'opportunity_scout', desc: 'Scouting live web & Firecrawl MCP across Jobs & Hackathons' },
@@ -66,12 +47,24 @@ const AGENT_STAGES = [
   { id: 7, name: 'Autonomous Resume Tailoring', agent: 'resume_tailor', desc: 'Generating tailored ATS resumes & PDFs' },
 ];
 
-export default function AutoPilotModal({ isOpen, onClose, onComplete, initialProfileId = null }) {
+export default function AutoPilotModal({
+  isOpen,
+  onClose,
+  onComplete,
+  candidateId = 'candidate_mohit',
+  initialProfileId = null,
+  initialResumeText = ''
+}) {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('profile'); // 'profile', 'text', 'file', 'url'
-  const [availableProfiles, setAvailableProfiles] = useState([]);
-  const [selectedProfileId, setSelectedProfileId] = useState(initialProfileId || '');
-  const [textInput, setTextInput] = useState(SAMPLE_RESUME_TEXT);
+  const [mode, setMode] = useState('candidate'); // 'candidate', 'text', 'file', 'url'
+  
+  // Candidates State
+  const [candidatesList, setCandidatesList] = useState([]);
+  const [selectedCandidateId, setSelectedCandidateId] = useState(candidateId || 'candidate_mohit');
+  const [selectedCandidateDetails, setSelectedCandidateDetails] = useState(null);
+
+  // Other Input State
+  const [textInput, setTextInput] = useState(initialResumeText || '');
   const [urlInput, setUrlInput] = useState('');
   const [file, setFile] = useState(null);
 
@@ -86,37 +79,47 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
   const socketRef = useRef(null);
   const terminalBottomRef = useRef(null);
 
+  // 1. Fetch Candidates List & Details
   useEffect(() => {
     if (!isOpen) return;
 
-    async function checkExistingData() {
+    async function loadCandidates() {
       try {
-        const profRes = await fetchProfiles();
-        const profs = profRes.profiles || [];
-        setAvailableProfiles(profs);
+        const cRes = await fetchCandidates();
+        const validList = (cRes.candidates || []).filter((c) => c.id !== 'candidate_all');
+        setCandidatesList(validList);
 
-        if (profs.length > 0) {
-          setSelectedProfileId(initialProfileId || profs[0].id);
-          setMode('profile');
-        } else {
-          const docsRes = await fetchDocuments();
-          const resumes = (docsRes.documents || []).filter((d) => d.doc_type === 'resume');
-          if (resumes.length > 0 && resumes[0].raw_markdown) {
-            setTextInput(resumes[0].raw_markdown);
-            setMode('text');
-          } else {
-            setTextInput(SAMPLE_RESUME_TEXT);
-            setMode('text');
+        const initialTargetId = candidateId || (validList[0] ? validList[0].id : 'candidate_mohit');
+        setSelectedCandidateId(initialTargetId);
+
+        const detailsRes = await fetchCandidateDetails(initialTargetId);
+        if (detailsRes.candidate) {
+          setSelectedCandidateDetails(detailsRes.candidate);
+          if (!initialResumeText && detailsRes.candidate.resume_markdown) {
+            setTextInput(detailsRes.candidate.resume_markdown);
           }
         }
       } catch (err) {
-        console.error('Failed to check profiles:', err);
-        setMode('text');
+        console.error('Failed to load candidates for AutoPilot:', err);
       }
     }
 
-    checkExistingData();
-  }, [isOpen, initialProfileId]);
+    loadCandidates();
+  }, [isOpen, candidateId, initialResumeText]);
+
+  // Handle Candidate Change in dropdown
+  const handleCandidateSelect = async (cid) => {
+    setSelectedCandidateId(cid);
+    try {
+      const detailsRes = await fetchCandidateDetails(cid);
+      if (detailsRes.candidate) {
+        setSelectedCandidateDetails(detailsRes.candidate);
+        setTextInput(detailsRes.candidate.resume_markdown || '');
+      }
+    } catch (err) {
+      console.error('Failed to load candidate details:', err);
+    }
+  };
 
   // Auto-scroll terminal logs
   useEffect(() => {
@@ -162,11 +165,13 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
     addLog('system', 'Establishing secure WebSocket handshake to Career Auto-Pilot Engine...', 'info');
 
     try {
-      let inputType = 'profile_id';
-      let inputValue = selectedProfileId || initialProfileId || '';
+      let inputType = 'candidate_id';
+      let inputValue = selectedCandidateId;
 
-      if (mode === 'file' && file) {
-        // Read as Base64 for real-time Docling streaming
+      if (mode === 'candidate') {
+        inputType = 'candidate_id';
+        inputValue = selectedCandidateId;
+      } else if (mode === 'file' && file) {
         inputType = 'file_base64';
         inputValue = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -176,16 +181,13 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
         });
       } else if (mode === 'text') {
         inputType = 'text';
-        inputValue = textInput.trim() || SAMPLE_RESUME_TEXT;
+        inputValue = textInput.trim() || selectedCandidateDetails?.resume_markdown || '';
       } else if (mode === 'url') {
         if (!urlInput.trim()) {
           throw new Error('Please enter a target URL or portfolio.');
         }
         inputType = 'url';
         inputValue = urlInput.trim();
-      } else if (mode === 'profile') {
-        inputType = 'profile_id';
-        inputValue = selectedProfileId || (availableProfiles[0] ? availableProfiles[0].id : '');
       }
 
       const sessionId = 'ap_' + Date.now();
@@ -194,16 +196,17 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
 
       ws.onopen = () => {
         addLog('system', `WebSocket connection established [Session: ${sessionId}]`, 'success');
-        addLog('system', `Initiating 7-stage multi-agent orchestration across ${categories.join(', ')}...`, 'info');
+        addLog('system', `Initiating 7-stage multi-agent orchestration for ${selectedCandidateDetails?.name || 'Candidate'} across ${categories.join(', ')}...`, 'info');
 
         ws.send(
           JSON.stringify({
             user_id: 'default-user',
             input_type: inputType,
             input_value: inputValue,
-            filename: file ? file.name : 'resume.pdf',
+            candidate_id: selectedCandidateId,
+            filename: file ? file.name : (selectedCandidateDetails?.doc_name || 'resume.pdf'),
             categories: categories,
-            profile_id: mode === 'profile' ? inputValue : null,
+            profile_id: selectedCandidateId,
           })
         );
       };
@@ -249,42 +252,42 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
       };
 
       ws.onclose = () => {
-        console.log('WebSocket closed');
+        if (isRunning) {
+          setIsRunning(false);
+          addLog('system', 'WebSocket connection closed', 'info');
+        }
       };
     } catch (err) {
-      setError(err.message || 'Failed to start Auto-Pilot');
+      console.error('AutoPilot launch error:', err);
+      setError(err.message || 'Failed to start AutoPilot');
       setIsRunning(false);
     }
   };
 
-  const handleDownloadPdf = async (pdfPath, title) => {
+  const handleDownloadPdf = async (markdownText, filename = 'Tailored_Resume.pdf') => {
     try {
-      await downloadResumePdf(pdfPath, null, `${title.replace(/\s+/g, '_')}_Resume.pdf`);
+      await downloadResumePdf(null, markdownText, filename);
     } catch (err) {
       alert('Failed to download PDF: ' + err.message);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <GlassCard className="w-full max-w-4xl max-h-[92vh] flex flex-col p-6 overflow-hidden border-indigo-500/40 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in overflow-y-auto">
+      <div className="relative w-full max-w-4xl max-h-[92vh] bg-slate-950 border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden flex flex-col my-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div className="p-5 bg-gradient-to-r from-indigo-950/60 via-slate-900 to-purple-950/60 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 shadow-lg shadow-indigo-500/25">
-              <Sparkles className="w-6 h-6 text-white animate-pulse" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-white tracking-tight">
-                  Autonomous Career Auto-Pilot
-                </h2>
-                <Badge variant="primary" size="sm">
-                  REAL-TIME WEBSOCKET STREAM
-                </Badge>
+                <h2 className="text-lg font-bold text-white">Autonomous Career Auto-Pilot</h2>
+                <Badge variant="primary" size="sm">REAL-TIME WEBSOCKET STREAM</Badge>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Autonomous multi-agent pipeline: Ingestion → Profiling → Live Scouting → ATS Ranking → PDF Tailoring
+              <p className="text-xs text-slate-400">
+                Multi-agent pipeline: Ingestion → Profiling → Live Scouting → ATS Ranking → PDF Tailoring
               </p>
             </div>
           </div>
@@ -292,57 +295,58 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
           <button
             onClick={onClose}
             disabled={isRunning}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-all disabled:opacity-50"
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto py-5 space-y-6">
+        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+          {/* Setup Panel (Visible when NOT running or completed) */}
           {!isRunning && !result && (
-            <>
-              {/* Input Mode Selector */}
+            <div className="space-y-6">
+              {/* Input Mode Switcher */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Select Input Source
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  SELECT INPUT SOURCE
                 </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <button
-                    onClick={() => setMode('profile')}
-                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
-                      mode === 'profile'
-                        ? 'bg-indigo-950/60 border-indigo-500/80 text-white shadow-md shadow-indigo-500/10'
+                    onClick={() => setMode('candidate')}
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 cursor-pointer ${
+                      mode === 'candidate'
+                        ? 'bg-indigo-950/60 border-indigo-500 text-white shadow-md shadow-indigo-500/10'
                         : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                     }`}
                   >
-                    <User className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <Users className="w-4 h-4 text-indigo-400 shrink-0" />
                     <div>
-                      <div className="text-xs font-bold">Saved Profile</div>
-                      <div className="text-[10px] text-slate-500">From database</div>
+                      <div className="text-xs font-bold">Candidate Profile</div>
+                      <div className="text-[10px] text-slate-500">Mohit / Krati / Vishnu</div>
                     </div>
                   </button>
 
                   <button
                     onClick={() => setMode('file')}
-                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 cursor-pointer ${
                       mode === 'file'
-                        ? 'bg-indigo-950/60 border-indigo-500/80 text-white shadow-md shadow-indigo-500/10'
+                        ? 'bg-indigo-950/60 border-indigo-500 text-white shadow-md shadow-indigo-500/10'
                         : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                     }`}
                   >
-                    <Upload className="w-4 h-4 text-violet-400 shrink-0" />
+                    <Upload className="w-4 h-4 text-purple-400 shrink-0" />
                     <div>
                       <div className="text-xs font-bold">Upload Resume</div>
-                      <div className="text-[10px] text-slate-500">PDF or DOCX (Docling)</div>
+                      <div className="text-[10px] text-slate-500">PDF or DOCX [Docling]</div>
                     </div>
                   </button>
 
                   <button
                     onClick={() => setMode('text')}
-                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 cursor-pointer ${
                       mode === 'text'
-                        ? 'bg-indigo-950/60 border-indigo-500/80 text-white shadow-md shadow-indigo-500/10'
+                        ? 'bg-indigo-950/60 border-indigo-500 text-white shadow-md shadow-indigo-500/10'
                         : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                     }`}
                   >
@@ -355,9 +359,9 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
 
                   <button
                     onClick={() => setMode('url')}
-                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 ${
+                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-2.5 cursor-pointer ${
                       mode === 'url'
-                        ? 'bg-indigo-950/60 border-indigo-500/80 text-white shadow-md shadow-indigo-500/10'
+                        ? 'bg-indigo-950/60 border-indigo-500 text-white shadow-md shadow-indigo-500/10'
                         : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
                     }`}
                   >
@@ -370,34 +374,84 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
                 </div>
               </div>
 
-              {/* Mode Input Controls */}
-              <div className="space-y-3">
-                {mode === 'profile' && (
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium text-slate-300">
-                      Choose Candidate Profile
-                    </label>
-                    {availableProfiles.length > 0 ? (
+              {/* Mode Input Details */}
+              <div className="space-y-4">
+                {mode === 'candidate' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-slate-300">
+                        Choose Candidate for Auto-Pilot
+                      </label>
+                      <span className="text-xs font-semibold text-indigo-400">
+                        Pre-loaded with Grounded Portfolio
+                      </span>
+                    </div>
+
+                    <div className="relative">
                       <select
-                        value={selectedProfileId}
-                        onChange={(e) => setSelectedProfileId(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
+                        value={selectedCandidateId}
+                        onChange={(e) => handleCandidateSelect(e.target.value)}
+                        className="w-full px-3.5 py-3 bg-slate-900 border border-slate-700/80 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
                       >
-                        {availableProfiles.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            Profile #{p.id.slice(0, 8)} — {p.career_goals || 'Senior Engineer'} ({typeof p.tech_stack === 'string' ? p.tech_stack.slice(0, 40) : 'Full Stack'})
-                          </option>
-                        ))}
+                        {candidatesList.length === 0 ? (
+                          <option value="candidate_mohit">Mohit Prasad Upraity (AI/IoT & Full-Stack)</option>
+                        ) : (
+                          candidatesList.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} — {c.role} ({c.location || 'Noida, India'})
+                            </option>
+                          ))
+                        )}
                       </select>
-                    ) : (
-                      <div className="p-3 bg-amber-950/30 border border-amber-800/40 rounded-xl text-xs text-amber-300 flex items-center justify-between">
-                        <span>No saved profile found. Auto-Pilot will use the candidate sample profile.</span>
-                        <button
-                          onClick={() => setMode('text')}
-                          className="underline hover:text-white font-semibold ml-2 shrink-0"
-                        >
-                          Switch to Text
-                        </button>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3.5 pointer-events-none" />
+                    </div>
+
+                    {/* Candidate Preview Card */}
+                    {selectedCandidateDetails && (
+                      <div className="p-4 bg-slate-900/70 rounded-xl border border-indigo-500/30 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs text-white"
+                              style={{ backgroundColor: selectedCandidateDetails.cluster_color || '#6366f1' }}
+                            >
+                              {selectedCandidateDetails.name?.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <h4 className="text-xs font-bold text-white">{selectedCandidateDetails.name}</h4>
+                              <p className="text-[11px] text-slate-400">{selectedCandidateDetails.role}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>{selectedCandidateDetails.location || 'Noida, India'}</span>
+                          </div>
+                        </div>
+
+                        {/* Top Skills Badges */}
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase mr-1">Skills:</span>
+                          {(selectedCandidateDetails.top_skills || []).map((skill, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 bg-slate-950 border border-slate-800 text-slate-300 text-[11px] font-mono rounded"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Verified Document Tag */}
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px]">
+                          <span className="text-slate-400 flex items-center gap-1">
+                            <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                            Source Document: <span className="font-mono text-slate-200">{selectedCandidateDetails.doc_name || 'Resume.pdf'}</span>
+                          </span>
+                          <span className="text-emerald-400 font-bold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> 100% Vector Grounded
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -434,17 +488,17 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
                         Paste Resume / Markdown Text
                       </label>
                       <button
-                        onClick={() => setTextInput(SAMPLE_RESUME_TEXT)}
+                        onClick={() => setTextInput(selectedCandidateDetails?.resume_markdown || '')}
                         className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
                       >
-                        Reset to Sample Resume
+                        Reset to Candidate Resume
                       </button>
                     </div>
                     <textarea
                       rows={6}
                       value={textInput}
                       onChange={(e) => setTextInput(e.target.value)}
-                      placeholder="Paste your full resume markdown or plain text..."
+                      placeholder="Paste candidate resume markdown or plain text..."
                       className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs font-mono text-slate-200 focus:outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -453,13 +507,13 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
                 {mode === 'url' && (
                   <div className="space-y-2">
                     <label className="text-xs font-medium text-slate-300">
-                      Target Profile / Portfolio / Job URL
+                      LinkedIn Profile, Portfolio, or Job Post URL
                     </label>
                     <input
                       type="url"
+                      placeholder="https://linkedin.com/in/username or https://portfolio.dev"
                       value={urlInput}
                       onChange={(e) => setUrlInput(e.target.value)}
-                      placeholder="https://linkedin.com/in/... or https://portfolio.dev"
                       className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500"
                     />
                   </div>
@@ -468,159 +522,97 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
 
               {/* Target Discovery Categories */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Target Opportunity Categories (Multi-Domain Scouting)
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  OPPORTUNITY CATEGORIES TO SCOUT
                 </label>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
-                    { id: 'job', label: 'Tech Jobs', icon: Briefcase, color: 'text-indigo-400' },
-                    { id: 'internship', label: 'Internships', icon: Compass, color: 'text-cyan-400' },
-                    { id: 'hackathon', label: 'Hackathons', icon: Zap, color: 'text-amber-400' },
-                    { id: 'competition', label: 'AI Competitions', icon: Trophy, color: 'text-pink-400' },
+                    { id: 'job', label: 'Full-Time Jobs', icon: Briefcase, color: 'text-indigo-400' },
+                    { id: 'internship', label: 'Internships', icon: Compass, color: 'text-emerald-400' },
+                    { id: 'hackathon', label: 'Hackathons', icon: Trophy, color: 'text-amber-400' },
+                    { id: 'competition', label: 'Competitions', icon: Zap, color: 'text-purple-400' },
                   ].map((cat) => {
-                    const active = categories.includes(cat.id);
+                    const isSelected = categories.includes(cat.id);
                     const Icon = cat.icon;
                     return (
                       <button
                         key={cat.id}
                         type="button"
                         onClick={() => toggleCategory(cat.id)}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border transition-all ${
-                          active
-                            ? 'bg-slate-900 text-white border-indigo-500/70 shadow-sm'
-                            : 'bg-slate-950/40 text-slate-500 border-slate-900 opacity-60'
+                        className={`p-2.5 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-slate-900 border-indigo-500 text-white shadow-sm'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-500 opacity-60'
                         }`}
                       >
-                        <Icon className={`w-3.5 h-3.5 ${active ? cat.color : 'text-slate-500'}`} />
-                        <span>{cat.label}</span>
-                        {active && <CheckCircle2 className="w-3 h-3 text-emerald-400 ml-1" />}
+                        <div className="flex items-center gap-2">
+                          <Icon className={`w-4 h-4 ${cat.color}`} />
+                          <span>{cat.label}</span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400" />}
                       </button>
                     );
                   })}
                 </div>
               </div>
-            </>
+            </div>
           )}
 
-          {/* Real-time WebSocket Execution Live Dashboard */}
-          {(isRunning || result) && (
+          {/* Running Live Orchestration Terminal & Progress */}
+          {isRunning && (
             <div className="space-y-5 animate-fade-in">
-              {/* Agent Pipeline Progress Bar */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-indigo-400 animate-spin" />
-                    Multi-Agent Pipeline Progression
-                  </span>
-                  <span className="font-mono text-indigo-400 font-bold">
-                    Stage {currentStage} of {AGENT_STAGES.length}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                  {AGENT_STAGES.map((s) => {
-                    const isDone = currentStage > s.id || result;
-                    const isCurrent = currentStage === s.id && isRunning;
-                    return (
-                      <div
-                        key={s.id}
-                        className={`p-2.5 rounded-xl border text-center transition-all ${
-                          isDone
-                            ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
-                            : isCurrent
-                            ? 'bg-indigo-950/60 border-indigo-500 text-white shadow-lg shadow-indigo-500/20 ring-1 ring-indigo-400'
-                            : 'bg-slate-900/40 border-slate-800/80 text-slate-500 opacity-60'
-                        }`}
-                      >
-                        <div className="flex items-center justify-center mb-1">
-                          {isDone ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                          ) : isCurrent ? (
-                            <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
-                          ) : (
-                            <span className="w-4 h-4 rounded-full border border-slate-700 text-[10px] flex items-center justify-center font-mono">
-                              {s.id}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] font-bold truncate">{s.name}</div>
-                        <div className="text-[9px] text-slate-400 font-mono truncate">{s.agent}</div>
-                      </div>
-                    );
-                  })}
-                </div>
+              {/* Stepper Progress Bar */}
+              <div className="grid grid-cols-7 gap-1.5 bg-slate-900/60 p-2 rounded-xl border border-slate-800">
+                {AGENT_STAGES.map((stg) => {
+                  const isDone = currentStage > stg.id;
+                  const isCurrent = currentStage === stg.id;
+                  return (
+                    <div
+                      key={stg.id}
+                      className={`p-2 rounded-lg text-center transition-all ${
+                        isDone
+                          ? 'bg-emerald-950/60 border border-emerald-500/40 text-emerald-300'
+                          : isCurrent
+                          ? 'bg-indigo-950/80 border border-indigo-500 text-white animate-pulse'
+                          : 'bg-slate-950/40 text-slate-600 border border-transparent'
+                      }`}
+                    >
+                      <div className="text-[10px] font-bold">Stage {stg.id}</div>
+                      <div className="text-[9px] truncate font-medium">{stg.name.split(' ')[0]}</div>
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* Live Discovered Opportunities Stream */}
-              {discoveredItems.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Search className="w-3.5 h-3.5 text-amber-400" />
-                      Live Discovered Listings ({discoveredItems.length})
+              {/* Terminal Logs & Live Discovered Feed */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Real-time Agent Log Output */}
+                <div className="lg:col-span-8 bg-slate-950 rounded-xl p-4 border border-slate-800 font-mono text-xs text-slate-300 h-64 overflow-y-auto space-y-1.5 shadow-inner">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 pb-2 border-b border-slate-800">
+                    <span className="flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5 text-indigo-400" />
+                      Multi-Agent WebSocket Telemetry
                     </span>
-                    <span className="text-[10px] text-amber-400 font-mono">Streaming over WebSocket</span>
+                    <span className="flex items-center gap-1 text-emerald-400">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                      LIVE
+                    </span>
                   </div>
-                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                    {discoveredItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="shrink-0 w-64 p-3 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between space-y-2 animate-scale-in"
-                      >
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-950 border border-amber-800/60 text-amber-300 font-mono">
-                              {item.category}
-                            </span>
-                            <span className="text-[10px] text-slate-400 truncate max-w-[100px]">
-                              {item.source}
-                            </span>
-                          </div>
-                          <h4 className="text-xs font-bold text-white mt-1.5 line-clamp-1">{item.title}</h4>
-                          <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">{item.description}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {/* Interactive Live Agent Terminal Console */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Terminal className="w-3.5 h-3.5 text-emerald-400" />
-                    Live Sub-Agent Telemetry Stream
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-500">ArmorIQ Governance Active</span>
-                </div>
-                <div className="bg-slate-950 rounded-xl border border-slate-800 p-3.5 font-mono text-xs max-h-52 overflow-y-auto space-y-1.5 shadow-inner">
-                  {liveLogs.map((log, index) => (
-                    <div key={index} className="flex items-start gap-2 leading-relaxed">
-                      <span className="text-slate-600 text-[10px] shrink-0 font-mono">{log.time}</span>
+                  {liveLogs.map((log, idx) => (
+                    <div key={idx} className="flex items-start gap-2 leading-relaxed">
+                      <span className="text-slate-500 shrink-0">[{log.time}]</span>
+                      <span className="text-indigo-400 font-bold shrink-0">&lt;{log.agent}&gt;</span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded shrink-0 font-bold ${
-                          log.agent === 'armoriq_shield'
-                            ? 'bg-rose-950 text-rose-300 border border-rose-800'
-                            : log.agent === 'opportunity_scout'
-                            ? 'bg-amber-950 text-amber-300'
-                            : log.agent === 'resume_tailor'
-                            ? 'bg-violet-950 text-violet-300'
-                            : 'bg-indigo-950 text-indigo-300'
-                        }`}
-                      >
-                        {log.agent}
-                      </span>
-                      <span
-                        className={`${
+                        className={
                           log.status === 'error'
-                            ? 'text-rose-400'
+                            ? 'text-rose-400 font-bold'
                             : log.status === 'success'
-                            ? 'text-emerald-300 font-semibold'
+                            ? 'text-emerald-300 font-bold'
                             : log.status === 'item'
-                            ? 'text-amber-200'
-                            : 'text-slate-300'
-                        }`}
+                            ? 'text-cyan-300'
+                            : 'text-slate-200'
+                        }
                       >
                         {log.message}
                       </span>
@@ -628,135 +620,135 @@ export default function AutoPilotModal({ isOpen, onClose, onComplete, initialPro
                   ))}
                   <div ref={terminalBottomRef} />
                 </div>
-              </div>
 
-              {/* Final Result Cards */}
-              {result && (
-                <div className="space-y-4 pt-2 border-t border-slate-800">
-                  <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/40 to-indigo-950/40 border border-emerald-500/40 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-                      <div>
-                        <h4 className="text-sm font-bold text-white">Auto-Pilot Completed Successfully</h4>
-                        <p className="text-xs text-slate-300">
-                          Scouted {result.total_scouted || 12} opportunities & generated tailored resumes.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        onClose();
-                        navigate('/studio');
-                      }}
-                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-indigo-500/25 transition-all"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      Open in AI Resume Studio
-                    </button>
+                {/* Discovered Items Stream */}
+                <div className="lg:col-span-4 bg-slate-950 rounded-xl p-3.5 border border-slate-800 h-64 overflow-y-auto space-y-2 shadow-inner">
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 pb-2 border-b border-slate-800 font-bold">
+                    <span>Live Discovered ({discoveredItems.length})</span>
+                    <Badge variant="accent" size="sm">Firecrawl</Badge>
                   </div>
 
-                  {/* Tailored Resumes List */}
-                  {result.tailored_resumes && result.tailored_resumes.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {result.tailored_resumes.map((tr, idx) => (
-                        <div
-                          key={idx}
-                          className="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between space-y-3"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between">
-                              <Badge variant="primary" size="sm">
-                                {tr.category === 'competition' ? '🏆 HACKATHON PITCH' : '💼 JOB RESUME'}
-                              </Badge>
-                              {tr.ats_score && (
-                                <span className="text-xs font-mono text-emerald-400 font-bold">
-                                  {tr.ats_score}% ATS Fit
-                                </span>
-                              )}
-                            </div>
-                            <h4 className="text-xs font-bold text-white mt-2">{tr.opportunity_title}</h4>
-                            <p className="text-[11px] text-slate-400">{tr.company_name}</p>
-                          </div>
-
-                          <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
-                            {tr.pdf_url && (
-                              <button
-                                onClick={() => handleDownloadPdf(tr.pdf_url, tr.opportunity_title)}
-                                className="flex-1 py-1.5 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all"
-                              >
-                                <Download className="w-3.5 h-3.5" />
-                                Download PDF
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                onClose();
-                                navigate('/studio');
-                              }}
-                              className="flex-1 py-1.5 px-2.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-all"
-                            >
-                              <FileCheck className="w-3.5 h-3.5" />
-                              Edit in Studio
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                  {discoveredItems.length === 0 ? (
+                    <div className="h-44 flex flex-col items-center justify-center text-center text-slate-500 text-xs">
+                      <Search className="w-6 h-6 mb-2 animate-spin text-slate-600" />
+                      <span>Agents scouting web...</span>
                     </div>
+                  ) : (
+                    discoveredItems.map((item, idx) => (
+                      <div key={idx} className="p-2 bg-slate-900/80 rounded-lg border border-slate-800 text-xs space-y-0.5">
+                        <div className="font-bold text-white truncate">{item.title}</div>
+                        <div className="text-[11px] text-slate-400 truncate">{item.company || item.source}</div>
+                        <div className="text-[10px] text-emerald-400 font-semibold">{item.category?.toUpperCase()}</div>
+                      </div>
+                    ))
                   )}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
-          {error && (
-            <div className="p-4 rounded-xl bg-rose-950/40 border border-rose-800/60 text-rose-300 text-xs flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold">Auto-Pilot Interrupted: </span>
-                <span>{error}</span>
+          {/* AutoPilot Complete Result View */}
+          {result && (
+            <div className="space-y-5 animate-fade-in">
+              <div className="p-4 bg-emerald-950/40 border border-emerald-500/40 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400 shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Career Auto-Pilot Completed for {selectedCandidateDetails?.name || 'Candidate'}!
+                    </h3>
+                    <p className="text-xs text-emerald-300">
+                      Scouted {result.total_scouted || discoveredItems.length} opportunities and generated {result.tailored_resumes?.length || 2} tailored ATS resumes with pure binary PDF export.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => navigate('/studio')}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  Open Studio <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
+
+              {/* Tailored Resumes List */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                  Generated Tailored Resumes & Downloadable PDFs
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {(result.tailored_resumes || []).map((t, idx) => (
+                    <GlassCard key={idx} className="p-4 bg-slate-900/80 border border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Badge variant={t.category === 'competition' ? 'warning' : 'primary'} size="sm">
+                          {t.category?.toUpperCase() || 'TAILORED RESUME'}
+                        </Badge>
+                        <span className="text-xs font-mono font-bold text-emerald-400">%PDF-1.4</span>
+                      </div>
+
+                      <div>
+                        <h5 className="text-xs font-bold text-white line-clamp-1">{t.target_role || 'Engineering Role'}</h5>
+                        <p className="text-[11px] text-slate-400 line-clamp-1">{t.target_company || 'Industry Partner'}</p>
+                      </div>
+
+                      <button
+                        onClick={() => handleDownloadPdf(t.tailored_markdown, `${selectedCandidateDetails?.name?.replace(/\s+/g, '_') || 'Resume'}_Tailored_${t.category || idx}.pdf`)}
+                        className="w-full py-2 bg-emerald-600/80 hover:bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download %PDF-1.4
+                      </button>
+                    </GlassCard>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-xl flex items-center gap-3 text-xs text-rose-300">
+              <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
         </div>
 
         {/* Modal Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-800">
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
-            <span>ArmorIQ Cryptographic Multi-Agent Sub-agent Delegation</span>
+        <div className="p-4 bg-slate-900/80 border-t border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <ShieldCheck className="w-4 h-4 text-indigo-400" />
+            <span>ArmorIQ Cryptographic Multi-Agent Token Shield Active</span>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={onClose}
-              disabled={isRunning}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
-            >
-              {result ? 'Close' : 'Cancel'}
-            </button>
-
-            {!result && (
+            {!isRunning && !result ? (
+              <>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleStartAutoPilot}
+                  className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Launch Career Auto-Pilot
+                </button>
+              </>
+            ) : (
               <button
-                onClick={handleStartAutoPilot}
-                disabled={isRunning}
-                className="px-5 py-2 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/25 transition-all disabled:opacity-50"
+                onClick={onClose}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
-                {isRunning ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Executing Auto-Pilot...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-3.5 h-3.5" />
-                    Launch Career Auto-Pilot
-                  </>
-                )}
+                Close
               </button>
             )}
           </div>
         </div>
-      </GlassCard>
+      </div>
     </div>
   );
 }

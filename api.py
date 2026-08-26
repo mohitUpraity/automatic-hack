@@ -819,6 +819,19 @@ async def websocket_autopilot_pipeline(websocket: WebSocket, session_id: str):
                         "message": f"Successfully parsed & embedded {doc_res.get('chunk_count', 0)} chunks",
                         "timestamp": time.time()
                     })
+                elif input_type == "candidate_id" or (input_type == "profile_id" and input_value in CANDIDATES_REGISTRY):
+                    cand_info = CANDIDATES_REGISTRY.get(input_value, CANDIDATES_REGISTRY["candidate_mohit"])
+                    resume_text = cand_info.get("resume_markdown", "")
+                    filename = cand_info.get("doc_name", "candidate_resume.pdf")
+                    await websocket.send_json({
+                        "stage": 1,
+                        "stage_name": "Candidate Ingestion & Verification",
+                        "agent": "document_processor",
+                        "status": "completed",
+                        "candidate_id": cand_info["id"],
+                        "message": f"Loaded verified portfolio for {cand_info['name']} ({cand_info['role']})",
+                        "timestamp": time.time()
+                    })
                 elif input_type == "text":
                     resume_text = input_value
                     await websocket.send_json({
