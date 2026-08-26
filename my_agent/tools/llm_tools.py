@@ -1,4 +1,4 @@
-"""Unified LLM Integration for CareerOS (Groq Qwen 3.8-27b & Gemini Fallback with In-Place Template Preservation)."""
+"""Unified LLM Integration for CareerOS (120B SOTA Models & Gemini Fallback with In-Place Template Preservation)."""
 
 import json
 import os
@@ -13,8 +13,16 @@ load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..",
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = os.getenv("GROQ_MODEL", "groq/qwen/qwen3.8-27b")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 litellm.telemetry = False
+
+# High-capability models to cascade through
+SOTA_GROQ_MODELS = [
+    "openai/gpt-oss-120b",
+    "qwen/qwen3.8-27b",
+    "openai/gpt-oss-20b",
+    "groq/compound"
+]
 
 
 def _in_place_tailor_fallback(original_md: str, role_title: str = "Target Role", company_name: str = "Target Company", requirements: str = "") -> str:
@@ -31,7 +39,6 @@ def _in_place_tailor_fallback(original_md: str, role_title: str = "Target Role",
     summary_tailored = False
     skills_tailored = False
 
-    # Extract key technical keywords from requirements
     req_keywords = []
     if requirements:
         words = re.findall(r'[A-Za-z0-9+#.-]{2,}', requirements)
@@ -59,17 +66,15 @@ def _in_place_tailor_fallback(original_md: str, role_title: str = "Target Role",
         # In-Place Summary Tailoring: Align with target role & organization
         if in_summary and not summary_tailored and stripped and not stripped.startswith("#"):
             if role_title and role_title != "Target Role":
-                # Tailor the summary opening
                 tailored_summary = f"Results-driven software engineer specializing in scalable system architecture and AI-driven workflows, targeted for {role_title} at {company_name}."
                 if req_keywords:
-                    tailored_summary += f" Key expertise in {', '.join(req_keywords[:4])} with proven track record of delivering high-impact, high-performance production systems."
+                    tailored_summary += f" Key expertise in {', '.join(req_keywords[:4])} with proven track record of delivering high-impact production systems."
                 tailored_lines.append(tailored_summary)
                 summary_tailored = True
                 continue
 
         # In-Place Technical Skills Tailoring: Seamlessly integrate target stack
         if in_skills and not skills_tailored and stripped.startswith("- ") and req_keywords:
-            # Weave target keywords naturally into existing skill categories
             if ":" in stripped:
                 category, items = stripped.split(":", 1)
                 existing_items = [i.strip() for i in items.split(",")]
@@ -78,54 +83,50 @@ def _in_place_tailor_fallback(original_md: str, role_title: str = "Target Role",
                 skills_tailored = True
                 continue
 
-        # In-Place Bullet Point Enhancement for Target Role
-        if stripped.startswith("- ") and "architect" in stripped.lower() and company_name and company_name != "Target Company":
-            # Keep original metric and structure intact
-            tailored_lines.append(line)
-            continue
-
         tailored_lines.append(line)
 
     return "\n".join(tailored_lines)
 
 
 def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI Career Assistant for candidate analysis.") -> str:
-    """Invokes Groq Cloud LLM (qwen/qwen3.8-27b) with Gemini API & heuristic in-place fallbacks."""
+    """Invokes Groq Cloud LLM (openai/gpt-oss-120b & qwen/qwen3.8-27b) with Gemini API & heuristic in-place fallbacks."""
     
-    # 1. Try Groq Cloud REST API with qwen/qwen3.8-27b
+    # 1. Try Groq Cloud REST API with SOTA models
     if GROQ_API_KEY:
-        try:
-            url = "https://api.groq.com/openai/v1/chat/completions"
-            headers = {
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type": "application/json"
-            }
-            # Clean model string for Groq REST API (e.g. qwen/qwen3.8-27b)
-            model_id = GROQ_MODEL
-            if model_id.startswith("groq/"):
-                model_id = model_id[5:]
-            
-            payload = {
-                "model": model_id,
-                "messages": [
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.1,
-                "max_tokens": 2000
-            }
+        models_to_try = [GROQ_MODEL] + [m for m in SOTA_GROQ_MODELS if m != GROQ_MODEL]
+        for model_id in models_to_try:
+            try:
+                url = "https://api.groq.com/openai/v1/chat/completions"
+                headers = {
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "Content-Type": "application/json"
+                }
+                
+                clean_model = model_id
+                if clean_model.startswith("groq/") and clean_model not in ["groq/compound", "groq/compound-mini"]:
+                    clean_model = clean_model[5:]
 
-            res = requests.post(url, headers=headers, json=payload, timeout=10)
-            if res.status_code == 200:
-                data = res.json()
-                if "choices" in data and len(data["choices"]) > 0:
-                    out = data["choices"][0]["message"]["content"].strip()
-                    if out:
-                        return out
-            else:
-                print(f"[Groq HTTP {res.status_code}] {res.text[:150]}")
-        except Exception as e:
-            print(f"[Groq LLM Notice] {e}")
+                payload = {
+                    "model": clean_model,
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": 0.1,
+                    "max_tokens": 1800
+                }
+
+                res = requests.post(url, headers=headers, json=payload, timeout=12)
+                if res.status_code == 200:
+                    data = res.json()
+                    if "choices" in data and len(data["choices"]) > 0:
+                        out = data["choices"][0]["message"]["content"].strip()
+                        if out:
+                            return out
+                else:
+                    print(f"[Groq HTTP {res.status_code} on {clean_model}] {res.text[:120]}")
+            except Exception as e:
+                print(f"[Groq LLM {model_id} Notice] {e}")
 
     # 2. Try Gemini API via google.genai as secondary provider
     if GEMINI_API_KEY:
@@ -144,7 +145,6 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
     # 3. Intelligent In-Place Resume Tailoring & Refinement Fallback Engine
     prompt_lower = prompt.lower()
 
-    # Check if this is a Resume Tailoring or Refinement Request
     is_tailoring = any(k in prompt_lower for k in [
         "golden template", "original resume", "in-place ats resume tailoring",
         "strict in-place tailoring rules", "original resume markdown:", "rewrite the provided resume",
@@ -152,7 +152,6 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
     ])
 
     if is_tailoring:
-        # Extract the original resume markdown from prompt
         orig_md = ""
         if '"""' in prompt:
             parts = prompt.split('"""')
@@ -167,7 +166,6 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
             if orig_md.startswith(":") or orig_md.startswith("(GOLDEN TEMPLATE):"):
                 orig_md = orig_md.split("\n", 1)[1].strip()
 
-        # Extract target role & company if present
         target_role = "Target Role"
         target_company = "Target Organization"
         target_reqs = ""
@@ -198,7 +196,6 @@ I manage your career automation workflow using knowledge base RAG and specialize
 
 How can I help you today?"""
 
-    # Extract context if present in prompt
     context_str = ""
     if "Context:" in prompt:
         context_str = prompt.split("Context:", 1)[1].strip()
@@ -220,7 +217,7 @@ To get started:
 
 
 def call_groq_llm_json(prompt: str, system_instruction: str = "You output strict valid JSON only.") -> dict:
-    """Invokes Groq Qwen LLM and parses JSON output cleanly with robust fallbacks."""
+    """Invokes Groq SOTA LLM and parses JSON output cleanly with robust fallbacks."""
     raw_text = call_groq_llm(prompt, system_instruction)
     if not raw_text:
         return {}

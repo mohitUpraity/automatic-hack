@@ -34,33 +34,59 @@ from my_agent.models.schemas import TailoredResumeSchema
 
 def _format_inline_markdown(text: str) -> str:
     """Converts standard markdown bold, italic, and links to ReportLab XML tags."""
-    # Escape XML ampersands that aren't part of existing entities
+    # Escape XML ampersands
     text = re.sub(r'&(?!(?:amp|lt|gt|quot|apos|bull);)', '&amp;', text)
-    
     # Bold: **text** or __text__ -> <b>text</b>
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
     text = re.sub(r'__(.+?)__', r'<b>\1</b>', text)
-    
     # Italic: *text* or _text_ -> <i>\1</i>
     text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
     text = re.sub(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)', r'<i>\1</i>', text)
-    
-    # Links: [label](url) -> <font color="#2563eb"><u>label</u></font>
+    # Links: [label](url) -> <font color="#1d4ed8"><u>label</u></font>
     text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'<font color="#1d4ed8"><u>\1</u></font>', text)
-    
-    # Clean up any leftover code formatting
+    # Clean code ticks
     text = re.sub(r'`([^`]+)`', r'<font name="Helvetica-Bold">\1</font>', text)
-    
     return text.strip()
+
+
+def normalize_to_sections(raw_text: str) -> str:
+    """Ensures raw or unformatted resume text is structured with clean ## Section headers."""
+    if not raw_text:
+        return raw_text
+
+    text = raw_text.strip()
+
+    # Known canonical section headers
+    known_headers = [
+        "Summary", "Professional Summary", "Executive Summary", "About Me", "Profile",
+        "Technical Skills", "Skills", "Core Competencies", "Technologies",
+        "Experience", "Work Experience", "Professional Experience", "Employment History",
+        "Projects", "Featured Projects", "Key Projects",
+        "Industry Project", "Industry Projects",
+        "Achievements & Technical Outreach", "Achievements", "Honors & Awards", "Awards",
+        "Education", "Academic Background"
+    ]
+
+    # If the text already has ## headers, return as is
+    if "## " in text:
+        return text
+
+    # Otherwise, inject ## before recognized headers
+    for h in known_headers:
+        pattern = r'(?i)(?:^|\n)\s*(?:##\s*)?(' + re.escape(h) + r')\s*(?:\n|:|$)'
+        text = re.sub(pattern, r'\n\n## \1\n', text)
+
+    return text
 
 
 def _build_story_from_markdown(markdown_text: str):
     """Builds an array of ReportLab flowable elements matching the original resume geometry."""
+    md = normalize_to_sections(markdown_text)
+
     styles = getSampleStyleSheet()
 
     name_style = ParagraphStyle(
         'ResumeName',
-        parent=styles['Normal'],
         fontName='Helvetica-Bold',
         fontSize=17,
         leading=20,
@@ -71,7 +97,6 @@ def _build_story_from_markdown(markdown_text: str):
 
     subtitle_style = ParagraphStyle(
         'ResumeSubtitle',
-        parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=9.5,
         leading=13,
@@ -82,18 +107,16 @@ def _build_story_from_markdown(markdown_text: str):
 
     contact_style = ParagraphStyle(
         'ResumeContact',
-        parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=8.5,
         leading=12,
         alignment=TA_CENTER,
         textColor=colors.HexColor('#475569'),
-        spaceAfter=6
+        spaceAfter=4
     )
 
     h2_style = ParagraphStyle(
         'ResumeH2',
-        parent=styles['Normal'],
         fontName='Helvetica-Bold',
         fontSize=11,
         leading=14,
@@ -104,7 +127,6 @@ def _build_story_from_markdown(markdown_text: str):
 
     h3_style = ParagraphStyle(
         'ResumeH3',
-        parent=styles['Normal'],
         fontName='Helvetica-Bold',
         fontSize=9.5,
         leading=13,
@@ -113,9 +135,17 @@ def _build_story_from_markdown(markdown_text: str):
         spaceAfter=1
     )
 
+    role_style = ParagraphStyle(
+        'ResumeRole',
+        fontName='Helvetica-Oblique',
+        fontSize=8.8,
+        leading=12,
+        textColor=colors.HexColor('#475569'),
+        spaceAfter=2
+    )
+
     body_style = ParagraphStyle(
         'ResumeBody',
-        parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=8.8,
         leading=12,
@@ -125,63 +155,52 @@ def _build_story_from_markdown(markdown_text: str):
 
     bullet_style = ParagraphStyle(
         'ResumeBullet',
-        parent=styles['Normal'],
         fontName='Helvetica',
         fontSize=8.6,
         leading=11.5,
-        leftIndent=14,
-        firstLineIndent=-9,
+        leftIndent=13,
+        firstLineIndent=-8,
         textColor=colors.HexColor('#1e293b'),
         spaceAfter=2
     )
 
     story = []
-    lines = markdown_text.strip().split("\n")
-    
-    is_header_block = True
-    header_lines = []
 
-    for raw_line in lines:
-        line = raw_line.strip()
-        if not line:
-            continue
+    # If the text has ## sections, split cleanly by section
+    if "## " in md:
+        parts = md.split("## ")
+        
+        # 1. Header Block (Candidate Name, Subtitle, Contact links)
+        header_text = parts[0].strip()
+        header_lines = [l.strip() for l in header_text.split("\n") if l.strip()]
+        if header_lines:
+            name_line = header_lines[0].lstrip('#').strip()
+            story.append(Paragraph(_format_inline_markdown(name_line), name_style))
+            
+            if len(header_lines) > 1:
+                sub_line = header_lines[1].replace('**', '').replace('__', '').strip()
+                story.append(Paragraph(_format_inline_markdown(sub_line), subtitle_style))
+                
+            if len(header_lines) > 2:
+                contact_line = header_lines[2].strip()
+                contact_parts = [p.strip() for p in contact_line.split('|')]
+                fmt_parts = []
+                for p in contact_parts:
+                    if '@' in p or 'github.com' in p or 'linkedin.com' in p:
+                        fmt_parts.append(f'<font color="#1d4ed8"><u>{p}</u></font>')
+                    else:
+                        fmt_parts.append(p)
+                story.append(Paragraph(' | '.join(fmt_parts), contact_style))
+            story.append(Spacer(1, 4))
 
-        # Header Block Processing (Candidate Name, Subtitle, Contact line)
-        if is_header_block and (line.startswith("# ") or (not line.startswith("## ") and len(header_lines) < 3)):
-            header_lines.append(line)
-            continue
-        else:
-            if is_header_block:
-                # Flush header block
-                if header_lines:
-                    # Line 1: Candidate Name
-                    name_text = header_lines[0].lstrip('#').strip()
-                    story.append(Paragraph(_format_inline_markdown(name_text), name_style))
-                    
-                    # Line 2: Subtitle / Role Tagline
-                    if len(header_lines) > 1:
-                        sub_text = header_lines[1].replace('**', '').replace('__', '').strip()
-                        story.append(Paragraph(_format_inline_markdown(sub_text), subtitle_style))
-                        
-                    # Line 3: Contact Line (Phone, Email, LinkedIn, GitHub)
-                    if len(header_lines) > 2:
-                        contact_text = header_lines[2].strip()
-                        parts = [p.strip() for p in contact_text.split('|')]
-                        formatted_parts = []
-                        for p in parts:
-                            if 'github.com' in p or 'linkedin.com' in p or '@' in p:
-                                formatted_parts.append(f'<font color="#1d4ed8"><u>{p}</u></font>')
-                            else:
-                                formatted_parts.append(p)
-                        story.append(Paragraph(' | '.join(formatted_parts), contact_style))
-                    story.append(Spacer(1, 4))
-                is_header_block = False
+        # 2. Iterate through each section
+        for section in parts[1:]:
+            sec_lines = [l.strip() for l in section.split("\n") if l.strip()]
+            if not sec_lines:
+                continue
 
-        # Section Heading (Level 2)
-        if line.startswith("## "):
-            h2_text = line[3:].strip()
-            story.append(Paragraph(_format_inline_markdown(h2_text), h2_style))
-            # Crisp divider line under section heading
+            sec_title = sec_lines[0].strip()
+            story.append(Paragraph(_format_inline_markdown(sec_title), h2_style))
             story.append(HRFlowable(
                 width="100%",
                 thickness=0.75,
@@ -189,24 +208,36 @@ def _build_story_from_markdown(markdown_text: str):
                 spaceBefore=1,
                 spaceAfter=4
             ))
-            continue
 
-        # Subheading (Level 3 or Experience Role/Company Line)
-        if line.startswith("### "):
-            h3_text = line[4:].strip()
-            story.append(Paragraph(_format_inline_markdown(h3_text), h3_style))
-            continue
+            for line in sec_lines[1:]:
+                # Bullet line
+                if line.startswith(("- ", "* ", "● ", "• ")):
+                    bullet_text = line.lstrip('-*●• ').strip()
+                    story.append(Paragraph(f"&bull; {_format_inline_markdown(bullet_text)}", bullet_style))
+                # Subheading (###, ##, or #)
+                elif line.startswith("#"):
+                    h3_text = line.lstrip('#').strip()
+                    story.append(Paragraph(_format_inline_markdown(h3_text), h3_style))
+                # Category line (e.g. Languages & Web:)
+                elif any(line.startswith(k) for k in ['Languages & Web:', 'Databases:', 'Engineering Practices:', 'AI/Security:', 'Languages:', 'Frameworks:']):
+                    cat_name, cat_val = line.split(':', 1)
+                    story.append(Paragraph(f"<b>{cat_name.strip()}:</b> {_format_inline_markdown(cat_val.strip())}", body_style))
+                # Role / Dates line (e.g. Cybersecurity / AI Intern — Feb 2026 – Jun 2026)
+                elif '—' in line and any(yr in line for yr in ['2023', '2024', '2025', '2026', '2027', 'Present']):
+                    story.append(Paragraph(f"<i>{_format_inline_markdown(line)}</i>", role_style))
+                # Standard paragraph line
+                else:
+                    story.append(Paragraph(_format_inline_markdown(line), body_style))
 
-        # Bullet item
-        if line.startswith("- ") or line.startswith("* ") or line.startswith("● ") or line.startswith("• "):
-            bullet_text = line[2:].strip()
-            formatted_bullet = f"&bull; {_format_inline_markdown(bullet_text)}"
-            story.append(Paragraph(formatted_bullet, bullet_style))
-            continue
-
-        # Technical Skills category / standard line
-        formatted_line = _format_inline_markdown(line)
-        story.append(Paragraph(formatted_line, body_style))
+    else:
+        # Fallback for plain text
+        lines = [l.strip() for l in md.split("\n") if l.strip()]
+        for line in lines:
+            if line.startswith(("- ", "* ", "● ", "• ")):
+                bullet_text = line.lstrip('-*●• ').strip()
+                story.append(Paragraph(f"&bull; {_format_inline_markdown(bullet_text)}", bullet_style))
+            else:
+                story.append(Paragraph(_format_inline_markdown(line), body_style))
 
     return story
 
@@ -218,8 +249,8 @@ def _generate_reportlab_pdf(markdown_text: str, output_path: str) -> str:
     doc = SimpleDocTemplate(
         output_path,
         pagesize=letter,
-        leftMargin=34,
-        rightMargin=34,
+        leftMargin=36,
+        rightMargin=36,
         topMargin=32,
         bottomMargin=32
     )
@@ -236,8 +267,8 @@ def _build_native_pdf_binary(markdown_text: str) -> bytes:
         doc = SimpleDocTemplate(
             buf,
             pagesize=letter,
-            leftMargin=34,
-            rightMargin=34,
+            leftMargin=36,
+            rightMargin=36,
             topMargin=32,
             bottomMargin=32
         )
@@ -325,6 +356,7 @@ def tailor_resume_for_opportunity(
         base_markdown = CANDIDATES_REGISTRY["candidate_mohit"]["resume_markdown"]
 
     rag_context = get_rag_context(f"{opportunity_title} {company_name} {requirements}", user_id=user_id)
+    rag_snippet = (rag_context[:300] + '...') if (rag_context and len(rag_context) > 300) else (rag_context or "Verified candidate achievements.")
 
     prompt = f"""You are an Expert In-Place ATS Resume Tailoring Engine.
 
@@ -336,8 +368,8 @@ TARGET JOB SPECIFICATION:
 - Company / Organization: {company_name}
 - Key Job Requirements & Tech Stack: {requirements}
 
-CANDIDATE GROUNDED PORTFOLIO CONTEXT (RAG):
-{rag_context}
+CANDIDATE GROUNDED CONTEXT:
+{rag_snippet}
 
 ORIGINAL RESUME (GOLDEN TEMPLATE):
 \"\"\"
@@ -346,7 +378,7 @@ ORIGINAL RESUME (GOLDEN TEMPLATE):
 
 STRICT IN-PLACE TAILORING RULES:
 1. 100% TEMPLATE & STRUCTURE PRESERVATION:
-   - Keep the EXACT same section headings in the EXACT same sequence (e.g. `## Summary`, `## Technical Skills`, `## Experience`, `## Projects`, `## Industry Project`, `## Achievements & Technical Outreach`, `## Education`).
+   - Keep the EXACT same section headings in the EXACT same sequence (`## Summary`, `## Technical Skills`, `## Experience`, `## Projects`, `## Industry Project`, `## Achievements & Technical Outreach`, `## Education`).
    - Preserve the exact candidate name line and all contact details (Email, Phone, LinkedIn, GitHub, LeetCode, Portfolio, Location) verbatim.
    - Retain the exact markdown formatting (bullet format `- `, bold titles `**...**`, dates, and dividers).
 
