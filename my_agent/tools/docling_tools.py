@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict, List
 
 
-def convert_document(file_path: str) -> Dict[str, Any]:
+def convert_document(file_path: str, doc_type: str = "resume") -> Dict[str, Any]:
     """Converts ANY document (PDF, DOCX, Images, PPTX, HTML, TXT) to structured Markdown + Chunks.
     
     Uses Docling's DocumentConverter and HierarchicalChunker with fallback for simple text files.
