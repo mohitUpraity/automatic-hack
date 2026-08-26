@@ -29,9 +29,6 @@ try:
 except ImportError:
     HAS_MARKDOWN = False
 
-from my_agent.tools.knowledge_tools import get_rag_context
-from my_agent.tools.company_intel_tools import deep_research_company_and_role
-from my_agent.tools.llm_tools import call_groq_llm
 from my_agent.tools.db_tools import store_to_db, read_from_db
 from my_agent.models.schemas import TailoredResumeSchema
 
@@ -43,36 +40,51 @@ def _format_inline_markdown(text: str) -> str:
     text = re.sub(r'__(.+?)__', r'<b>\1</b>', text)
     text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<i>\1</i>', text)
     text = re.sub(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)', r'<i>\1</i>', text)
-    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'<font color="#1d4ed8"><u>\1</u></font>', text)
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2"><font color="#1d4ed8"><u>\1</u></font></a>', text)
     text = re.sub(r'`([^`]+)`', r'<font name="Helvetica-Bold">\1</font>', text)
+    text = re.sub(r'\(Live\)', r'<font color="#1d4ed8"><u>(Live)</u></font>', text)
     return text.strip()
 
 
 def normalize_to_sections(raw_text: str) -> str:
-    """Ensures raw or unformatted resume text is structured with clean ## Section headers."""
+    """Ensures raw, OCR, or unformatted resume text is structured with clean ## Section headers and subheadings."""
     if not raw_text:
         return raw_text
 
     text = raw_text.strip()
+    # 1. Clean OCR page markers and notes
+    text = re.sub(r'---\s*Page\s*\d+\s*---', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'(?i)now it looks kinda okay okay.*$', '', text).strip()
+    
+    # 2. Convert bullet points (●, •) into standard - markdown
+    text = text.replace('●', '\n- ').replace('•', '\n- ')
 
-    known_headers = [
+    # 3. Canonical Section Headers
+    canonical_headers = [
         "Summary", "Professional Summary", "Executive Summary", "About Me", "Profile",
-        "Technical Skills", "Skills", "Core Competencies", "Technologies",
+        "Technical Skills", "Skills", "Core Competencies",
         "Experience", "Work Experience", "Professional Experience", "Employment History",
         "Projects", "Featured Projects", "Key Projects",
         "Industry Project", "Industry Projects",
         "Achievements & Technical Outreach", "Achievements", "Honors & Awards", "Awards",
         "Education", "Academic Background"
     ]
+    canonical_headers.sort(key=len, reverse=True)
 
-    if "## " in text:
-        return text
+    for h in canonical_headers:
+        text = re.sub(r'(?i)(^|\n|\.\s)(?:##\s*)?' + re.escape(h) + r'(:|\n|\s+[A-Z0-9●•\-])', r'\1\n\n## ' + h + r'\n', text)
 
-    for h in known_headers:
-        pattern = r'(?i)(?:^|\n)\s*(?:##\s*)?(' + re.escape(h) + r')\s*(?:\n|:|$)'
-        text = re.sub(pattern, r'\n\n## \1\n', text)
+    # 4. Technical Skills Categories
+    skill_cats = [
+        "Languages & Frameworks", "Languages & Web", "Languages", "Frameworks",
+        "Databases", "Engineering Practices", "AI/ML & Vision", "AI/Security",
+        "Developer Tools", "Tools", "Cloud & DevOps"
+    ]
+    skill_cats.sort(key=len, reverse=True)
+    for sc in skill_cats:
+        text = re.sub(r'(?i)(^|\n|\.\s)' + re.escape(sc) + r'\s*:\s*', r'\n- **' + sc + r'**: ', text)
 
-    return text
+    return text.strip()
 
 
 def _build_story_from_markdown(markdown_text: str):
@@ -84,7 +96,7 @@ def _build_story_from_markdown(markdown_text: str):
     name_style = ParagraphStyle(
         'ResumeName',
         fontName='Helvetica-Bold',
-        fontSize=17,
+        fontSize=17.5,
         leading=20,
         alignment=TA_CENTER,
         textColor=colors.HexColor('#0f172a'),
@@ -93,9 +105,9 @@ def _build_story_from_markdown(markdown_text: str):
 
     subtitle_style = ParagraphStyle(
         'ResumeSubtitle',
-        fontName='Helvetica',
-        fontSize=9.5,
-        leading=13,
+        fontName='Helvetica-Bold',
+        fontSize=9.2,
+        leading=12.5,
         alignment=TA_CENTER,
         textColor=colors.HexColor('#334155'),
         spaceAfter=2
@@ -105,7 +117,7 @@ def _build_story_from_markdown(markdown_text: str):
         'ResumeContact',
         fontName='Helvetica',
         fontSize=8.5,
-        leading=12,
+        leading=11.5,
         alignment=TA_CENTER,
         textColor=colors.HexColor('#475569'),
         spaceAfter=4
@@ -114,18 +126,18 @@ def _build_story_from_markdown(markdown_text: str):
     h2_style = ParagraphStyle(
         'ResumeH2',
         fontName='Helvetica-Bold',
-        fontSize=11,
-        leading=14,
+        fontSize=10.5,
+        leading=13.5,
         textColor=colors.HexColor('#1d4ed8'), # Royal Blue accent matching original
-        spaceBefore=7,
+        spaceBefore=6,
         spaceAfter=1
     )
 
     h3_style = ParagraphStyle(
         'ResumeH3',
         fontName='Helvetica-Bold',
-        fontSize=9.5,
-        leading=13,
+        fontSize=9.2,
+        leading=12.5,
         textColor=colors.HexColor('#0f172a'),
         spaceBefore=4,
         spaceAfter=1
@@ -134,8 +146,8 @@ def _build_story_from_markdown(markdown_text: str):
     role_style = ParagraphStyle(
         'ResumeRole',
         fontName='Helvetica-Oblique',
-        fontSize=8.8,
-        leading=12,
+        fontSize=8.5,
+        leading=11.5,
         textColor=colors.HexColor('#475569'),
         spaceAfter=2
     )
@@ -143,21 +155,21 @@ def _build_story_from_markdown(markdown_text: str):
     body_style = ParagraphStyle(
         'ResumeBody',
         fontName='Helvetica',
-        fontSize=8.8,
-        leading=12,
+        fontSize=8.5,
+        leading=11.5,
         textColor=colors.HexColor('#1e293b'),
-        spaceAfter=3
+        spaceAfter=2.5
     )
 
     bullet_style = ParagraphStyle(
         'ResumeBullet',
         fontName='Helvetica',
-        fontSize=8.6,
-        leading=11.5,
-        leftIndent=13,
+        fontSize=8.5,
+        leading=11.2,
+        leftIndent=12,
         firstLineIndent=-8,
         textColor=colors.HexColor('#1e293b'),
-        spaceAfter=2
+        spaceAfter=1.8
     )
 
     story = []
@@ -168,25 +180,41 @@ def _build_story_from_markdown(markdown_text: str):
         # 1. Header Block (Candidate Name, Subtitle, Contact links)
         header_text = parts[0].strip()
         header_lines = [l.strip() for l in header_text.split("\n") if l.strip()]
+        
         if header_lines:
             name_line = header_lines[0].lstrip('#').strip()
             story.append(Paragraph(_format_inline_markdown(name_line), name_style))
             
-            if len(header_lines) > 1:
-                sub_line = header_lines[1].replace('**', '').replace('__', '').strip()
-                story.append(Paragraph(_format_inline_markdown(sub_line), subtitle_style))
+            rest = ' '.join(header_lines[1:])
+            
+            # Extract phone, email, github, linkedin links
+            phone_m = re.search(r'(\+?\d{1,3}[- ]?\d{9,11})', rest)
+            email_m = re.search(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', rest)
+            github_m = re.search(r'(github\.com/[a-zA-Z0-9_-]+)', rest)
+            linkedin_m = re.search(r'(linkedin\.com/in/[a-zA-Z0-9_-]+)', rest)
+            
+            contacts = []
+            if phone_m:
+                contacts.append(f'<font color="#0f172a">{phone_m.group(1)}</font>')
+                rest = rest.replace(phone_m.group(1), '')
+            if email_m:
+                contacts.append(f'<a href="mailto:{email_m.group(1)}"><font color="#1d4ed8"><u>{email_m.group(1)}</u></font></a>')
+                rest = rest.replace(email_m.group(1), '')
+            if github_m:
+                contacts.append(f'<a href="https://{github_m.group(1)}"><font color="#1d4ed8"><u>{github_m.group(1)}</u></font></a>')
+                rest = rest.replace(github_m.group(1), '')
+            if linkedin_m:
+                contacts.append(f'<a href="https://{linkedin_m.group(1)}"><font color="#1d4ed8"><u>{linkedin_m.group(1)}</u></font></a>')
+                rest = rest.replace(linkedin_m.group(1), '')
                 
-            if len(header_lines) > 2:
-                contact_line = header_lines[2].strip()
-                contact_parts = [p.strip() for p in contact_line.split('|')]
-                fmt_parts = []
-                for p in contact_parts:
-                    if '@' in p or 'github.com' in p or 'linkedin.com' in p:
-                        fmt_parts.append(f'<font color="#1d4ed8"><u>{p}</u></font>')
-                    else:
-                        fmt_parts.append(p)
-                story.append(Paragraph(' | '.join(fmt_parts), contact_style))
-            story.append(Spacer(1, 4))
+            subtitle = re.sub(r'[\s|]+', ' ', rest).strip()
+            subtitle = subtitle.strip('|').strip()
+            
+            if subtitle:
+                story.append(Paragraph(_format_inline_markdown(subtitle), subtitle_style))
+            if contacts:
+                story.append(Paragraph(' | '.join(contacts), contact_style))
+            story.append(Spacer(1, 3))
 
         # 2. Iterate through each section
         for section in parts[1:]:
@@ -201,17 +229,23 @@ def _build_story_from_markdown(markdown_text: str):
                 thickness=0.75,
                 color=colors.HexColor("#94a3b8"),
                 spaceBefore=1,
-                spaceAfter=4
+                spaceAfter=3.5
             ))
 
             for line in sec_lines[1:]:
                 if line.startswith(("- ", "* ", "● ", "• ")):
                     bullet_text = line.lstrip('-*●• ').strip()
-                    story.append(Paragraph(f"&bull; {_format_inline_markdown(bullet_text)}", bullet_style))
-                elif line.startswith("#"):
+                    if bullet_text.startswith('**') and ':' in bullet_text:
+                        story.append(Paragraph(_format_inline_markdown(bullet_text), body_style))
+                    else:
+                        story.append(Paragraph(f"&bull; {_format_inline_markdown(bullet_text)}", bullet_style))
+                elif line.startswith("###"):
                     h3_text = line.lstrip('#').strip()
                     story.append(Paragraph(_format_inline_markdown(h3_text), h3_style))
-                elif any(line.startswith(k) for k in ['Languages & Web:', 'Databases:', 'Engineering Practices:', 'AI/Security:', 'Languages:', 'Frameworks:']):
+                elif line.startswith('*') and line.endswith('*'):
+                    role_text = line.strip('*').strip()
+                    story.append(Paragraph(f"<i>{_format_inline_markdown(role_text)}</i>", role_style))
+                elif any(line.startswith(k) for k in ['Languages & Frameworks:', 'Languages & Web:', 'Databases:', 'Engineering Practices:', 'AI/ML & Vision:', 'AI/Security:']):
                     cat_name, cat_val = line.split(':', 1)
                     story.append(Paragraph(f"<b>{cat_name.strip()}:</b> {_format_inline_markdown(cat_val.strip())}", body_style))
                 elif '—' in line and any(yr in line for yr in ['2023', '2024', '2025', '2026', '2027', 'Present']):
@@ -355,6 +389,7 @@ def tailor_resume_for_opportunity(
     # Step 2: Fetch Firecrawl Deep Company Intelligence if not provided
     if not company_intel and company_name:
         try:
+            from my_agent.tools.company_intel_tools import deep_research_company_and_role
             company_intel = deep_research_company_and_role(company_name, opportunity_title, job_url)
         except Exception as e:
             print(f"[Deep Company Research Notice] {e}")
@@ -370,10 +405,12 @@ def tailor_resume_for_opportunity(
         engineering_values = company_intel.get("engineering_culture", "")
         ats_keywords_str = ", ".join(company_intel.get("ats_keywords", []))
 
+    from my_agent.tools.knowledge_tools import get_rag_context
     rag_context = get_rag_context(f"{opportunity_title} {company_name} {requirements}", user_id=user_id)
     rag_snippet = (rag_context[:300] + '...') if (rag_context and len(rag_context) > 300) else (rag_context or "Verified candidate achievements.")
 
     # Step 3: Grounded AI In-Place Tailoring with Company Intelligence Context
+    from my_agent.tools.llm_tools import call_groq_llm
     prompt = f"""You are an Expert In-Place ATS Resume Tailoring Engine.
 
 CRITICAL DIRECTIVE: You MUST PRESERVE the EXACT document template, layout, header format, personal contact line, section ordering, and bullet styling of the ORIGINAL RESUME below.
