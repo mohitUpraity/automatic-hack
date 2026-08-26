@@ -263,14 +263,20 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const navigate = useNavigate();
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
   const [candidatesList, setCandidatesList] = useState([]);
-  const [selectedCandidate, setSelectedCandidate] = useState('candidate_all');
-  const [graphMetrics, setGraphMetrics] = useState({ total_candidates: 3, total_nodes: 0, shared_skills_count: 0 });
+  const [selectedCandidate, setSelectedCandidate] = useState(userId || 'default-user');
+  const [graphMetrics, setGraphMetrics] = useState({ total_candidates: 1, total_nodes: 0, shared_skills_count: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
   const [hoverNode, setHoverNode] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedExcerpt, setCopiedExcerpt] = useState(false);
   const [copiedAttribute, setCopiedAttribute] = useState(false);
+
+  useEffect(() => {
+    if (userId) {
+      setSelectedCandidate(userId);
+    }
+  }, [userId]);
 
   // ── Theme & Style Engine ───────────────────────────────────────────────────
   const [visualTheme, setVisualTheme] = useState('cyberpunk');   // 'cyberpunk' | 'cosmic' | 'matrix' | 'minimal_glass'

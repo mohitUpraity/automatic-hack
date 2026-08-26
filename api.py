@@ -2683,12 +2683,53 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 "similarity_score": 91.0
             }
 
-        # Filter candidates if specific candidate selected
-        active_candidates = CANDIDATES_REGISTRY
-        if candidate_id and candidate_id in CANDIDATES_REGISTRY:
-            focused_id = candidate_id
+        # Filter candidates strictly by authenticated user / candidate
+        target_id = candidate_id or user_id
+        if target_id and target_id not in ("all", "candidate_all"):
+            focused_id = target_id
+            if focused_id in CANDIDATES_REGISTRY:
+                active_candidates = {focused_id: CANDIDATES_REGISTRY[focused_id]}
+            else:
+                # Dynamic isolated user profile from DB
+                prof_res = read_from_db("profiles", f"user_id = '{focused_id}'")
+                prof = prof_res.get("records", [])[0] if prof_res.get("records") else None
+                user_name = prof.get("name") if prof else (focused_id.replace("google_", "").replace("user_", "").replace("_", " ").title())
+                user_role = prof.get("role") if prof else "Software Engineer"
+                user_email = prof.get("email") if prof else f"{focused_id}@careeros.ai"
+                user_skills = prof.get("skills", []) if prof else []
+                if isinstance(user_skills, str):
+                    try:
+                        user_skills = json.loads(user_skills)
+                    except Exception:
+                        user_skills = [s.strip() for s in user_skills.split(",") if s.strip()]
+
+                user_docs = [d for d in documents if d.get("user_id") == focused_id] or [d for d in documents if d.get("id") == focused_id]
+
+                active_candidates = {
+                    focused_id: {
+                        "id": focused_id,
+                        "name": user_name,
+                        "role": user_role,
+                        "cluster_color": "#38bdf8",
+                        "email": user_email,
+                        "phone": "+91-0000000000",
+                        "location": "Remote",
+                        "summary": f"Personal career intelligence graph for {user_name}.",
+                        "skills": user_skills,
+                        "top_skills": user_skills[:6],
+                        "projects": [],
+                        "experiences": [],
+                        "achievements": [],
+                        "education": [],
+                        "certifications": [],
+                        "doc_name": user_docs[0].get("filename", "User Resume") if user_docs else "Uploaded Resume",
+                        "peer_gaps": [],
+                        "resume_markdown": ""
+                    }
+                }
         else:
             focused_id = "all"
+            active_candidates = CANDIDATES_REGISTRY
 
         nodes = []
         edges = []
@@ -2722,7 +2763,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                     "total_projects": len(cinfo["projects"]),
                     "total_achievements": len(cinfo.get("achievements", [])),
                     "peer_gaps": cinfo["peer_gaps"],
-                    "is_primary": (cid == "candidate_mohit")
+                    "is_primary": True
                 }
             })
             added_node_ids.add(cid)
