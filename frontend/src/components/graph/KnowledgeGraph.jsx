@@ -67,7 +67,10 @@ import {
   Stars,
   Grid,
   Sun,
-  Moon
+  Moon,
+  Flower2,
+  AlignVerticalSpaceAround,
+  GitCommit
 } from 'lucide-react';
 
 // ── Themes & Color Palettes ──────────────────────────────────────────────────
@@ -240,10 +243,13 @@ const EDGE_TYPES = {
 };
 
 const TOPOLOGY_MODES = [
-  { id: 'organic', name: '🌐 Organic Constellation', desc: 'Dynamic force web with open repulsion', icon: Boxes },
-  { id: 'tree_td', name: '🌲 Top-Down Tree DAG', desc: 'Structured hierarchy: Candidate at top → Entities below', icon: GitFork },
-  { id: 'flow_lr', name: '➡️ Pipeline Flow DAG', desc: 'Horizontal flow from experience to skills to jobs', icon: Workflow },
-  { id: 'radial', name: '🪐 Concentric Orbit', desc: 'Planetary multi-orbit ring structure', icon: Orbit },
+  { id: 'flower', name: '🌸 Classic Radial Flower', desc: 'The starting version: Central candidate with blooming radial petals', icon: Flower2 },
+  { id: 'organic', name: '🌐 Organic Constellation', desc: 'Natural dynamic physics web with high node repulsion', icon: Boxes },
+  { id: 'tree_td', name: '🌲 Top-Down Tree DAG', desc: 'Structured hierarchy: Candidate at top → Projects & Experience → Skills & Jobs', icon: GitFork },
+  { id: 'tree_bu', name: '⬆️ Bottom-Up Pyramid DAG', desc: 'Foundational skills at base building up to Candidate apex', icon: AlignVerticalSpaceAround },
+  { id: 'flow_lr', name: '➡️ Pipeline Flow (L → R)', desc: 'Horizontal timeline from background to skills to market opportunities', icon: Workflow },
+  { id: 'flow_rl', name: '⬅️ Reverse Pipeline (R → L)', desc: 'Target opportunities flowing back into required candidate skills', icon: Network },
+  { id: 'radial', name: '🪐 Concentric Solar Orbit', desc: 'Planetary multi-orbit ring structure with tiered orbital distance', icon: Orbit },
 ];
 
 const NODE_SHAPES = [
@@ -273,18 +279,18 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [linkStyle, setLinkStyle] = useState('laser');           // 'laser' | 'dashed' | 'subtle'
 
   // ── Topology & Structural Layout Engine ────────────────────────────────────
-  const [topologyMode, setTopologyMode] = useState('organic');   // 'organic' | 'tree_td' | 'flow_lr' | 'radial'
+  const [topologyMode, setTopologyMode] = useState('flower');    // 'flower' | 'organic' | 'tree_td' | 'tree_bu' | 'flow_lr' | 'flow_rl' | 'radial'
   const [dagLevelDistance, setDagLevelDistance] = useState(130); // Distance between hierarchy levels
 
   // ── Physics & Distance Controls State ──────────────────────────────────────
-  const [nodeRepulsion, setNodeRepulsion] = useState(1050);      // Repulsion strength
-  const [linkDistance, setLinkDistance] = useState(160);         // Link spring distance
-  const [centerGravity, setCenterGravity] = useState(0.035);     // Pull toward center
+  const [nodeRepulsion, setNodeRepulsion] = useState(650);       // Repulsion strength
+  const [linkDistance, setLinkDistance] = useState(110);         // Link spring distance
+  const [centerGravity, setCenterGravity] = useState(0.08);      // Pull toward center
   const [particleSpeed, setParticleSpeed] = useState(0.006);     // Flow speed
   const [showParticles, setShowParticles] = useState(true);
   const [labelMode, setLabelMode] = useState('smart');           // 'smart' | 'always' | 'key_only' | 'hover'
   const [showControlsDrawer, setShowControlsDrawer] = useState(false);
-  const [activePreset, setActivePreset] = useState('spacious');
+  const [activePreset, setActivePreset] = useState('balanced');
 
   // ── Connection / Edge Controls State ───────────────────────────────────────
   const [showEdgeLabels, setShowEdgeLabels] = useState(false);
@@ -292,7 +298,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [linkWidthScale, setLinkWidthScale] = useState(1.5);
   const [isolateFocus, setIsolateFocus] = useState(false);       // Dims unrelated nodes on selection
   const [nodeSizingMode, setNodeSizingMode] = useState('degree'); // 'degree' (hub size) | 'category' | 'uniform'
-  const [activeTabControls, setActiveTabControls] = useState('styles'); // 'styles' | 'topology' | 'physics' | 'connections'
+  const [activeTabControls, setActiveTabControls] = useState('topology'); // 'topology' | 'styles' | 'physics' | 'connections'
 
   // Active Connection Types Toggles
   const [activeEdgeTypes, setActiveEdgeTypes] = useState({
@@ -404,6 +410,26 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   useEffect(() => {
     loadGraph(selectedCandidate);
   }, [selectedCandidate, userId, loadGraph]);
+
+  // Topology Switch Handler with auto-physics adaptation
+  const handleSelectTopology = (modeId) => {
+    setTopologyMode(modeId);
+    if (modeId === 'flower') {
+      setNodeRepulsion(500);
+      setLinkDistance(100);
+      setCenterGravity(0.12);
+    } else if (modeId === 'organic') {
+      setNodeRepulsion(1100);
+      setLinkDistance(160);
+      setCenterGravity(0.035);
+    } else if (modeId === 'tree_td' || modeId === 'tree_bu') {
+      setDagLevelDistance(130);
+    } else if (modeId === 'flow_lr' || modeId === 'flow_rl') {
+      setDagLevelDistance(150);
+    } else if (modeId === 'radial') {
+      setDagLevelDistance(170);
+    }
+  };
 
   // 3. Dynamic D3 Force Engine Settings
   useEffect(() => {
@@ -717,23 +743,24 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             )}
           </div>
 
-          {/* Theme Quick Switcher Pills */}
+          {/* Quick Topology Structure Selector Bar */}
           <div className="pointer-events-auto flex items-center gap-1 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg">
-            {Object.values(THEME_PALETTES).map((thm) => {
-              const isActive = visualTheme === thm.id;
+            {TOPOLOGY_MODES.slice(0, 4).map((mode) => {
+              const Icon = mode.icon;
+              const isActive = topologyMode === mode.id;
               return (
                 <button
-                  key={thm.id}
-                  onClick={() => setVisualTheme(thm.id)}
-                  title={thm.name}
+                  key={mode.id}
+                  onClick={() => handleSelectTopology(mode.id)}
+                  title={`${mode.name}: ${mode.desc}`}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 font-bold'
                       : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: thm.nodeColors.user }} />
-                  <span className="hidden md:inline">{thm.name.split(' ')[1]}</span>
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden md:inline">{mode.name.split(' ')[1]}</span>
                 </button>
               );
             })}
@@ -786,7 +813,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               }`}
             >
               <Palette className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Studio & Styles</span>
+              <span>Studio Suite</span>
             </button>
 
             <div className="w-[1px] h-4 bg-slate-700 mx-1" />
@@ -836,7 +863,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
-                <h3 className="text-sm font-bold text-white">Visual Themes & Graph Studio</h3>
+                <h3 className="text-sm font-bold text-white">Knowledge Graph Studio Suite</h3>
               </div>
               <button
                 onClick={() => setShowControlsDrawer(false)}
@@ -849,8 +876,8 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             {/* Controls Tabs */}
             <div className="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
               {[
-                { id: 'styles', label: '🎨 Aesthetics' },
                 { id: 'topology', label: '📐 Structure' },
+                { id: 'styles', label: '🎨 Styles' },
                 { id: 'physics', label: '⚡ Physics' },
                 { id: 'connections', label: '🔗 Edges' },
               ].map((t) => (
@@ -859,7 +886,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                   onClick={() => setActiveTabControls(t.id)}
                   className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     activeTabControls === t.id
-                      ? 'bg-indigo-600 text-white shadow-sm'
+                      ? 'bg-indigo-600 text-white shadow-sm font-bold'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -868,7 +895,65 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               ))}
             </div>
 
-            {/* ── TAB 1: Aesthetics, Themes & Shapes ───────────────────────── */}
+            {/* ── TAB 1: Topology & Layout Structure ───────────────────────── */}
+            {activeTabControls === 'topology' && (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-slate-300">Graph Layout Topologies ({TOPOLOGY_MODES.length})</label>
+                    <span className="text-[10px] text-indigo-400 font-mono font-bold">1-Click Apply</span>
+                  </div>
+                  <div className="space-y-2">
+                    {TOPOLOGY_MODES.map((mode) => {
+                      const Icon = mode.icon;
+                      const isActive = topologyMode === mode.id;
+                      return (
+                        <button
+                          key={mode.id}
+                          onClick={() => handleSelectTopology(mode.id)}
+                          className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer text-left ${
+                            isActive
+                              ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-md'
+                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                          }`}
+                        >
+                          <div className={`p-2 rounded-lg shrink-0 ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-900 text-slate-400'}`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold flex items-center justify-between">
+                              <span>{mode.name}</span>
+                              {isActive && <span className="text-[10px] text-emerald-400 font-mono font-bold">ACTIVE</span>}
+                            </div>
+                            <div className="text-[11px] opacity-75 mt-0.5 leading-relaxed">{mode.desc}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {topologyMode !== 'organic' && topologyMode !== 'flower' && (
+                  <div className="pt-2 border-t border-slate-800">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-semibold text-slate-300">Hierarchy Level Separation</span>
+                      <span className="font-mono text-cyan-400 font-bold">{dagLevelDistance}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="60"
+                      max="260"
+                      step="10"
+                      value={dagLevelDistance}
+                      onChange={(e) => setDagLevelDistance(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── TAB 2: Aesthetics, Themes & Shapes ───────────────────────── */}
             {activeTabControls === 'styles' && (
               <div className="space-y-4">
                 {/* Visual Theme Palettes */}
@@ -972,58 +1057,6 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                     ))}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* ── TAB 2: Topology & Layout Structure ───────────────────────── */}
-            {activeTabControls === 'topology' && (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-semibold text-slate-400 block mb-2">Graph Layout Topologies</label>
-                  <div className="space-y-2">
-                    {TOPOLOGY_MODES.map((mode) => {
-                      const Icon = mode.icon;
-                      const isActive = topologyMode === mode.id;
-                      return (
-                        <button
-                          key={mode.id}
-                          onClick={() => setTopologyMode(mode.id)}
-                          className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer text-left ${
-                            isActive
-                              ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-md'
-                              : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                          }`}
-                        >
-                          <div className={`p-2 rounded-lg shrink-0 ${isActive ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-xs font-bold">{mode.name}</div>
-                            <div className="text-[11px] opacity-75 mt-0.5 leading-relaxed">{mode.desc}</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {topologyMode !== 'organic' && (
-                  <div className="pt-2 border-t border-slate-800">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-semibold text-slate-300">Hierarchy Level Separation</span>
-                      <span className="font-mono text-cyan-400 font-bold">{dagLevelDistance}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="60"
-                      max="260"
-                      step="10"
-                      value={dagLevelDistance}
-                      onChange={(e) => setDagLevelDistance(Number(e.target.value))}
-                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                    />
-                  </div>
-                )}
               </div>
             )}
 
@@ -1210,7 +1243,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                 onClick={() => {
                   setVisualTheme('cyberpunk');
                   setNodeShape('sphere');
-                  applyPreset('spacious');
+                  handleSelectTopology('flower');
                 }}
                 className="text-xs text-slate-400 hover:text-indigo-400 underline cursor-pointer"
               >
@@ -1244,13 +1277,15 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             backgroundColor={currentTheme.bg}
             dagMode={
               topologyMode === 'tree_td' ? 'td' :
+              topologyMode === 'tree_bu' ? 'bu' :
               topologyMode === 'flow_lr' ? 'lr' :
+              topologyMode === 'flow_rl' ? 'rl' :
               topologyMode === 'radial' ? 'radialout' :
               null
             }
             dagLevelDistance={dagLevelDistance}
             nodeRelSize={6}
-            linkCurvature={topologyMode === 'organic' ? linkCurvature : 0}
+            linkCurvature={topologyMode === 'organic' || topologyMode === 'flower' ? linkCurvature : 0}
             nodeVal={(node) => {
               if (nodeSizingMode === 'degree') {
                 return (node.degree || 2) * 2.5 + (node.group === 'user' ? 8 : 4);
