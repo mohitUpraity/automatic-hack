@@ -1,6 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import Sidebar from './components/layout/Sidebar';
+import LoginPage from './pages/LoginPage';
 import ChatPage from './pages/ChatPage';
 import DocumentsPage from './pages/DocumentsPage';
 import OpportunityPage from './pages/OpportunityPage';
@@ -11,31 +14,47 @@ import ResumeStudioPage from './pages/ResumeStudioPage';
 import ProfilePage from './pages/ProfilePage';
 import { fetchStats } from './api/client';
 
-export default function App() {
+function AppLayout() {
   const [stats, setStats] = useState({ total_documents: 0, total_profiles: 0 });
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    fetchStats().then(setStats).catch(console.error);
-  }, []);
+    if (isAuthenticated) {
+      fetchStats().then(setStats).catch(console.error);
+    }
+  }, [isAuthenticated]);
 
   return (
+    <div className="flex min-h-screen bg-slate-950 text-slate-200 font-sans">
+      <Sidebar stats={stats} />
+      <main className="flex-1 md:ml-[260px] min-h-screen w-full">
+        <Routes>
+          <Route path="/" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/studio" element={<ProtectedRoute><ResumeStudioPage /></ProtectedRoute>} />
+          <Route path="/resume-studio" element={<ProtectedRoute><ResumeStudioPage /></ProtectedRoute>} />
+          <Route path="/opportunities" element={<ProtectedRoute><OpportunitiesPage /></ProtectedRoute>} />
+          <Route path="/documents" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
+          <Route path="/opportunity/:id" element={<ProtectedRoute><OpportunityPage /></ProtectedRoute>} />
+          <Route path="/observatory" element={<ProtectedRoute><ObservatoryPage /></ProtectedRoute>} />
+          <Route path="/knowledge-graph" element={<ProtectedRoute><KnowledgeGraphPage /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
     <BrowserRouter>
-      <div className="flex min-h-screen bg-slate-950 text-slate-200 font-sans">
-        <Sidebar stats={stats} />
-        <main className="flex-1 md:ml-[260px] min-h-screen w-full">
-          <Routes>
-            <Route path="/" element={<ChatPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/studio" element={<ResumeStudioPage />} />
-            <Route path="/resume-studio" element={<ResumeStudioPage />} />
-            <Route path="/opportunities" element={<OpportunitiesPage />} />
-            <Route path="/documents" element={<DocumentsPage />} />
-            <Route path="/opportunity/:id" element={<OpportunityPage />} />
-            <Route path="/observatory" element={<ObservatoryPage />} />
-            <Route path="/knowledge-graph" element={<KnowledgeGraphPage />} />
-          </Routes>
-        </main>
-      </div>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/*" element={<AppLayout />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
+

@@ -184,6 +184,206 @@ class ExtractLinksReq(BaseModel):
     resume_markdown: str
 
 
+class RegisterReq(BaseModel):
+    email: str
+    password: str
+    name: str
+    role: Optional[str] = "Software Engineer"
+
+
+class LoginReq(BaseModel):
+    email: Optional[str] = None
+    password: Optional[str] = None
+    candidate_id: Optional[str] = None
+
+
+# In-memory authentication & session store
+USER_AUTH_ACCOUNTS = {
+    "mohitupraity123@gmail.com": {
+        "id": "candidate_mohit",
+        "email": "mohitupraity123@gmail.com",
+        "name": "Mohit Prasad Upraity",
+        "role": "Software Engineer | Full-Stack & AI Systems",
+        "password": "password123"
+    },
+    "vishnu9027872285@gmail.com": {
+        "id": "candidate_vishnu",
+        "email": "vishnu9027872285@gmail.com",
+        "name": "Vishnu Kumar",
+        "role": "Python Developer | Backend & API Engineering | ML Systems",
+        "password": "password123"
+    },
+    "krati.verma@careeros.ai": {
+        "id": "candidate_krati",
+        "email": "krati.verma@careeros.ai",
+        "name": "Krati Verma",
+        "role": "Lead Frontend & UI/UX Developer",
+        "password": "password123"
+    }
+}
+
+
+@app.post("/api/auth/register")
+def register_endpoint(req: RegisterReq):
+    """Registers a new user starting completely fresh with zero pre-filled documents or knowledge."""
+    email_clean = req.email.strip().lower()
+    if not email_clean or not req.password:
+        raise HTTPException(status_code=400, detail="Email and password are required.")
+
+    user_id = f"user_{uuid.uuid4().hex[:8]}"
+    new_user = {
+        "id": user_id,
+        "email": email_clean,
+        "name": req.name.strip() or "New Engineer",
+        "role": req.role or "Software Engineer",
+        "password": req.password
+    }
+    USER_AUTH_ACCOUNTS[email_clean] = new_user
+
+    # Register in candidate registry as clean slate
+    CANDIDATES_REGISTRY[user_id] = {
+        "id": user_id,
+        "name": new_user["name"],
+        "role": new_user["role"],
+        "cluster_color": "#38bdf8",
+        "email": email_clean,
+        "phone": "+91-0000000000",
+        "location": "Remote",
+        "summary": f"Fresh profile for {new_user['name']}. Upload your master resume to begin.",
+        "skills": [],
+        "top_skills": [],
+        "projects": [],
+        "experiences": [],
+        "achievements": [],
+        "education": [],
+        "certifications": [],
+        "doc_name": "No Resume Uploaded",
+        "peer_gaps": [],
+        "resume_markdown": f"# {new_user['name']}\n**{new_user['role']}**\n{email_clean}\n\n## Professional Summary\nFresh profile. Upload your resume or paste markdown here to begin.\n\n## Technical Skills\n- **Languages**: \n\n## Experience\n\n## Projects\n\n## Education\n"
+    }
+
+    # Store profile in DB
+    store_to_db("profiles", {
+        "id": user_id,
+        "user_id": user_id,
+        "name": new_user["name"],
+        "role": new_user["role"],
+        "email": email_clean,
+        "skills": [],
+        "search_keywords": ["software engineering jobs"]
+    })
+
+    token = f"careeros_jwt_{uuid.uuid4().hex}"
+    return {
+        "status": "success",
+        "token": token,
+        "user": {
+            "id": user_id,
+            "email": email_clean,
+            "name": new_user["name"],
+            "role": new_user["role"]
+        },
+        "message": "Account created successfully! Start fresh by uploading your documents."
+    }
+
+
+@app.post("/api/auth/login")
+def login_endpoint(req: LoginReq):
+    """Authenticates user or allows 1-click candidate profile login."""
+    # 1. Candidate ID quick login
+    if req.candidate_id and req.candidate_id in CANDIDATES_REGISTRY:
+        cand = CANDIDATES_REGISTRY[req.candidate_id]
+        token = f"careeros_jwt_{uuid.uuid4().hex}"
+        return {
+            "status": "success",
+            "token": token,
+            "user": {
+                "id": cand["id"],
+                "email": cand.get("email", "candidate@careeros.ai"),
+                "name": cand["name"],
+                "role": cand["role"]
+            }
+        }
+
+    # 2. Email / Password login
+    if req.email:
+        email_clean = req.email.strip().lower()
+        if email_clean in USER_AUTH_ACCOUNTS:
+            account = USER_AUTH_ACCOUNTS[email_clean]
+            token = f"careeros_jwt_{uuid.uuid4().hex}"
+            return {
+                "status": "success",
+                "token": token,
+                "user": {
+                    "id": account["id"],
+                    "email": account["email"],
+                    "name": account["name"],
+                    "role": account["role"]
+                }
+            }
+        else:
+            # Auto-create fresh account if unknown email
+            user_id = f"user_{uuid.uuid4().hex[:8]}"
+            cand_name = email_clean.split('@')[0].replace('.', ' ').title()
+            new_user = {
+                "id": user_id,
+                "email": email_clean,
+                "name": cand_name,
+                "role": "Software Engineer",
+                "password": req.password or "password123"
+            }
+            USER_AUTH_ACCOUNTS[email_clean] = new_user
+            CANDIDATES_REGISTRY[user_id] = {
+                "id": user_id,
+                "name": cand_name,
+                "role": "Software Engineer",
+                "cluster_color": "#38bdf8",
+                "email": email_clean,
+                "phone": "+91-0000000000",
+                "location": "Remote",
+                "summary": f"Fresh profile for {cand_name}.",
+                "skills": [],
+                "top_skills": [],
+                "projects": [],
+                "experiences": [],
+                "achievements": [],
+                "education": [],
+                "certifications": [],
+                "doc_name": "No Resume Uploaded",
+                "peer_gaps": [],
+                "resume_markdown": f"# {cand_name}\n**Software Engineer**\n{email_clean}\n\n## Professional Summary\nFresh profile. Upload your resume or paste markdown here to begin.\n"
+            }
+            token = f"careeros_jwt_{uuid.uuid4().hex}"
+            return {
+                "status": "success",
+                "token": token,
+                "user": {
+                    "id": user_id,
+                    "email": email_clean,
+                    "name": cand_name,
+                    "role": "Software Engineer"
+                }
+            }
+
+    raise HTTPException(status_code=400, detail="Invalid login credentials.")
+
+
+@app.get("/api/auth/me")
+def get_current_user_profile(authorization: Optional[str] = Header(None)):
+    """Returns the authenticated user details."""
+    token = (authorization or "").replace("Bearer ", "").strip()
+    return {
+        "status": "success",
+        "authenticated": True,
+        "token": token or "active_session"
+    }
+
+
+@app.post("/api/auth/logout")
+def logout_endpoint():
+    return {"status": "success", "message": "Signed out successfully."}
+
+
 @app.get("/")
 def read_root():
     return {
@@ -192,6 +392,8 @@ def read_root():
         "version": "3.0",
         "documentation": "/docs",
         "endpoints": {
+            "login": "/api/auth/login (POST)",
+            "register": "/api/auth/register (POST)",
             "upload_document": "/api/documents/upload (POST)",
             "knowledge_search": "/api/knowledge/search (POST)",
             "tailor_resume": "/api/tailor (POST)",

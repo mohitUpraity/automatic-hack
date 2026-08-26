@@ -10,9 +10,10 @@ async function fetchWithConfig(url, options = {}) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), 30000);
   
+  const token = authToken || localStorage.getItem('careeros_token');
   const headers = { ...options.headers };
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
   
   try {
@@ -27,6 +28,43 @@ async function fetchWithConfig(url, options = {}) {
     clearTimeout(id);
     throw error;
   }
+}
+
+export async function loginUser(credentials) {
+  const res = await fetchWithConfig(`${API_BASE}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(credentials),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Login failed' }));
+    throw new Error(err.detail || 'Login failed');
+  }
+  return await res.json();
+}
+
+export async function registerUser(userData) {
+  const res = await fetchWithConfig(`${API_BASE}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(userData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Registration failed' }));
+    throw new Error(err.detail || 'Registration failed');
+  }
+  return await res.json();
+}
+
+export async function resetDatabase() {
+  const res = await fetchWithConfig(`${API_BASE}/api/database/reset`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Database reset failed' }));
+    throw new Error(err.detail || 'Database reset failed');
+  }
+  return await res.json();
 }
 
 export async function uploadDocument(file, docType = 'resume') {
