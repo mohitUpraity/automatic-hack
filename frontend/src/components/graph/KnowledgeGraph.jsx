@@ -48,7 +48,13 @@ import {
   Minimize,
   Eye,
   SlidersHorizontal,
-  Compass
+  Compass,
+  Download,
+  Filter,
+  Link as LinkIcon,
+  Focus,
+  Radio,
+  Image as ImageIcon
 } from 'lucide-react';
 
 const NODE_COLORS = {
@@ -82,6 +88,19 @@ const NODE_ICONS = {
   document: FileText,
 };
 
+const EDGE_TYPES = {
+  KNOWS_SKILL: { label: 'Knows Skill', color: '#10b981', desc: 'Candidate possesses technical or domain skill' },
+  BUILT_PROJECT: { label: 'Built Project', color: '#8b5cf6', desc: 'Candidate developed and shipped project' },
+  USES_TECH: { label: 'Uses Tech', color: '#64748b', desc: 'Project leverages specific framework or tool' },
+  WORKED_AT: { label: 'Worked At', color: '#ec4899', desc: 'Candidate career experience and roles' },
+  EARNED_AWARD: { label: 'Earned Award', color: '#f59e0b', desc: 'Hackathon, patent, or honors' },
+  STUDIED_AT: { label: 'Studied At', color: '#06b6d4', desc: 'University and academic degree' },
+  ACQUIRED_CERT: { label: 'Acquired Cert', color: '#14b8a6', desc: 'Professional certification' },
+  TEAM_SYNERGY: { label: 'Team Synergy', color: '#c084fc', desc: 'Complementary cross-candidate collaboration' },
+  MATCHES_PROFILE: { label: 'Matches Profile', color: '#f97316', desc: 'Scouted job matching candidate' },
+  SOURCES_CANDIDATE_DATA: { label: 'Doc Source', color: '#38bdf8', desc: 'Provenance grounding source doc' },
+};
+
 export default function KnowledgeGraph({ userId = 'default-user' }) {
   const navigate = useNavigate();
   const [graphData, setGraphData] = useState({ nodes: [], links: [] });
@@ -96,14 +115,36 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [copiedAttribute, setCopiedAttribute] = useState(false);
 
   // ── Physics & Distance Controls State ──────────────────────────────────────
-  const [nodeRepulsion, setNodeRepulsion] = useState(850);       // Repulsion strength (higher = more spaced out)
-  const [linkDistance, setLinkDistance] = useState(140);         // Link spring distance (higher = further apart)
-  const [centerGravity, setCenterGravity] = useState(0.04);      // Pull toward center (lower = looser)
+  const [nodeRepulsion, setNodeRepulsion] = useState(900);       // Repulsion strength
+  const [linkDistance, setLinkDistance] = useState(140);         // Link spring distance
+  const [centerGravity, setCenterGravity] = useState(0.04);      // Pull toward center
   const [particleSpeed, setParticleSpeed] = useState(0.006);     // Flow speed
   const [showParticles, setShowParticles] = useState(true);
   const [labelMode, setLabelMode] = useState('smart');           // 'smart' | 'always' | 'key_only' | 'hover'
   const [showControlsDrawer, setShowControlsDrawer] = useState(false);
   const [activePreset, setActivePreset] = useState('spacious');
+
+  // ── Connection / Edge Controls State ───────────────────────────────────────
+  const [showEdgeLabels, setShowEdgeLabels] = useState(false);
+  const [linkCurvature, setLinkCurvature] = useState(0.15);      // 0 = straight, 0.3 = curved
+  const [linkWidthScale, setLinkWidthScale] = useState(1.5);
+  const [isolateFocus, setIsolateFocus] = useState(false);       // Dims unrelated nodes on selection
+  const [nodeSizingMode, setNodeSizingMode] = useState('degree'); // 'degree' (hub size) | 'category' | 'uniform'
+  const [activeTabControls, setActiveTabControls] = useState('physics'); // 'physics' | 'connections' | 'display'
+
+  // Active Connection Types Toggles
+  const [activeEdgeTypes, setActiveEdgeTypes] = useState({
+    KNOWS_SKILL: true,
+    BUILT_PROJECT: true,
+    USES_TECH: true,
+    WORKED_AT: true,
+    EARNED_AWARD: true,
+    STUDIED_AT: true,
+    ACQUIRED_CERT: true,
+    TEAM_SYNERGY: true,
+    MATCHES_PROFILE: true,
+    SOURCES_CANDIDATE_DATA: true,
+  });
 
   const [activeGroups, setActiveGroups] = useState({
     user: true,
@@ -144,6 +185,20 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
       const rawNodes = data.nodes || [];
       const rawEdges = data.edges || data.links || [];
 
+      // Calculate node degree for dynamic sizing
+      const degreeMap = {};
+      rawEdges.forEach((e) => {
+        const s = typeof e.source === 'object' ? e.source.id : e.source;
+        const t = typeof e.target === 'object' ? e.target.id : e.target;
+        degreeMap[s] = (degreeMap[s] || 0) + 1;
+        degreeMap[t] = (degreeMap[t] || 0) + 1;
+      });
+
+      const processedNodes = rawNodes.map((n) => ({
+        ...n,
+        degree: degreeMap[n.id] || 1,
+      }));
+
       const formattedLinks = rawEdges.map((e) => ({
         source: typeof e.source === 'object' ? e.source.id : e.source,
         target: typeof e.target === 'object' ? e.target.id : e.target,
@@ -153,7 +208,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
       }));
 
       setGraphData({
-        nodes: rawNodes,
+        nodes: processedNodes,
         links: formattedLinks,
       });
 
@@ -162,7 +217,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
       }
 
       if (candidateId !== 'candidate_all') {
-        const targetNode = rawNodes.find((n) => n.id === candidateId);
+        const targetNode = processedNodes.find((n) => n.id === candidateId);
         if (targetNode) {
           setSelectedNode(targetNode);
           setTimeout(() => {
@@ -173,7 +228,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
           }, 350);
         }
       } else {
-        setSelectedNode((prev) => prev || (rawNodes.find((n) => n.id === 'candidate_mohit') || rawNodes[0]));
+        setSelectedNode((prev) => prev || (processedNodes.find((n) => n.id === 'candidate_mohit') || processedNodes[0]));
       }
     } catch (err) {
       console.error('Failed to load knowledge graph:', err);
@@ -192,7 +247,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
       const charge = fgRef.current.d3Force('charge');
       if (charge) {
         charge.strength(-nodeRepulsion);
-        charge.distanceMax(3000);
+        charge.distanceMax(3500);
       }
       const link = fgRef.current.d3Force('link');
       if (link) {
@@ -221,7 +276,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
 
-  // Filter nodes & links based on active groups and search query
+  // Filter nodes & links based on active groups, edge types, and search query
   const filteredData = useMemo(() => {
     const validNodes = graphData.nodes.filter((node) => {
       const groupMatch = activeGroups[node.group] !== false;
@@ -237,17 +292,36 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     });
     const validNodeIds = new Set(validNodes.map((n) => n.id));
 
-    const validLinks = graphData.links.filter(
-      (link) =>
-        validNodeIds.has(typeof link.source === 'object' ? link.source.id : link.source) &&
-        validNodeIds.has(typeof link.target === 'object' ? link.target.id : link.target)
-    );
+    const validLinks = graphData.links.filter((link) => {
+      const edgeTypeMatch = activeEdgeTypes[link.type] !== false;
+      const sId = typeof link.source === 'object' ? link.source.id : link.source;
+      const tId = typeof link.target === 'object' ? link.target.id : link.target;
+      return edgeTypeMatch && validNodeIds.has(sId) && validNodeIds.has(tId);
+    });
 
     return { nodes: validNodes, links: validLinks };
-  }, [graphData, activeGroups, searchQuery]);
+  }, [graphData, activeGroups, activeEdgeTypes, searchQuery]);
+
+  // Direct 1-hop neighbor node set for Focus Isolation
+  const activeFocusNeighborSet = useMemo(() => {
+    const focusNode = hoverNode || selectedNode;
+    if (!focusNode || !isolateFocus) return null;
+    const neighborSet = new Set([focusNode.id]);
+    filteredData.links.forEach((l) => {
+      const sId = typeof l.source === 'object' ? l.source.id : l.source;
+      const tId = typeof l.target === 'object' ? l.target.id : l.target;
+      if (sId === focusNode.id) neighborSet.add(tId);
+      if (tId === focusNode.id) neighborSet.add(sId);
+    });
+    return neighborSet;
+  }, [hoverNode, selectedNode, isolateFocus, filteredData.links]);
 
   const toggleGroup = (group) => {
     setActiveGroups((prev) => ({ ...prev, [group]: !prev[group] }));
+  };
+
+  const toggleEdgeType = (type) => {
+    setActiveEdgeTypes((prev) => ({ ...prev, [type]: !prev[type] }));
   };
 
   const handleNodeClick = (node) => {
@@ -274,7 +348,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
 
   // Quick Spacing Boosters
   const handleSpreadApart = () => {
-    setNodeRepulsion((prev) => Math.min(2200, prev + 250));
+    setNodeRepulsion((prev) => Math.min(2400, prev + 250));
     setLinkDistance((prev) => Math.min(320, prev + 35));
     setActivePreset('custom');
   };
@@ -288,28 +362,49 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const applyPreset = (presetName) => {
     setActivePreset(presetName);
     if (presetName === 'spacious') {
-      setNodeRepulsion(950);
-      setLinkDistance(150);
+      setNodeRepulsion(1000);
+      setLinkDistance(160);
       setCenterGravity(0.04);
+      setLinkCurvature(0.15);
     } else if (presetName === 'expansive') {
-      setNodeRepulsion(1600);
-      setLinkDistance(230);
+      setNodeRepulsion(1700);
+      setLinkDistance(240);
       setCenterGravity(0.02);
+      setLinkCurvature(0.2);
     } else if (presetName === 'balanced') {
-      setNodeRepulsion(550);
-      setLinkDistance(100);
+      setNodeRepulsion(600);
+      setLinkDistance(110);
       setCenterGravity(0.08);
+      setLinkCurvature(0.1);
     } else if (presetName === 'clustered') {
-      setNodeRepulsion(300);
-      setLinkDistance(65);
+      setNodeRepulsion(350);
+      setLinkDistance(70);
       setCenterGravity(0.18);
+      setLinkCurvature(0.05);
     }
   };
 
-  const handleCopyText = (text) => {
-    navigator.clipboard.writeText(text);
-    setCopiedAttribute(true);
-    setTimeout(() => setCopiedAttribute(false), 2000);
+  // Export Graph Canvas to PNG
+  const handleExportPNG = () => {
+    if (containerRef.current) {
+      const canvas = containerRef.current.querySelector('canvas');
+      if (canvas) {
+        const imageURI = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `careeros-knowledge-graph-${selectedCandidate}-${Date.now()}.png`;
+        link.href = imageURI;
+        link.click();
+      }
+    }
+  };
+
+  // Export Graph Data to JSON
+  const handleExportJSON = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(filteredData, null, 2));
+    const link = document.createElement('a');
+    link.download = `careeros-knowledge-graph-${selectedCandidate}.json`;
+    link.href = dataStr;
+    link.click();
   };
 
   const handleCopyExcerpt = (text) => {
@@ -350,7 +445,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
             <Users className="w-4 h-4 text-indigo-400" />
-            <span>Candidate View:</span>
+            <span>Candidate Perspective:</span>
           </div>
           <div className="relative min-w-[260px]">
             <select
@@ -378,6 +473,11 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             <User className="w-3.5 h-3.5 text-indigo-400" />
             <span className="text-slate-400 font-medium">Candidates:</span>
             <span className="font-bold text-slate-200">{graphMetrics.total_candidates || 3}</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-950/60 border border-slate-800 rounded-lg text-xs">
+            <LinkIcon className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-slate-400 font-medium">Active Links:</span>
+            <span className="font-bold text-cyan-300">{filteredData.links.length}</span>
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-950/60 border border-slate-800 rounded-lg text-xs">
             <Code className="w-3.5 h-3.5 text-emerald-400" />
@@ -441,7 +541,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             })}
           </div>
 
-          {/* Graph Action Buttons & Distance Quick Bar */}
+          {/* Graph Action Buttons & Quick Controls */}
           <div className="pointer-events-auto flex items-center gap-1 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg">
             
             {/* Quick Distance Spread / Tighten */}
@@ -462,12 +562,25 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               <span className="hidden sm:inline">Tighten</span>
             </button>
 
+            {/* Isolate Focus Subgraph Toggle */}
+            <button
+              onClick={() => setIsolateFocus(!isolateFocus)}
+              title={isolateFocus ? 'Focus Mode Active (Dims unselected)' : 'Enable Focus Neighborhood Mode'}
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                isolateFocus
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/50'
+                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
+              }`}
+            >
+              <Focus className="w-3.5 h-3.5" />
+            </button>
+
             <div className="w-[1px] h-4 bg-slate-700 mx-1" />
 
-            {/* Open Physics & Graph Control Drawer */}
+            {/* Open Full Studio Control Drawer */}
             <button
               onClick={() => setShowControlsDrawer(!showControlsDrawer)}
-              title="Physics & Graph Spacing Settings"
+              title="Graph Physics, Connections & Display Suite"
               className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
                 showControlsDrawer
                   ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30'
@@ -475,12 +588,12 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               }`}
             >
               <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Physics Controls</span>
+              <span>Studio Controls</span>
             </button>
 
             <div className="w-[1px] h-4 bg-slate-700 mx-1" />
 
-            {/* Standard Zoom & Refresh */}
+            {/* Standard Zoom, Export & Refresh */}
             <button
               onClick={handleZoomIn}
               title="Zoom In"
@@ -503,6 +616,13 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               <Maximize2 className="w-4 h-4" />
             </button>
             <button
+              onClick={handleExportPNG}
+              title="Export Graph Canvas as PNG Image"
+              className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => loadGraph(selectedCandidate)}
               title="Reload Graph RAG"
               className="p-1.5 text-slate-400 hover:text-indigo-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
@@ -512,13 +632,13 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
           </div>
         </div>
 
-        {/* ── Floating Physics & Distance Controls Drawer ─────────────────── */}
+        {/* ── Comprehensive Floating Studio Controls Drawer ───────────────── */}
         {showControlsDrawer && (
-          <div className="absolute top-20 right-4 z-30 w-84 sm:w-96 bg-slate-900/95 backdrop-blur-xl border border-indigo-500/40 rounded-2xl p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="absolute top-20 right-4 z-30 w-96 max-h-[560px] overflow-y-auto bg-slate-900/95 backdrop-blur-2xl border border-indigo-500/40 rounded-2xl p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-4 duration-200">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
-                <h3 className="text-sm font-bold text-white">Graph Spacing & Physics Engine</h3>
+                <h3 className="text-sm font-bold text-white">Knowledge Graph Studio Suite</h3>
               </div>
               <button
                 onClick={() => setShowControlsDrawer(false)}
@@ -528,128 +648,296 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               </button>
             </div>
 
-            {/* Quick Layout Presets */}
-            <div>
-              <label className="text-xs font-semibold text-slate-400 block mb-2">Spacing Presets</label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: 'spacious', name: '🌌 Spacious (Clean)', desc: 'Optimal breathing room' },
-                  { id: 'expansive', name: '🌐 Ultra-Wide Map', desc: 'Maximum node distance' },
-                  { id: 'balanced', name: '🎯 Balanced Layout', desc: 'Standard force balance' },
-                  { id: 'clustered', name: '🧩 Tight Clustered', desc: 'Compact grouping' }
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => applyPreset(p.id)}
-                    className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
-                      activePreset === p.id
-                        ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold'
-                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
-                    }`}
-                  >
-                    <div className="text-xs">{p.name}</div>
-                    <div className="text-[10px] opacity-70 mt-0.5">{p.desc}</div>
-                  </button>
-                ))}
-              </div>
+            {/* Controls Tabs */}
+            <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              {[
+                { id: 'physics', label: '⚡ Physics & Dist' },
+                { id: 'connections', label: '🔗 Edge Types' },
+                { id: 'display', label: '🎨 Styling & Export' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTabControls(t.id)}
+                  className={`py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTabControls === t.id
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
 
-            {/* Fine-Tuning Sliders */}
-            <div className="space-y-3.5 pt-2 border-t border-slate-800">
-              {/* Node Repulsion (Charge) */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-semibold text-slate-300">Node Repulsion (Charge Distance)</span>
-                  <span className="font-mono text-cyan-400 font-bold">{nodeRepulsion}</span>
+            {/* ── TAB 1: Physics & Distance ───────────────────────────────── */}
+            {activeTabControls === 'physics' && (
+              <div className="space-y-4">
+                {/* Spacing Presets */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 block mb-2">Spacing Presets</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'spacious', name: '🌌 Spacious (Clean)', desc: 'Optimal breathing room' },
+                      { id: 'expansive', name: '🌐 Ultra-Wide Map', desc: 'Maximum node distance' },
+                      { id: 'balanced', name: '🎯 Balanced Layout', desc: 'Standard force equilibrium' },
+                      { id: 'clustered', name: '🧩 Tight Clustered', desc: 'Compact semantic groups' }
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => applyPreset(p.id)}
+                        className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                          activePreset === p.id
+                            ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
+                        }`}
+                      >
+                        <div className="text-xs">{p.name}</div>
+                        <div className="text-[10px] opacity-70 mt-0.5">{p.desc}</div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min="200"
-                  max="2400"
-                  step="50"
-                  value={nodeRepulsion}
-                  onChange={(e) => {
-                    setNodeRepulsion(Number(e.target.value));
-                    setActivePreset('custom');
-                  }}
-                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                />
-                <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
-                  <span>Tight (200)</span>
-                  <span>Spacious (850)</span>
-                  <span>Expansive (2400)</span>
+
+                {/* Fine-Tuning Sliders */}
+                <div className="space-y-3.5 pt-2 border-t border-slate-800">
+                  {/* Node Repulsion (Charge) */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-semibold text-slate-300">Node Repulsion (Charge Distance)</span>
+                      <span className="font-mono text-cyan-400 font-bold">{nodeRepulsion}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="200"
+                      max="2400"
+                      step="50"
+                      value={nodeRepulsion}
+                      onChange={(e) => {
+                        setNodeRepulsion(Number(e.target.value));
+                        setActivePreset('custom');
+                      }}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                      <span>Tight (200)</span>
+                      <span>Spacious (900)</span>
+                      <span>Expansive (2400)</span>
+                    </div>
+                  </div>
+
+                  {/* Link Spring Distance */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-semibold text-slate-300">Link Spring Length</span>
+                      <span className="font-mono text-indigo-400 font-bold">{linkDistance}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="40"
+                      max="350"
+                      step="10"
+                      value={linkDistance}
+                      onChange={(e) => {
+                        setLinkDistance(Number(e.target.value));
+                        setActivePreset('custom');
+                      }}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                  </div>
+
+                  {/* Center Gravity */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-semibold text-slate-300">Center Gravity (Centering Pull)</span>
+                      <span className="font-mono text-purple-400 font-bold">{centerGravity.toFixed(3)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.005"
+                      max="0.30"
+                      step="0.005"
+                      value={centerGravity}
+                      onChange={(e) => {
+                        setCenterGravity(Number(e.target.value));
+                        setActivePreset('custom');
+                      }}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                    />
+                  </div>
                 </div>
               </div>
+            )}
 
-              {/* Link Spring Distance */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-semibold text-slate-300">Link Spring Length</span>
-                  <span className="font-mono text-indigo-400 font-bold">{linkDistance}px</span>
+            {/* ── TAB 2: Connections & Edge Types ─────────────────────────── */}
+            {activeTabControls === 'connections' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-400">Connection Types ({Object.keys(EDGE_TYPES).length})</label>
+                  <button
+                    onClick={() => {
+                      const allTrue = Object.values(activeEdgeTypes).every(Boolean);
+                      const updated = {};
+                      Object.keys(EDGE_TYPES).forEach((k) => (updated[k] = !allTrue));
+                      setActiveEdgeTypes(updated);
+                    }}
+                    className="text-[11px] text-indigo-400 hover:underline cursor-pointer"
+                  >
+                    Toggle All
+                  </button>
                 </div>
-                <input
-                  type="range"
-                  min="40"
-                  max="350"
-                  step="10"
-                  value={linkDistance}
-                  onChange={(e) => {
-                    setLinkDistance(Number(e.target.value));
-                    setActivePreset('custom');
-                  }}
-                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                />
-                <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
-                  <span>Short (40px)</span>
-                  <span>Optimal (140px)</span>
-                  <span>Long (350px)</span>
-                </div>
-              </div>
 
-              {/* Center Gravity */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-semibold text-slate-300">Center Pull Gravity</span>
-                  <span className="font-mono text-purple-400 font-bold">{centerGravity.toFixed(3)}</span>
+                {/* Edge Type Toggle Badges */}
+                <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                  {Object.entries(EDGE_TYPES).map(([typeKey, info]) => {
+                    const isActive = activeEdgeTypes[typeKey];
+                    return (
+                      <button
+                        key={typeKey}
+                        onClick={() => toggleEdgeType(typeKey)}
+                        className={`w-full flex items-center justify-between p-2 rounded-xl border text-left transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-slate-950/80 border-slate-700 text-slate-200 shadow-sm'
+                            : 'bg-slate-950/30 border-slate-800/40 text-slate-500 opacity-60'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: info.color }} />
+                          <div>
+                            <div className="text-xs font-semibold">{info.label}</div>
+                            <div className="text-[10px] text-slate-500">{typeKey}</div>
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                          isActive ? 'bg-indigo-500/20 text-indigo-300' : 'bg-slate-800 text-slate-500'
+                        }`}>
+                          {isActive ? 'Active' : 'Hidden'}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <input
-                  type="range"
-                  min="0.005"
-                  max="0.30"
-                  step="0.005"
-                  value={centerGravity}
-                  onChange={(e) => {
-                    setCenterGravity(Number(e.target.value));
-                    setActivePreset('custom');
-                  }}
-                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                />
-              </div>
 
-              {/* Label Visibility Mode */}
-              <div>
-                <label className="text-xs font-semibold text-slate-300 block mb-1.5">Node Label Rendering</label>
-                <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                  {[
-                    { id: 'smart', label: 'Smart (Auto)' },
-                    { id: 'always', label: 'Always All' },
-                    { id: 'key_only', label: 'Key Nodes' }
-                  ].map((mode) => (
+                {/* Edge Geometry & Labels */}
+                <div className="pt-3 border-t border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-300">Show Relationship Text On Links</span>
                     <button
-                      key={mode.id}
-                      onClick={() => setLabelMode(mode.id)}
-                      className={`py-1 text-[11px] rounded-lg font-semibold transition-all cursor-pointer ${
-                        labelMode === mode.id
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'text-slate-400 hover:text-slate-200'
+                      onClick={() => setShowEdgeLabels(!showEdgeLabels)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                        showEdgeLabels ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-800 text-slate-400 border-slate-700'
                       }`}
                     >
-                      {mode.label}
+                      {showEdgeLabels ? 'ON' : 'OFF'}
                     </button>
-                  ))}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-semibold text-slate-300">Link Curvature</span>
+                      <span className="font-mono text-cyan-400">{linkCurvature.toFixed(2)}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.0"
+                      max="0.4"
+                      step="0.05"
+                      value={linkCurvature}
+                      onChange={(e) => setLinkCurvature(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* ── TAB 3: Styling & Export Suite ───────────────────────────── */}
+            {activeTabControls === 'display' && (
+              <div className="space-y-4">
+                {/* Node Sizing Strategy */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">Node Sizing Metric</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'degree', label: 'Hub Connectivity (Degree)' },
+                      { id: 'category', label: 'Entity Category Size' },
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        onClick={() => setNodeSizingMode(mode.id)}
+                        className={`p-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer text-left ${
+                          nodeSizingMode === mode.id
+                            ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold'
+                            : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800'
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Node Label Rendering Mode */}
+                <div>
+                  <label className="text-xs font-semibold text-slate-300 block mb-1.5">Label Visibility Mode</label>
+                  <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                    {[
+                      { id: 'smart', label: 'Smart (Auto)' },
+                      { id: 'always', label: 'Always All' },
+                      { id: 'key_only', label: 'Key Nodes' }
+                    ].map((mode) => (
+                      <button
+                        key={mode.id}
+                        onClick={() => setLabelMode(mode.id)}
+                        className={`py-1 text-[11px] rounded-lg font-semibold transition-all cursor-pointer ${
+                          labelMode === mode.id
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'text-slate-400 hover:text-slate-200'
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Particle Animation Controls */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200">Directional Flow Particles</div>
+                    <div className="text-[10px] text-slate-400">Animated pulses across connections</div>
+                  </div>
+                  <button
+                    onClick={() => setShowParticles(!showParticles)}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                      showParticles ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    {showParticles ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+
+                {/* Export Actions */}
+                <div className="pt-3 border-t border-slate-800 space-y-2">
+                  <label className="text-xs font-semibold text-slate-400 block">Export Graph</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={handleExportPNG}
+                      className="py-2 px-3 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Export PNG</span>
+                    </button>
+                    <button
+                      onClick={handleExportJSON}
+                      className="py-2 px-3 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Export JSON</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Actions footer */}
             <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
@@ -657,7 +945,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                 onClick={() => applyPreset('spacious')}
                 className="text-xs text-slate-400 hover:text-indigo-400 underline cursor-pointer"
               >
-                Reset to Defaults
+                Reset Defaults
               </button>
               <button
                 onClick={() => {
@@ -686,14 +974,52 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             graphData={filteredData}
             backgroundColor="#030712"
             nodeRelSize={6}
-            nodeVal={(node) => node.val || 6}
-            nodeLabel={(node) => `${node.label} (${node.group?.toUpperCase()})`}
-            linkColor={(link) => (link.type === 'TEAM_SYNERGY' ? '#818cf8' : link.type === 'USES_TECH' ? '#64748b' : '#334155')}
-            linkWidth={(link) => (link.type === 'TEAM_SYNERGY' ? 2.5 : 1.2)}
+            linkCurvature={linkCurvature}
+            nodeVal={(node) => {
+              if (nodeSizingMode === 'degree') {
+                return (node.degree || 2) * 2.5 + (node.group === 'user' ? 8 : 4);
+              }
+              return node.val || 6;
+            }}
+            nodeLabel={(node) => `${node.label} (${node.group?.toUpperCase()}) — ${node.degree || 1} connections`}
+            linkColor={(link) => {
+              const edgeInfo = EDGE_TYPES[link.type];
+              if (edgeInfo) return edgeInfo.color;
+              if (link.type === 'TEAM_SYNERGY') return '#c084fc';
+              return '#475569';
+            }}
+            linkWidth={(link) => {
+              const isHighPrio = link.type === 'TEAM_SYNERGY' || link.type === 'MATCHES_PROFILE';
+              return (isHighPrio ? 2.5 : 1.2) * linkWidthScale;
+            }}
             linkDirectionalParticles={showParticles ? (link) => (link.type === 'TEAM_SYNERGY' ? 4 : link.type === 'USES_TECH' ? 1 : 2) : 0}
             linkDirectionalParticleSpeed={particleSpeed}
-            linkDirectionalParticleWidth={(link) => (link.type === 'TEAM_SYNERGY' ? 3 : 2)}
-            linkDirectionalParticleColor={(link) => (link.type === 'TEAM_SYNERGY' ? '#c084fc' : '#818cf8')}
+            linkDirectionalParticleWidth={(link) => (link.type === 'TEAM_SYNERGY' ? 3.5 : 2.2)}
+            linkDirectionalParticleColor={(link) => {
+              const edgeInfo = EDGE_TYPES[link.type];
+              return edgeInfo ? edgeInfo.color : '#818cf8';
+            }}
+            linkCanvasObjectMode={showEdgeLabels ? () => 'after' : undefined}
+            linkCanvasObject={showEdgeLabels ? (link, ctx, globalScale) => {
+              if (globalScale < 0.8) return;
+              const start = link.source;
+              const end = link.target;
+              if (typeof start !== 'object' || typeof end !== 'object') return;
+              const textPos = {
+                x: start.x + (end.x - start.x) / 2,
+                y: start.y + (end.y - start.y) / 2
+              };
+              const label = link.label || link.type;
+              const fontSize = 8.5 / globalScale;
+              ctx.font = `${fontSize}px Inter, sans-serif`;
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+              const textWidth = ctx.measureText(label).width;
+              ctx.fillRect(textPos.x - textWidth / 2 - 2, textPos.y - fontSize / 2 - 1, textWidth + 4, fontSize + 2);
+              ctx.fillStyle = EDGE_TYPES[link.type]?.color || '#94a3b8';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(label, textPos.x, textPos.y);
+            } : undefined}
             onNodeClick={handleNodeClick}
             onNodeHover={(node) => setHoverNode(node || null)}
             cooldownTicks={140}
@@ -704,11 +1030,21 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               const isSharedSkill = node.is_shared;
               const isAchievement = node.group === 'achievement';
               
+              // Focus Isolation Dimming
+              const isDimmed = isolateFocus && activeFocusNeighborSet && !activeFocusNeighborSet.has(node.id);
+
               const nodeColor = isCandidate
                 ? CANDIDATE_COLORS[node.id] || '#6366f1'
                 : NODE_COLORS[node.group] || '#94a3b8';
 
-              const radius = isCandidate ? 12 : isSharedSkill || isAchievement ? 9 : (node.val || 6) * 1.1;
+              let radius;
+              if (nodeSizingMode === 'degree') {
+                radius = isCandidate ? 14 : Math.min(18, Math.max(5, (node.degree || 2) * 1.6));
+              } else {
+                radius = isCandidate ? 12 : isSharedSkill || isAchievement ? 9 : (node.val || 6) * 1.1;
+              }
+
+              ctx.globalAlpha = isDimmed ? 0.15 : 1.0;
 
               // Outer glowing aura
               if (isSelected || isHovered || isCandidate || isSharedSkill || isAchievement) {
@@ -737,11 +1073,13 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
 
               // Determine whether to draw label
               const shouldDrawLabel =
-                labelMode === 'always' ||
-                isSelected ||
-                isHovered ||
-                (labelMode === 'key_only' && (isCandidate || isSharedSkill || isAchievement)) ||
-                (labelMode === 'smart' && (globalScale > 0.75 || isCandidate || isSharedSkill || isAchievement));
+                !isDimmed && (
+                  labelMode === 'always' ||
+                  isSelected ||
+                  isHovered ||
+                  (labelMode === 'key_only' && (isCandidate || isSharedSkill || isAchievement)) ||
+                  (labelMode === 'smart' && (globalScale > 0.75 || isCandidate || isSharedSkill || isAchievement))
+                );
 
               if (shouldDrawLabel) {
                 const label = node.label || node.id;
@@ -763,6 +1101,8 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                 ctx.fillStyle = isCandidate ? '#ffffff' : isSharedSkill ? '#6ee7b7' : isAchievement ? '#fde68a' : '#cbd5e1';
                 ctx.fillText(label, node.x, node.y + radius + 3);
               }
+
+              ctx.globalAlpha = 1.0;
             }}
           />
         </div>
@@ -810,6 +1150,9 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                         Candidate Entity
                       </span>
                     )}
+                    <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono">
+                      {selectedNode.degree || 1} Connections
+                    </span>
                   </div>
                   <h2 className="text-xl font-extrabold text-white truncate">{selectedNode.label}</h2>
                   <p className="text-xs text-slate-400 mt-0.5">
