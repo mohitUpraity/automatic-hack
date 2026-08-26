@@ -42,7 +42,7 @@ from my_agent.armoriq_wrapper import ArmorIQClient, ArmorIQScopeViolationError
 from my_agent.tools.docling_tools import convert_document
 from my_agent.tools.embedding_tools import embed_chunks
 from my_agent.tools.db_tools import store_document, store_embeddings, get_supabase, store_to_db, read_from_db, delete_from_db
-from my_agent.tools.knowledge_tools import search_knowledge_base, get_rag_context
+from my_agent.tools.knowledge_tools import search_knowledge_base, get_rag_context, seed_candidate_knowledge_bases
 from my_agent.tools.tailor_tools import tailor_resume_for_opportunity, generate_tailored_pdf, _build_native_pdf_binary
 from my_agent.tools.llm_tools import call_groq_llm
 from my_agent.tools.search_tools import search_web
@@ -58,6 +58,12 @@ from my_agent.mcp_servers.mcp_ranker_server import rank_and_store_opportunities
 from my_agent.mcp_servers.mcp_docproc_server import process_and_embed_document
 from my_agent.mcp_servers.mcp_knowledge_server import build_knowledge_base
 from my_agent.mcp_servers.mcp_tailor_server import tailor_resume
+
+# Ensure knowledge base vector embeddings are initialized
+try:
+    seed_candidate_knowledge_bases()
+except Exception as _e:
+    pass
 
 app = FastAPI(title="CareerOS v3 API Server", version="3.0")
 
