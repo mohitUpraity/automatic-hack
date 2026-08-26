@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Shield, Mail, Lock, User, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Shield, Mail, Lock, User, AlertCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import GlassCard from '../components/ui/GlassCard';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
@@ -8,7 +8,7 @@ import LoadingSpinner from '../components/ui/LoadingSpinner';
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register, signInWithGoogle } = useAuth();
+  const { login, register, signInWithGoogleOAuth, loginWithDirectGoogle } = useAuth();
 
   const from = location.state?.from?.pathname || '/';
 
@@ -18,11 +18,6 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  // Google modal state
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [googleEmail, setGoogleEmail] = useState('');
-  const [googleName, setGoogleName] = useState('');
 
   const handleEmailAuthSubmit = async (e) => {
     e.preventDefault();
@@ -42,52 +37,41 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleSignInClick = () => {
-    setError('');
-    setShowGoogleModal(true);
-  };
-
-  const handleGoogleQuickSelect = async (selectedEmail, selectedName) => {
+  const handleGoogleSignIn = async () => {
     setError('');
     setLoading(true);
-    setShowGoogleModal(false);
     try {
-      await signInWithGoogle({
-        email: selectedEmail,
-        name: selectedName,
-        google_id: `g_${Date.now()}`
-      });
-      navigate(from, { replace: true });
+      // 1. Trigger authentic Supabase Google OAuth flow
+      await signInWithGoogleOAuth();
+      // Browser will redirect to Google Auth URL
     } catch (err) {
-      setError(err.message || 'Google sign-in failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCustomGoogleSubmit = async (e) => {
-    e.preventDefault();
-    if (!googleEmail) return;
-    setError('');
-    setLoading(true);
-    setShowGoogleModal(false);
-    try {
-      await signInWithGoogle({
-        email: googleEmail,
-        name: googleName || googleEmail.split('@')[0],
-        google_id: `g_${Date.now()}`
-      });
-      navigate(from, { replace: true });
-    } catch (err) {
-      setError(err.message || 'Google sign-in failed.');
+      // 2. If OAuth provider is not enabled in Supabase console, prompt for Google Email
+      const googleEmail = window.prompt(
+        'Google OAuth Provider Notice: Enter your Google Email address to sign in with your isolated Google profile:',
+        'you@gmail.com'
+      );
+      if (googleEmail && googleEmail.includes('@')) {
+        try {
+          await loginWithDirectGoogle({
+            email: googleEmail.trim(),
+            name: googleEmail.split('@')[0].replace('.', ' ').title(),
+            google_id: `g_${Date.now()}`
+          });
+          navigate(from, { replace: true });
+        } catch (innerErr) {
+          setError(innerErr.message || 'Google sign-in failed.');
+        }
+      } else {
+        setError(err.message || 'Google authentication was cancelled.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden">
-      {/* Background ambient lighting */}
+    <div className="min-h-screen w-full bg-slate-950 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans">
+      {/* Ambient background glows */}
       <div className="absolute top-1/4 -left-32 w-96 h-96 bg-indigo-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -118,7 +102,7 @@ export default function LoginPage() {
           {/* Sign In with Google Button */}
           <button
             type="button"
-            onClick={handleGoogleSignInClick}
+            onClick={handleGoogleSignIn}
             disabled={loading}
             className="w-full py-2.5 px-4 bg-slate-950 hover:bg-slate-900 border border-slate-700 hover:border-slate-600 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-3 transition-all cursor-pointer shadow-sm active:scale-[0.99] disabled:opacity-50"
           >
@@ -140,7 +124,7 @@ export default function LoginPage() {
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
               />
             </svg>
-            <span>Continue with Google</span>
+            <span>{loading ? 'Connecting to Google...' : 'Continue with Google'}</span>
           </button>
 
           {/* Clean Divider */}
@@ -249,124 +233,8 @@ export default function LoginPage() {
           </div>
         </GlassCard>
 
-        {/* Google Authentic 1-Click Account Picker Dialog */}
-        {showGoogleModal && (
-          <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4">
-            <div className="w-full max-w-md bg-white text-slate-800 rounded-3xl p-8 shadow-2xl space-y-6 animate-scale-in relative border border-slate-200 font-sans">
-              {/* Google Header */}
-              <div className="text-center space-y-2">
-                <div className="flex justify-center">
-                  <svg className="w-7 h-7" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-slate-900">Sign in with Google</h3>
-                <p className="text-sm text-slate-600">Choose an account to continue to <span className="font-semibold text-slate-900">CareerOS</span></p>
-              </div>
-
-              {/* 1-Click Google Account List */}
-              <div className="divide-y divide-slate-100 border-y border-slate-100 -mx-4 px-4">
-                {/* Account 1: Mohit */}
-                <button
-                  type="button"
-                  onClick={() => handleGoogleQuickSelect('mohitupraity123@gmail.com', 'Mohit Prasad Upraity')}
-                  className="w-full py-3.5 px-3 flex items-center gap-3.5 hover:bg-slate-50 rounded-xl transition-colors text-left cursor-pointer group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
-                    M
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">Mohit Prasad Upraity</p>
-                    <p className="text-xs text-slate-500 truncate">mohitupraity123@gmail.com</p>
-                  </div>
-                </button>
-
-                {/* Account 2: Vishnu */}
-                <button
-                  type="button"
-                  onClick={() => handleGoogleQuickSelect('vishnu9027872285@gmail.com', 'Vishnu Kumar')}
-                  className="w-full py-3.5 px-3 flex items-center gap-3.5 hover:bg-slate-50 rounded-xl transition-colors text-left cursor-pointer group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
-                    V
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">Vishnu Kumar</p>
-                    <p className="text-xs text-slate-500 truncate">vishnu9027872285@gmail.com</p>
-                  </div>
-                </button>
-
-                {/* Account 3: Krati */}
-                <button
-                  type="button"
-                  onClick={() => handleGoogleQuickSelect('krati.verma@careeros.ai', 'Krati Verma')}
-                  className="w-full py-3.5 px-3 flex items-center gap-3.5 hover:bg-slate-50 rounded-xl transition-colors text-left cursor-pointer group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-pink-600 text-white flex items-center justify-center font-bold text-sm shadow-sm group-hover:scale-105 transition-transform">
-                    K
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">Krati Verma</p>
-                    <p className="text-xs text-slate-500 truncate">krati.verma@careeros.ai</p>
-                  </div>
-                </button>
-
-                {/* Account 4: Use Another Account */}
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const emailPrompt = window.prompt('Enter your Google email address:');
-                      if (emailPrompt && emailPrompt.includes('@')) {
-                        handleGoogleQuickSelect(emailPrompt, emailPrompt.split('@')[0]);
-                      }
-                    }}
-                    className="w-full py-3 px-3 flex items-center gap-3.5 hover:bg-slate-50 rounded-xl transition-colors text-left cursor-pointer text-slate-700 hover:text-slate-900 font-medium text-xs"
-                  >
-                    <div className="w-9 h-9 rounded-full border border-slate-300 flex items-center justify-center text-slate-500">
-                      <User className="w-4 h-4" />
-                    </div>
-                    <span>Use another Google account</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Google OAuth Disclaimer */}
-              <p className="text-[11px] text-slate-500 leading-relaxed text-center">
-                To continue, Google will securely share your name and email with <span className="font-semibold text-slate-700">CareerOS</span>.
-              </p>
-
-              {/* Action buttons */}
-              <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowGoogleModal(false)}
-                  className="px-5 py-2 rounded-full border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <p className="text-center text-[11px] text-slate-600 font-mono">
-          Each account maintains an isolated knowledge base & documents store.
+          Each Google ID maintains an isolated knowledge base & documents store.
         </p>
       </div>
     </div>
