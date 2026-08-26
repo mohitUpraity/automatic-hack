@@ -151,26 +151,25 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
         if (targetNode) {
           setSelectedNode(targetNode);
           setTimeout(() => {
-            if (fgRef.current && targetNode.x !== undefined) {
+            if (fgRef.current && targetNode.x !== undefined && targetNode.y !== undefined) {
               fgRef.current.centerAt(targetNode.x, targetNode.y, 800);
               fgRef.current.zoom(2.0, 800);
             }
           }, 300);
         }
-      } else if (!selectedNode && rawNodes.length > 0) {
-        const userNode = rawNodes.find((n) => n.id === 'candidate_mohit') || rawNodes[0];
-        setSelectedNode(userNode);
+      } else {
+        setSelectedNode((prev) => prev || (rawNodes.find((n) => n.id === 'candidate_mohit') || rawNodes[0]));
       }
     } catch (err) {
       console.error('Failed to load knowledge graph:', err);
     } finally {
       setLoading(false);
     }
-  }, [userId, selectedCandidate, selectedNode]);
+  }, [userId]);
 
   useEffect(() => {
     loadGraph(selectedCandidate);
-  }, [selectedCandidate, loadGraph]);
+  }, [selectedCandidate, userId, loadGraph]);
 
   // Dynamic window resizing
   useEffect(() => {
@@ -409,7 +408,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
 
         {/* Force Graph Container */}
         <div ref={containerRef} className="w-full h-[640px] relative">
-          {loading && (
+          {loading && graphData.nodes.length === 0 && (
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 flex items-center justify-center">
               <LoadingSpinner size="lg" text="Synthesizing multi-candidate Graph RAG embeddings & entities..." />
             </div>
