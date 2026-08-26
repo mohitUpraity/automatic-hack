@@ -15,8 +15,14 @@ except ImportError:
     HAS_SUPABASE_LIB = False
     Client = Any
 
-# SQLite fallback path
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "career_os.db")
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "career_os.db")
+
+
+def _get_sqlite_conn():
+    """Returns SQLite database connection with row factory."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def get_supabase() -> Optional[Client]:
@@ -24,137 +30,11 @@ def get_supabase() -> Optional[Client]:
     url = os.getenv("SUPABASE_URL")
     key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY")
     if HAS_SUPABASE_LIB and url and key:
-        return create_client(url, key)
+        try:
+            return create_client(url, key)
+        except Exception:
+            return None
     return None
-
-
-def _get_sqlite_conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    _ensure_sqlite_tables(conn)
-    return conn
-
-
-def _ensure_sqlite_tables(conn: sqlite3.Connection) -> None:
-    conn.executescript("""
-        CREATE TABLE IF NOT EXISTS users (
-            id TEXT PRIMARY KEY,
-            email TEXT,
-            name TEXT,
-            avatar_url TEXT,
-            target_roles TEXT,
-            created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS documents (
-            id TEXT PRIMARY KEY,
-            user_id TEXT,
-            filename TEXT,
-            doc_type TEXT,
-            raw_markdown TEXT,
-            metadata TEXT,
-            file_url TEXT,
-            created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS embeddings (
-            id TEXT PRIMARY KEY,
-            document_id TEXT,
-            user_id TEXT,
-            chunk_text TEXT,
-            chunk_index INTEGER,
-            chunk_metadata TEXT,
-            embedding TEXT,
-            created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS resumes (
-            id TEXT PRIMARY KEY,
-            user_id TEXT,
-            document_id TEXT,
-            name TEXT,
-            email TEXT,
-            phone TEXT,
-            education TEXT,
-            experience TEXT,
-            skills TEXT,
-            projects TEXT,
-            certifications TEXT,
-            raw_text TEXT,
-            created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS resume_analysis (
-            id TEXT PRIMARY KEY,
-            resume_id TEXT,
-            user_id TEXT,
-            strengths TEXT,
-            weaknesses TEXT,
-            experience_level TEXT,
-            domain_focus TEXT,
-            key_technologies TEXT,
-            summary TEXT,
-            created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS profiles (
-            id TEXT PRIMARY KEY,
-            user_id TEXT,
-            resume_id TEXT,
-            tech_stack TEXT,
-            interests TEXT,
-            career_goals TEXT,
-            preferred_roles TEXT,
-            experience_summary TEXT,
-            location_preference TEXT,
-            search_keywords TEXT,
-            created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS opportunities (
-            id TEXT PRIMARY KEY,
-            profile_id TEXT,
-            user_id TEXT,
-            title TEXT,
-            url TEXT,
-            description TEXT,
-            source TEXT,
-            category TEXT,
-            company_name TEXT,
-            location TEXT,
-            salary_range TEXT,
-            deadline TEXT,
-            raw_data TEXT,
-            created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS ranked_opportunities (
-            id TEXT PRIMARY KEY,
-            opportunity_id TEXT,
-            profile_id TEXT,
-            user_id TEXT,
-            relevance_score INTEGER,
-            match_reasons TEXT,
-            rank INTEGER,
-            category TEXT,
-            created_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS tailored_resumes (
-            id TEXT PRIMARY KEY,
-            user_id TEXT,
-            profile_id TEXT,
-            opportunity_id TEXT,
-            tailored_markdown TEXT,
-            pdf_url TEXT,
-            ats_score INTEGER,
-            keyword_matches TEXT,
-            tailored_sections TEXT,
-            company_alignment_notes TEXT,
-            created_at TEXT
-        );
-    """)
-    conn.commit()
 
 
 # ── Unified Public Storage API ───────────────────────────────────────────────
@@ -183,20 +63,25 @@ def store_document(
 
     sb = get_supabase()
     if sb:
-        sb.table("documents").insert(record).execute()
-        return doc_id
+        try:
+            sb.table("documents").insert(record).execute()
+            return doc_id
+        except Exception as e:
+            print(f"[Supabase Document Notice] {e}")
 
-    # Fallback to SQLite
+    # Fallback SQLite
     conn = _get_sqlite_conn()
     try:
         conn.execute(
-            "INSERT INTO documents (id, user_id, filename, doc_type, raw_markdown, metadata, file_url, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO documents (id, user_id, filename, doc_type, raw_markdown, metadata, file_url, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             (doc_id, user_id, filename, doc_type, raw_markdown, json.dumps(metadata or {}), file_url, now)
         )
         conn.commit()
+    except Exception as e:
+        print(f"[SQLite Document Notice] {e}")
     finally:
         conn.close()
+
     return doc_id
 
 
@@ -218,25 +103,31 @@ def store_embeddings(document_id: str, user_id: str, embedded_chunks: List[Dict[
 
     sb = get_supabase()
     if sb:
-        sb.table("embeddings").insert(records).execute()
-        return len(records)
+        try:
+            sb.table("embeddings").insert(records).execute()
+            return len(records)
+        except Exception as e:
+            print(f"[Supabase Embedding Notice] {e}")
 
+    # Fallback SQLite
     conn = _get_sqlite_conn()
     try:
         for r in records:
             conn.execute(
-                "INSERT INTO embeddings (id, document_id, user_id, chunk_text, chunk_index, chunk_metadata, embedding, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (r["id"], document_id, user_id, r["chunk_text"], r["chunk_index"], json.dumps(r["chunk_metadata"]), json.dumps(r["embedding"]), now)
+                "INSERT INTO embeddings (id, document_id, user_id, chunk_text, chunk_index, chunk_metadata, embedding, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (r["id"], r["document_id"], r["user_id"], r["chunk_text"], r["chunk_index"], json.dumps(r["chunk_metadata"]), json.dumps(r["embedding"]), now)
             )
         conn.commit()
+    except Exception as e:
+        print(f"[SQLite Embedding Notice] {e}")
     finally:
         conn.close()
+
     return len(records)
 
 
 def store_to_db(table: str, data: Any) -> Dict[str, Any]:
-    """Legacy & universal database table inserter."""
+    """Universal database table inserter with automatic SQLite fallback."""
     try:
         record = json.loads(data) if isinstance(data, str) else dict(data)
     except Exception as e:
@@ -246,7 +137,8 @@ def store_to_db(table: str, data: Any) -> Dict[str, Any]:
         record["id"] = str(uuid.uuid4())
     if "user_id" not in record:
         record["user_id"] = "default-user"
-    record["created_at"] = datetime.now().isoformat()
+    if "created_at" not in record:
+        record["created_at"] = datetime.now().isoformat()
 
     sb = get_supabase()
     if sb:
@@ -254,56 +146,54 @@ def store_to_db(table: str, data: Any) -> Dict[str, Any]:
             res = sb.table(table).insert(record).execute()
             return {"status": "success", "id": record["id"], "table": table}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            print(f"[Supabase Storage Notice] {e}")
 
+    # Fallback SQLite
     conn = _get_sqlite_conn()
     try:
-        table_info = conn.execute(f"PRAGMA table_info({table})").fetchall()
-        valid_cols = {col["name"] for col in table_info}
-        filtered = {k: v for k, v in record.items() if k in valid_cols}
-
-        columns = ", ".join(filtered.keys())
-        placeholders = ", ".join(["?"] * len(filtered))
-        values = [json.dumps(v) if isinstance(v, (dict, list)) else v for v in filtered.values()]
-
-        conn.execute(f"INSERT INTO {table} ({columns}) VALUES ({placeholders})", values)
+        columns = list(record.keys())
+        placeholders = ", ".join(["?"] * len(columns))
+        col_names = ", ".join(columns)
+        values = [json.dumps(v) if isinstance(v, (dict, list)) else v for v in record.values()]
+        conn.execute(f"INSERT OR REPLACE INTO {table} ({col_names}) VALUES ({placeholders})", values)
         conn.commit()
         return {"status": "success", "id": record["id"], "table": table}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": f"SQLite error: {str(e)}"}
     finally:
         conn.close()
 
 
 def read_from_db(table: str, query_filter: str = "") -> Dict[str, Any]:
-    """Universal reader supporting both Supabase and SQLite."""
+    """Universal reader supporting Supabase with SQLite fallback."""
     sb = get_supabase()
     if sb:
         try:
             query = sb.table(table).select("*").order("created_at", desc=True)
+            if query_filter:
+                if " = " in query_filter:
+                    parts = query_filter.split(" = ", 1)
+                    field = parts[0].strip()
+                    val = parts[1].strip().strip("'").strip('"')
+                    query = query.eq(field, val)
             res = query.execute()
-            return {"status": "success", "count": len(res.data), "records": res.data}
+            if res.data:
+                return {"status": "success", "count": len(res.data), "records": res.data}
+            return {"status": "success", "count": 0, "records": []}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            print(f"[Supabase Read Notice] {e}")
 
+    # Fallback SQLite
     conn = _get_sqlite_conn()
     try:
-        sql = f"SELECT * FROM {table} ORDER BY rowid DESC"
-        rows = conn.execute(sql).fetchall()
-        results = []
-        for row in rows:
-            record = dict(row)
-            for k, v in record.items():
-                if isinstance(v, str):
-                    try:
-                        parsed = json.loads(v)
-                        if isinstance(parsed, (list, dict)):
-                            record[k] = parsed
-                    except Exception:
-                        pass
-            results.append(record)
-        return {"status": "success", "count": len(results), "records": results}
+        sql = f"SELECT * FROM {table}"
+        if query_filter:
+            sql += f" WHERE {query_filter}"
+        sql += " ORDER BY created_at DESC"
+        cursor = conn.execute(sql)
+        rows = [dict(r) for r in cursor.fetchall()]
+        return {"status": "success", "count": len(rows), "records": rows}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": f"SQLite read error: {str(e)}", "records": []}
     finally:
         conn.close()

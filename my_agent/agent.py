@@ -1,3 +1,15 @@
+import os
+from dotenv import load_dotenv
+import litellm
+
+# Ensure .env is loaded
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+load_dotenv(env_path)
+load_dotenv()
+
+litellm.telemetry = False
+litellm.drop_params = True
+
 from google.adk.agents.llm_agent import Agent
 
 # ── Import tools ─────────────────────────────────────────────────────────────
@@ -12,7 +24,12 @@ from .tools.search_tools import search_web
 from .tools.ranking_tools import rank_results
 from .tools.tailor_tools import tailor_resume_for_opportunity
 
-MODEL = "gemini-3.1-flash-lite"
+raw_model = os.getenv("GROQ_MODEL", "groq/qwen/qwen3.8-27b").strip()
+if raw_model == "groq/qwen3.8-27b":
+    MODEL = "groq/qwen/qwen3.8-27b"
+else:
+    MODEL = raw_model
+
 
 # ── Sub-Agent 1: Document Processor ──────────────────────────────────────────
 document_processor = Agent(
@@ -98,19 +115,34 @@ resume_tailor = Agent(
 root_agent = Agent(
     model=MODEL,
     name="root_agent",
-    description="CareerOS v3 coordinator agent orchestrating 8 ArmorIQ-governed sub-agents.",
-    instruction="""You are the CareerOS v3 coordinator. Manage sequential pipeline execution across 8 sub-agents:
-1. document_processor
-2. resume_extractor
-3. resume_analyzer
-4. profile_maker
-5. opportunity_scout
-6. opportunity_ranker
-7. knowledge_builder
-8. resume_tailor
+    description="CareerOS v3 coordinator root agent. Central decision maker for all user requests.",
+    instruction="""You are the CareerOS v3 central root agent. 
+Any candidate request goes directly to you. Analyze the user's intent and dynamically decide what tools or sub-agents to use:
 
-Answer candidate queries directly using database reads when possible.""",
-    tools=[read_from_db, search_knowledge_base],
+1. For queries or questions: ALWAYS query the RAG Knowledge Base first using `search_knowledge_base` or `get_rag_context` to retrieve candidate context before answering.
+2. For resume extraction: Use `extract_resume` or `resume_extractor`.
+3. For resume analysis: Use `analyze_resume` or `resume_analyzer`.
+4. For candidate profiling: Use `make_profile` or `profile_maker`.
+5. For opportunity search: Use `search_web` or `opportunity_scout`.
+6. For opportunity ranking: Use `rank_results` or `opportunity_ranker`.
+7. For document processing: Use `convert_document` / `embed_chunks` or `document_processor`.
+8. For tailoring resumes: Use `tailor_resume_for_opportunity` or `resume_tailor`.
+
+Directly execute tools or delegate to sub-agents as needed to satisfy the request.""",
+    tools=[
+        read_from_db,
+        store_to_db,
+        search_knowledge_base,
+        get_rag_context,
+        convert_document,
+        embed_chunks,
+        extract_resume,
+        analyze_resume,
+        make_profile,
+        search_web,
+        rank_results,
+        tailor_resume_for_opportunity,
+    ],
     sub_agents=[
         document_processor,
         resume_extractor,

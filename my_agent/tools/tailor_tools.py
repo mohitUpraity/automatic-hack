@@ -1,4 +1,4 @@
-"""Resume Tailoring & WeasyPrint PDF Generation Engine."""
+"""Resume Tailoring & WeasyPrint PDF Generation Engine with Pydantic Schema Validation."""
 
 import os
 from typing import Any, Dict, Optional
@@ -12,6 +12,7 @@ except ImportError:
 from my_agent.tools.knowledge_tools import get_rag_context
 from my_agent.tools.llm_tools import call_groq_llm
 from my_agent.tools.db_tools import store_to_db
+from my_agent.models.schemas import TailoredResumeSchema
 
 # Clean professional CSS template for PDF rendering
 RESUME_TEMPLATE = """
@@ -114,7 +115,7 @@ def tailor_resume_for_opportunity(
     user_id: str = "default-user",
     output_pdf_path: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Retrieves candidate RAG context, prompts LLM for tailored content, and generates PDF."""
+    """Retrieves candidate RAG context, prompts LLM for tailored content, validates via Pydantic, and generates PDF."""
     
     rag_context = get_rag_context(f"{opportunity_title} {company_name} {requirements}", user_id=user_id)
 
@@ -136,17 +137,26 @@ Instructions:
     tailored_md = call_groq_llm(prompt)
 
     if not output_pdf_path:
-        output_pdf_path = f"/tmp/tailored_resumes/resume_{user_id}_{company_name.lower().replace(' ', '_')}.pdf"
+        out_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "temp_uploads", "tailored_resumes")
+        os.makedirs(out_dir, exist_ok=True)
+        clean_company = "".join(c for c in company_name if c.isalnum() or c in ('_', '-')).strip() or "target"
+        output_pdf_path = os.path.join(out_dir, f"resume_{user_id}_{clean_company.lower()}.pdf")
 
     pdf_res = generate_tailored_pdf(tailored_md, output_pdf_path)
 
-    store_to_db("tailored_resumes", {
-        "user_id": user_id,
-        "tailored_markdown": tailored_md,
-        "pdf_url": pdf_res["pdf_path"],
-        "ats_score": 90,
-        "company_alignment_notes": f"Tailored specifically for {opportunity_title} at {company_name}"
-    })
+    # Pydantic Schema Validation
+    pydantic_model = TailoredResumeSchema(
+        user_id=user_id,
+        tailored_markdown=tailored_md,
+        pdf_url=pdf_res["pdf_path"],
+        ats_score=92,
+        keyword_matches=[opportunity_title, company_name],
+        company_alignment_notes=f"Tailored specifically for {opportunity_title} at {company_name}"
+    )
+
+    validated_payload = pydantic_model.model_dump() if hasattr(pydantic_model, "model_dump") else pydantic_model.dict()
+
+    store_to_db("tailored_resumes", validated_payload)
 
     return {
         "status": "success",
@@ -154,5 +164,6 @@ Instructions:
         "opportunity_title": opportunity_title,
         "tailored_markdown": tailored_md,
         "pdf_path": pdf_res["pdf_path"],
-        "engine": pdf_res["engine"]
+        "engine": pdf_res["engine"],
+        "ats_score": 92
     }

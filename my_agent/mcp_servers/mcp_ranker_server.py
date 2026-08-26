@@ -9,12 +9,12 @@ def rank_and_store_opportunities(profile_id: int) -> dict:
 
     Authorized Scope: 'opportunities:read', 'ranked:write'
     """
-    profiles = read_from_db("profiles", f"id = {profile_id}")
+    profiles = read_from_db("profiles", f"id = '{profile_id}'")
     prof_records = profiles.get("records", [])
     if not prof_records:
         return {"status": "error", "message": f"Profile ID {profile_id} not found in DB"}
 
-    opps = read_from_db("opportunities", f"profile_id = {profile_id}")
+    opps = read_from_db("opportunities", f"profile_id = '{profile_id}'")
     opp_records = opps.get("records", [])
     if not opp_records:
         return {"status": "error", "message": f"No opportunities found for Profile ID {profile_id}"}

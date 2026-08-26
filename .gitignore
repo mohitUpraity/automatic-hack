@@ -8,8 +8,14 @@ __pycache__/
 # ADK & Temp storage
 .adk/
 temp_libs/
+temp_uploads/
+*.db
 pdf_text.txt
 extract_pdf.py
+
+# Frontend builds
+frontend/dist/
+frontend/node_modules/
 
 # OS metadata
 .DS_Store

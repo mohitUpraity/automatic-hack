@@ -14,7 +14,7 @@ def scout_and_store_opportunities(profile_id: int) -> dict:
 
     Authorized Scope: 'profiles:read', 'opportunities:write', 'web:search'
     """
-    profiles = read_from_db("profiles", f"id = {profile_id}")
+    profiles = read_from_db("profiles", f"id = '{profile_id}'")
     records = profiles.get("records", [])
     if not records:
         return {"status": "error", "message": f"Profile ID {profile_id} not found in DB"}

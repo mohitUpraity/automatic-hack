@@ -6,8 +6,19 @@
 -- 1. Enable pgvector
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- Drop legacy/conflicting tables if present to ensure clean UUID type mapping
+DROP TABLE IF EXISTS public.tailored_resumes CASCADE;
+DROP TABLE IF EXISTS public.ranked_opportunities CASCADE;
+DROP TABLE IF EXISTS public.opportunities CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+DROP TABLE IF EXISTS public.resume_analysis CASCADE;
+DROP TABLE IF EXISTS public.resumes CASCADE;
+DROP TABLE IF EXISTS public.embeddings CASCADE;
+DROP TABLE IF EXISTS public.documents CASCADE;
+DROP TABLE IF EXISTS public.users CASCADE;
+
 -- 2. Users table (synced with Supabase Auth)
-CREATE TABLE IF NOT EXISTS public.users (
+CREATE TABLE public.users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT NOT NULL,
     name TEXT,
@@ -46,7 +57,7 @@ CREATE TRIGGER on_auth_user_created
     EXECUTE FUNCTION public.handle_new_user();
 
 -- 3. Documents table
-CREATE TABLE IF NOT EXISTS public.documents (
+CREATE TABLE public.documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     filename TEXT NOT NULL,
@@ -58,7 +69,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
 );
 
 -- 4. Embeddings table (vector store for RAG)
-CREATE TABLE IF NOT EXISTS public.embeddings (
+CREATE TABLE public.embeddings (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     document_id UUID REFERENCES public.documents(id) ON DELETE CASCADE NOT NULL,
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
@@ -106,7 +117,7 @@ END;
 $$;
 
 -- 6. Resumes table
-CREATE TABLE IF NOT EXISTS public.resumes (
+CREATE TABLE public.resumes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     document_id UUID REFERENCES public.documents(id) ON DELETE SET NULL,
@@ -123,7 +134,7 @@ CREATE TABLE IF NOT EXISTS public.resumes (
 );
 
 -- 7. Resume analysis table
-CREATE TABLE IF NOT EXISTS public.resume_analysis (
+CREATE TABLE public.resume_analysis (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     resume_id UUID REFERENCES public.resumes(id) ON DELETE CASCADE NOT NULL,
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
@@ -137,7 +148,7 @@ CREATE TABLE IF NOT EXISTS public.resume_analysis (
 );
 
 -- 8. Profiles table
-CREATE TABLE IF NOT EXISTS public.profiles (
+CREATE TABLE public.profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     resume_id UUID REFERENCES public.resumes(id) ON DELETE SET NULL,
@@ -152,7 +163,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 );
 
 -- 9. Opportunities table
-CREATE TABLE IF NOT EXISTS public.opportunities (
+CREATE TABLE public.opportunities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
@@ -170,7 +181,7 @@ CREATE TABLE IF NOT EXISTS public.opportunities (
 );
 
 -- 10. Ranked opportunities table
-CREATE TABLE IF NOT EXISTS public.ranked_opportunities (
+CREATE TABLE public.ranked_opportunities (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     opportunity_id UUID REFERENCES public.opportunities(id) ON DELETE CASCADE NOT NULL,
     profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
@@ -183,7 +194,7 @@ CREATE TABLE IF NOT EXISTS public.ranked_opportunities (
 );
 
 -- 11. Tailored resumes table
-CREATE TABLE IF NOT EXISTS public.tailored_resumes (
+CREATE TABLE public.tailored_resumes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
     profile_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,

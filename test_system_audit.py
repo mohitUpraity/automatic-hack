@@ -2,7 +2,7 @@ import urllib.request
 import urllib.parse
 import json
 
-BASE = "http://127.0.0.1:8000"
+BASE = "http://127.0.0.1:8001"
 
 def test_endpoint(name, url, method="GET", data=None):
     try:
