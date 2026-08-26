@@ -221,7 +221,7 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
               key={opp.id}
               opportunity={opp}
               onClick={handleSelect}
-              candidateId={selectedCandidate === 'candidate_all' ? (opp.matched_candidate_id || 'candidate_mohit') : selectedCandidate}
+              candidateId={user?.id || 'default-user'}
             />
           ))}
         </div>
@@ -231,7 +231,7 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
       <AutoPilotModal
         isOpen={isAutoPilotOpen}
         onClose={() => setIsAutoPilotOpen(false)}
-        candidateId={selectedCandidate}
+        candidateId={user?.id || 'default-user'}
       />
 
       {/* Opportunity Detail Modal with Firecrawl Deep Company Intelligence */}
@@ -239,7 +239,7 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         opportunity={selectedOppForDetail}
-        candidateId={selectedCandidate === 'candidate_all' ? (selectedOppForDetail?.matched_candidate_id || 'candidate_mohit') : selectedCandidate}
+        candidateId={user?.id || 'default-user'}
       />
     </div>
   );

@@ -47,20 +47,25 @@ const AGENT_STAGES = [
   { id: 7, name: 'Autonomous Resume Tailoring', agent: 'resume_tailor', desc: 'Generating tailored ATS resumes & PDFs' },
 ];
 
+import { useAuth } from '../../context/AuthContext';
+
 export default function AutoPilotModal({
   isOpen,
   onClose,
   onComplete,
-  candidateId = 'candidate_mohit',
+  candidateId = null,
   initialProfileId = null,
   initialResumeText = ''
 }) {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState('candidate'); // 'candidate', 'text', 'file', 'url'
   
+  const effectiveUserId = candidateId || user?.id || 'default-user';
+
   // Candidates State
   const [candidatesList, setCandidatesList] = useState([]);
-  const [selectedCandidateId, setSelectedCandidateId] = useState(candidateId || 'candidate_mohit');
+  const [selectedCandidateId, setSelectedCandidateId] = useState(effectiveUserId);
   const [selectedCandidateDetails, setSelectedCandidateDetails] = useState(null);
 
   // Other Input State
@@ -85,11 +90,11 @@ export default function AutoPilotModal({
 
     async function loadCandidates() {
       try {
-        const cRes = await fetchCandidates();
+        const cRes = await fetchCandidates(effectiveUserId);
         const validList = (cRes.candidates || []).filter((c) => c.id !== 'candidate_all');
         setCandidatesList(validList);
 
-        const initialTargetId = candidateId || (validList[0] ? validList[0].id : 'candidate_mohit');
+        const initialTargetId = effectiveUserId;
         setSelectedCandidateId(initialTargetId);
 
         const detailsRes = await fetchCandidateDetails(initialTargetId);
@@ -105,7 +110,7 @@ export default function AutoPilotModal({
     }
 
     loadCandidates();
-  }, [isOpen, candidateId, initialResumeText]);
+  }, [isOpen, effectiveUserId, initialResumeText]);
 
   // Handle Candidate Change in dropdown
   const handleCandidateSelect = async (cid) => {
