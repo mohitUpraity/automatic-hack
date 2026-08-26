@@ -364,22 +364,23 @@ def tailor_resume_for_opportunity(
     3. Grounded AI Tailoring -> Tailored Markdown
     4. Tailored Markdown -> Docling AST -> Publication-Grade PDF
     """
-    # 1. Retrieve candidate base resume
-    base_markdown = original_markdown or ""
+    # 1. Retrieve candidate base resume dynamically
+    base_markdown = (original_markdown or "").strip()
     if not base_markdown and candidate_id:
         from api import CANDIDATES_REGISTRY
         cand = CANDIDATES_REGISTRY.get(candidate_id)
         if cand:
             base_markdown = cand.get("resume_markdown", "")
     
-    if not base_markdown:
-        docs = read_from_db("documents").get("records", [])
-        if docs:
-            base_markdown = docs[0].get("raw_markdown", "")
+    if not base_markdown and candidate_id:
+        from api import CANDIDATES_REGISTRY
+        if candidate_id in CANDIDATES_REGISTRY:
+            base_markdown = CANDIDATES_REGISTRY[candidate_id]["resume_markdown"]
 
     if not base_markdown:
         from api import CANDIDATES_REGISTRY
-        base_markdown = CANDIDATES_REGISTRY["candidate_mohit"]["resume_markdown"]
+        target_id = candidate_id if (candidate_id and candidate_id in CANDIDATES_REGISTRY) else "candidate_mohit"
+        base_markdown = CANDIDATES_REGISTRY[target_id]["resume_markdown"]
 
     # Step 1: Normalize through Docling Document parser
     from my_agent.tools.docling_tools import convert_resume_to_docling, markdown_to_docling_doc
@@ -413,8 +414,8 @@ def tailor_resume_for_opportunity(
     from my_agent.tools.llm_tools import call_groq_llm
     prompt = f"""You are an Expert In-Place ATS Resume Tailoring Engine.
 
-CRITICAL DIRECTIVE: You MUST PRESERVE the EXACT document template, layout, header format, personal contact line, section ordering, and bullet styling of the ORIGINAL RESUME below.
-Do NOT convert this resume into a generic or standard template. Treat the original document structure as an IMMUTABLE STENCIL.
+CRITICAL DIRECTIVE: You MUST PRESERVE the EXACT candidate identity, document template, layout, header format, personal contact line, section ordering, and bullet styling of the ORIGINAL RESUME below.
+Do NOT convert this resume into a generic template. Do NOT swap this candidate with any other candidate. Treat the original document structure as an IMMUTABLE STENCIL.
 
 TARGET JOB SPECIFICATION:
 - Role Title: {opportunity_title}
@@ -436,18 +437,18 @@ ORIGINAL RESUME (GOLDEN TEMPLATE):
 \"\"\"
 
 STRICT IN-PLACE TAILORING RULES:
-1. 100% TEMPLATE & STRUCTURE PRESERVATION:
-   - Keep the EXACT same section headings in the EXACT same sequence (`## Summary`, `## Technical Skills`, `## Experience`, `## Projects`, `## Industry Project`, `## Achievements & Technical Outreach`, `## Education`).
-   - Preserve the exact candidate name line and all contact details (Email, Phone, LinkedIn, GitHub, LeetCode, Portfolio, Location) verbatim.
+1. 100% CANDIDATE IDENTITY & STRUCTURE PRESERVATION:
+   - Keep the candidate's exact name, professional title, email, phone, LinkedIn, GitHub, Portfolio, and location from the original resume.
+   - Keep the EXACT same section headings in the EXACT same sequence as they appear in the ORIGINAL RESUME above.
    - Retain the exact markdown formatting (bullet format `- `, bold titles `**...**`, dates, and dividers).
 
 2. SURGICAL IN-PLACE KEYWORD TAILORING (GROUNDED IN COMPANY CONTEXT):
-   - In Summary: Naturally weave in {company_name}'s technical priorities and target role competencies without exaggerating.
+   - In Summary / Profile: Naturally weave in {company_name}'s technical priorities and target role competencies without exaggerating.
    - In Technical Skills: Highlight and position the relevant technologies required by the JD and company tech stack while preserving authentic skills.
    - In Work Experience & Projects: Rephrase bullet points to emphasize relevant architecture, performance, APIs, and impact aligned with {company_name}, keeping real company names and dates accurate.
 
 3. ZERO FABRICATION & ZERO DRIFT:
-   - Output ONLY the complete, tailored Markdown resume.
+   - Output ONLY the complete, tailored Markdown resume for this specific candidate.
    - Do NOT include any conversational preamble, notes, or codeblock fences (` ```markdown `). Start directly with the candidate's name line.
 """
     tailored_md = call_groq_llm(prompt)

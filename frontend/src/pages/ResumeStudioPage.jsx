@@ -96,6 +96,14 @@ export default function ResumeStudioPage() {
     loadCandidatesList();
   }, []);
 
+  // 1.5 Synchronize candidateId from URL search param if changed
+  useEffect(() => {
+    const urlCandId = searchParams.get('candidateId');
+    if (urlCandId && urlCandId !== activeCandidateId) {
+      setActiveCandidateId(urlCandId);
+    }
+  }, [searchParams]);
+
   // 2. Load Candidate Profile & Resume
   useEffect(() => {
     async function loadCandidateProfile() {
@@ -137,15 +145,35 @@ export default function ResumeStudioPage() {
       }
     }
     loadCandidateProfile();
-  }, [activeCandidateId, searchParams]);
+  }, [activeCandidateId]);
 
-  const handleCandidateChange = (candId) => {
+  const handleCandidateChange = async (candId) => {
     setActiveCandidateId(candId);
     setSearchParams((prev) => {
       const nextParams = new URLSearchParams(prev);
       nextParams.set('candidateId', candId);
       return nextParams;
     });
+
+    // Immediate optimistic update
+    try {
+      const cData = await fetchCandidateDetails(candId);
+      if (cData.candidate) {
+        setActiveCandidate(cData.candidate);
+        const baseMd = cData.candidate.resume_markdown || '';
+        setMarkdown(baseMd);
+        setOriginalMarkdown(baseMd);
+      }
+      const oppsRes = await fetchOpportunities(candId);
+      const opps = oppsRes.opportunities || [];
+      setOpportunities(opps);
+      if (opps.length > 0) {
+        setSelectedOppId(String(opps[0].id));
+        setSelectedOpportunity(opps[0]);
+      }
+    } catch (err) {
+      console.error('Failed to switch candidate profile:', err);
+    }
   };
 
   const handleOpportunityChange = (oppId) => {
