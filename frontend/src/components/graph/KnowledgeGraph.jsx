@@ -42,7 +42,13 @@ import {
   MapPin,
   Calendar,
   Building,
-  Target
+  Target,
+  Sliders,
+  Maximize,
+  Minimize,
+  Eye,
+  SlidersHorizontal,
+  Compass
 } from 'lucide-react';
 
 const NODE_COLORS = {
@@ -88,6 +94,16 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedExcerpt, setCopiedExcerpt] = useState(false);
   const [copiedAttribute, setCopiedAttribute] = useState(false);
+
+  // ── Physics & Distance Controls State ──────────────────────────────────────
+  const [nodeRepulsion, setNodeRepulsion] = useState(850);       // Repulsion strength (higher = more spaced out)
+  const [linkDistance, setLinkDistance] = useState(140);         // Link spring distance (higher = further apart)
+  const [centerGravity, setCenterGravity] = useState(0.04);      // Pull toward center (lower = looser)
+  const [particleSpeed, setParticleSpeed] = useState(0.006);     // Flow speed
+  const [showParticles, setShowParticles] = useState(true);
+  const [labelMode, setLabelMode] = useState('smart');           // 'smart' | 'always' | 'key_only' | 'hover'
+  const [showControlsDrawer, setShowControlsDrawer] = useState(false);
+  const [activePreset, setActivePreset] = useState('spacious');
 
   const [activeGroups, setActiveGroups] = useState({
     user: true,
@@ -145,7 +161,6 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
         setGraphMetrics(data.metrics);
       }
 
-      // Auto-select candidate node if specific candidate chosen
       if (candidateId !== 'candidate_all') {
         const targetNode = rawNodes.find((n) => n.id === candidateId);
         if (targetNode) {
@@ -153,9 +168,9 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
           setTimeout(() => {
             if (fgRef.current && targetNode.x !== undefined && targetNode.y !== undefined) {
               fgRef.current.centerAt(targetNode.x, targetNode.y, 800);
-              fgRef.current.zoom(2.0, 800);
+              fgRef.current.zoom(1.8, 800);
             }
-          }, 300);
+          }, 350);
         }
       } else {
         setSelectedNode((prev) => prev || (rawNodes.find((n) => n.id === 'candidate_mohit') || rawNodes[0]));
@@ -171,13 +186,33 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     loadGraph(selectedCandidate);
   }, [selectedCandidate, userId, loadGraph]);
 
+  // 3. Dynamic D3 Force Engine Settings (Real-time Spacing Update)
+  useEffect(() => {
+    if (fgRef.current) {
+      const charge = fgRef.current.d3Force('charge');
+      if (charge) {
+        charge.strength(-nodeRepulsion);
+        charge.distanceMax(3000);
+      }
+      const link = fgRef.current.d3Force('link');
+      if (link) {
+        link.distance(linkDistance);
+      }
+      const center = fgRef.current.d3Force('center');
+      if (center && typeof center.strength === 'function') {
+        center.strength(centerGravity);
+      }
+      fgRef.current.d3ReheatSimulation();
+    }
+  }, [nodeRepulsion, linkDistance, centerGravity, graphData]);
+
   // Dynamic window resizing
   useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         setDimensions({
           width: containerRef.current.clientWidth,
-          height: Math.max(580, window.innerHeight - 260),
+          height: Math.max(620, window.innerHeight - 240),
         });
       }
     };
@@ -219,7 +254,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
     setSelectedNode(node);
     if (fgRef.current && node.x !== undefined && node.y !== undefined) {
       fgRef.current.centerAt(node.x, node.y, 600);
-      fgRef.current.zoom(2.0, 600);
+      fgRef.current.zoom(1.8, 600);
     }
   };
 
@@ -233,7 +268,41 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
 
   const handleResetZoom = () => {
     if (fgRef.current) {
-      fgRef.current.zoomToFit(600, 50);
+      fgRef.current.zoomToFit(600, 60);
+    }
+  };
+
+  // Quick Spacing Boosters
+  const handleSpreadApart = () => {
+    setNodeRepulsion((prev) => Math.min(2200, prev + 250));
+    setLinkDistance((prev) => Math.min(320, prev + 35));
+    setActivePreset('custom');
+  };
+
+  const handleTighten = () => {
+    setNodeRepulsion((prev) => Math.max(250, prev - 250));
+    setLinkDistance((prev) => Math.max(50, prev - 35));
+    setActivePreset('custom');
+  };
+
+  const applyPreset = (presetName) => {
+    setActivePreset(presetName);
+    if (presetName === 'spacious') {
+      setNodeRepulsion(950);
+      setLinkDistance(150);
+      setCenterGravity(0.04);
+    } else if (presetName === 'expansive') {
+      setNodeRepulsion(1600);
+      setLinkDistance(230);
+      setCenterGravity(0.02);
+    } else if (presetName === 'balanced') {
+      setNodeRepulsion(550);
+      setLinkDistance(100);
+      setCenterGravity(0.08);
+    } else if (presetName === 'clustered') {
+      setNodeRepulsion(300);
+      setLinkDistance(65);
+      setCenterGravity(0.18);
     }
   };
 
@@ -281,7 +350,7 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
             <Users className="w-4 h-4 text-indigo-400" />
-            <span>Candidate Perspective:</span>
+            <span>Candidate View:</span>
           </div>
           <div className="relative min-w-[260px]">
             <select
@@ -325,10 +394,11 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
 
       {/* Main Graph Playground & Floating Controls */}
       <div className="relative border border-slate-800/80 rounded-2xl overflow-hidden bg-slate-950 shadow-2xl">
+        
         {/* Floating Top Control Bar */}
         <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
           {/* Search Box */}
-          <div className="pointer-events-auto relative w-72">
+          <div className="pointer-events-auto relative w-64 sm:w-72">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
@@ -347,10 +417,9 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             )}
           </div>
 
-          {/* Group Visibility Toggles (All Granular Types) */}
-          <div className="pointer-events-auto flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg flex-wrap max-w-2xl">
+          {/* Group Visibility Toggles */}
+          <div className="pointer-events-auto hidden lg:flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg flex-wrap max-w-xl">
             {Object.keys(NODE_COLORS).map((group) => {
-              const Icon = NODE_ICONS[group] || Sparkles;
               const isActive = activeGroups[group];
               return (
                 <button
@@ -372,8 +441,46 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             })}
           </div>
 
-          {/* Graph Action Buttons */}
+          {/* Graph Action Buttons & Distance Quick Bar */}
           <div className="pointer-events-auto flex items-center gap-1 bg-slate-900/90 backdrop-blur-md p-1.5 rounded-xl border border-slate-800 shadow-lg">
+            
+            {/* Quick Distance Spread / Tighten */}
+            <button
+              onClick={handleSpreadApart}
+              title="Spread Nodes Apart (Decrease Congestion)"
+              className="flex items-center gap-1 px-2.5 py-1 bg-indigo-950/60 hover:bg-indigo-900/80 border border-indigo-500/30 text-indigo-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <Maximize className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Spread</span>
+            </button>
+            <button
+              onClick={handleTighten}
+              title="Tighten Nodes Closer"
+              className="flex items-center gap-1 px-2.5 py-1 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <Minimize className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Tighten</span>
+            </button>
+
+            <div className="w-[1px] h-4 bg-slate-700 mx-1" />
+
+            {/* Open Physics & Graph Control Drawer */}
+            <button
+              onClick={() => setShowControlsDrawer(!showControlsDrawer)}
+              title="Physics & Graph Spacing Settings"
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                showControlsDrawer
+                  ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/30'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+              }`}
+            >
+              <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Physics Controls</span>
+            </button>
+
+            <div className="w-[1px] h-4 bg-slate-700 mx-1" />
+
+            {/* Standard Zoom & Refresh */}
             <button
               onClick={handleZoomIn}
               title="Zoom In"
@@ -390,12 +497,11 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             </button>
             <button
               onClick={handleResetZoom}
-              title="Reset View / Fit Screen"
+              title="Fit Screen"
               className="p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
             >
               <Maximize2 className="w-4 h-4" />
             </button>
-            <div className="w-[1px] h-4 bg-slate-700 mx-1" />
             <button
               onClick={() => loadGraph(selectedCandidate)}
               title="Reload Graph RAG"
@@ -406,7 +512,166 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
           </div>
         </div>
 
-        {/* Force Graph Container */}
+        {/* ── Floating Physics & Distance Controls Drawer ─────────────────── */}
+        {showControlsDrawer && (
+          <div className="absolute top-20 right-4 z-30 w-84 sm:w-96 bg-slate-900/95 backdrop-blur-xl border border-indigo-500/40 rounded-2xl p-5 shadow-2xl space-y-4 animate-in fade-in slide-in-from-top-4 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-sm font-bold text-white">Graph Spacing & Physics Engine</h3>
+              </div>
+              <button
+                onClick={() => setShowControlsDrawer(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Quick Layout Presets */}
+            <div>
+              <label className="text-xs font-semibold text-slate-400 block mb-2">Spacing Presets</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: 'spacious', name: '🌌 Spacious (Clean)', desc: 'Optimal breathing room' },
+                  { id: 'expansive', name: '🌐 Ultra-Wide Map', desc: 'Maximum node distance' },
+                  { id: 'balanced', name: '🎯 Balanced Layout', desc: 'Standard force balance' },
+                  { id: 'clustered', name: '🧩 Tight Clustered', desc: 'Compact grouping' }
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => applyPreset(p.id)}
+                    className={`text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                      activePreset === p.id
+                        ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 font-bold'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="text-xs">{p.name}</div>
+                    <div className="text-[10px] opacity-70 mt-0.5">{p.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Fine-Tuning Sliders */}
+            <div className="space-y-3.5 pt-2 border-t border-slate-800">
+              {/* Node Repulsion (Charge) */}
+              <div>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-semibold text-slate-300">Node Repulsion (Charge Distance)</span>
+                  <span className="font-mono text-cyan-400 font-bold">{nodeRepulsion}</span>
+                </div>
+                <input
+                  type="range"
+                  min="200"
+                  max="2400"
+                  step="50"
+                  value={nodeRepulsion}
+                  onChange={(e) => {
+                    setNodeRepulsion(Number(e.target.value));
+                    setActivePreset('custom');
+                  }}
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                />
+                <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                  <span>Tight (200)</span>
+                  <span>Spacious (850)</span>
+                  <span>Expansive (2400)</span>
+                </div>
+              </div>
+
+              {/* Link Spring Distance */}
+              <div>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-semibold text-slate-300">Link Spring Length</span>
+                  <span className="font-mono text-indigo-400 font-bold">{linkDistance}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="350"
+                  step="10"
+                  value={linkDistance}
+                  onChange={(e) => {
+                    setLinkDistance(Number(e.target.value));
+                    setActivePreset('custom');
+                  }}
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                />
+                <div className="flex justify-between text-[10px] text-slate-500 mt-0.5">
+                  <span>Short (40px)</span>
+                  <span>Optimal (140px)</span>
+                  <span>Long (350px)</span>
+                </div>
+              </div>
+
+              {/* Center Gravity */}
+              <div>
+                <div className="flex items-center justify-between text-xs mb-1">
+                  <span className="font-semibold text-slate-300">Center Pull Gravity</span>
+                  <span className="font-mono text-purple-400 font-bold">{centerGravity.toFixed(3)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.005"
+                  max="0.30"
+                  step="0.005"
+                  value={centerGravity}
+                  onChange={(e) => {
+                    setCenterGravity(Number(e.target.value));
+                    setActivePreset('custom');
+                  }}
+                  className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                />
+              </div>
+
+              {/* Label Visibility Mode */}
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1.5">Node Label Rendering</label>
+                <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  {[
+                    { id: 'smart', label: 'Smart (Auto)' },
+                    { id: 'always', label: 'Always All' },
+                    { id: 'key_only', label: 'Key Nodes' }
+                  ].map((mode) => (
+                    <button
+                      key={mode.id}
+                      onClick={() => setLabelMode(mode.id)}
+                      className={`py-1 text-[11px] rounded-lg font-semibold transition-all cursor-pointer ${
+                        labelMode === mode.id
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Actions footer */}
+            <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+              <button
+                onClick={() => applyPreset('spacious')}
+                className="text-xs text-slate-400 hover:text-indigo-400 underline cursor-pointer"
+              >
+                Reset to Defaults
+              </button>
+              <button
+                onClick={() => {
+                  if (fgRef.current) fgRef.current.d3ReheatSimulation();
+                }}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-md shadow-indigo-600/20 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Reheat Physics
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Force Graph Canvas Container */}
         <div ref={containerRef} className="w-full h-[640px] relative">
           {loading && graphData.nodes.length === 0 && (
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-30 flex items-center justify-center">
@@ -425,8 +690,8 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
             nodeLabel={(node) => `${node.label} (${node.group?.toUpperCase()})`}
             linkColor={(link) => (link.type === 'TEAM_SYNERGY' ? '#818cf8' : link.type === 'USES_TECH' ? '#64748b' : '#334155')}
             linkWidth={(link) => (link.type === 'TEAM_SYNERGY' ? 2.5 : 1.2)}
-            linkDirectionalParticles={(link) => (link.type === 'TEAM_SYNERGY' ? 4 : link.type === 'USES_TECH' ? 1 : 2)}
-            linkDirectionalParticleSpeed={0.006}
+            linkDirectionalParticles={showParticles ? (link) => (link.type === 'TEAM_SYNERGY' ? 4 : link.type === 'USES_TECH' ? 1 : 2) : 0}
+            linkDirectionalParticleSpeed={particleSpeed}
             linkDirectionalParticleWidth={(link) => (link.type === 'TEAM_SYNERGY' ? 3 : 2)}
             linkDirectionalParticleColor={(link) => (link.type === 'TEAM_SYNERGY' ? '#c084fc' : '#818cf8')}
             onNodeClick={handleNodeClick}
@@ -470,8 +735,15 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
               ctx.lineWidth = isCandidate ? 1.8 : 0.8;
               ctx.stroke();
 
-              // Draw Node Label below
-              if (globalScale > 0.8 || isSelected || isHovered || isCandidate || isSharedSkill || isAchievement) {
+              // Determine whether to draw label
+              const shouldDrawLabel =
+                labelMode === 'always' ||
+                isSelected ||
+                isHovered ||
+                (labelMode === 'key_only' && (isCandidate || isSharedSkill || isAchievement)) ||
+                (labelMode === 'smart' && (globalScale > 0.75 || isCandidate || isSharedSkill || isAchievement));
+
+              if (shouldDrawLabel) {
                 const label = node.label || node.id;
                 const fontSize = isCandidate ? 12 / globalScale : (isSharedSkill || isAchievement) ? 10.5 / globalScale : 9.5 / globalScale;
                 ctx.font = `${isCandidate || isSharedSkill || isAchievement ? 'bold' : 'normal'} ${fontSize}px Inter, sans-serif`;
@@ -488,264 +760,96 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
                   bckgDimensions[1]
                 );
 
-                ctx.fillStyle = isCandidate ? '#ffffff' : isSharedSkill ? '#a7f3d0' : isAchievement ? '#fef3c7' : '#cbd5e1';
-                ctx.fillText(label, node.x, node.y + radius + 3.5);
+                ctx.fillStyle = isCandidate ? '#ffffff' : isSharedSkill ? '#6ee7b7' : isAchievement ? '#fde68a' : '#cbd5e1';
+                ctx.fillText(label, node.x, node.y + radius + 3);
               }
             }}
           />
         </div>
-
-        {/* Bottom Legend Overlay */}
-        <div className="absolute bottom-4 left-4 z-20 bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-800 shadow-xl pointer-events-auto flex items-center gap-4 text-xs flex-wrap">
-          <div className="flex items-center gap-2 font-bold text-slate-300">
-            <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Entities:</span>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap text-slate-400">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#6366f1]" /> Candidate</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#10b981]" /> Skill</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]" /> Project</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#ec4899]" /> Experience</span>
-            <span className="flex items-center gap-1 text-amber-300 font-semibold"><span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" /> 🏆 Award</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#06b6d4]" /> 🎓 Education</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#14b8a6]" /> 📜 Cert</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-[#f97316]" /> Opportunity</span>
-          </div>
-        </div>
       </div>
 
-      {/* ── Slide-Out Node Intelligence Inspector Drawer ───────────────────── */}
+      {/* ── Bottom Inspector Panel ────────────────────────────────────────── */}
       {selectedNode && (
-        <GlassCard className="p-6 bg-slate-900/95 backdrop-blur-xl border-indigo-500/30 shadow-2xl relative animate-fade-in space-y-6">
-          {/* Header Bar */}
-          <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
-                style={{
-                  backgroundColor: selectedNode.cluster_color || NODE_COLORS[selectedNode.group] || '#6366f1',
-                }}
-              >
-                {React.createElement(NODE_ICONS[selectedNode.group] || Sparkles, {
-                  className: 'w-6 h-6 text-white',
-                })}
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant={selectedNode.group === 'user' ? 'primary' : 'secondary'} size="sm">
-                    {selectedNode.group?.toUpperCase()} NODE
-                  </Badge>
-                  {selectedNode.is_shared && (
-                    <Badge variant="success" size="sm">
-                      ⚡ SHARED SKILL HUB
-                    </Badge>
-                  )}
-                  <span className="text-xs text-slate-500 font-mono">ID: {selectedNode.id}</span>
-                </div>
-                <h2 className="text-xl font-extrabold text-white mt-1">{selectedNode.label}</h2>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setSelectedNode(null)}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+        <GlassCard className="p-6 bg-slate-900/90 backdrop-blur-md border border-slate-800 shadow-2xl relative animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <button
+            onClick={() => setSelectedNode(null)}
+            className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Col: Node Metadata & Entity Details */}
-            <div className="lg:col-span-2 space-y-5">
-              {/* Candidate Person Profile View */}
-              {selectedNode.group === 'user' && (
-                <div className="space-y-4">
-                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-400 uppercase">Role & Specialization</span>
-                      <span className="text-xs font-semibold text-indigo-400">{selectedNode.attributes?.location || 'Noida, India'}</span>
-                    </div>
-                    <p className="text-sm font-bold text-white">{selectedNode.attributes?.role}</p>
-                    <p className="text-xs text-slate-300 leading-relaxed">{selectedNode.attributes?.summary}</p>
-                  </div>
-
-                  {/* Peer Synergies & Team Recommendations */}
-                  <div className="bg-indigo-950/30 p-4 rounded-xl border border-indigo-500/20 space-y-3">
-                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-300 uppercase">
-                      <Sparkles className="w-4 h-4 text-indigo-400" />
-                      <span>Graph RAG Peer Synergies & Team Synergies</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                      {selectedNode.id === 'candidate_mohit' && (
-                        <>
-                          <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-                            <span className="font-bold text-pink-400">⚡ Mohit + Krati</span>
-                            <p className="text-slate-300 mt-1 text-[11px]">Full-Stack AI Product synergy: Mohit (AI/IoT & FastAPI) + Krati (Figma & UI/UX Design System).</p>
-                          </div>
-                          <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-                            <span className="font-bold text-emerald-400">⚡ Mohit + Vishnu</span>
-                            <p className="text-slate-300 mt-1 text-[11px]">Backend Infrastructure synergy: Mohit (Vector search & LLMs) + Vishnu (Distributed PostgreSQL microservices).</p>
-                          </div>
-                        </>
-                      )}
-                      {selectedNode.id === 'candidate_krati' && (
-                        <>
-                          <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-                            <span className="font-bold text-indigo-400">⚡ Krati + Mohit</span>
-                            <p className="text-slate-300 mt-1 text-[11px]">AI Application synergy: Krati designs frontend experiences powered by Mohit's AI and IoT pipelines.</p>
-                          </div>
-                          <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-                            <span className="font-bold text-emerald-400">⚡ Krati + Vishnu</span>
-                            <p className="text-slate-300 mt-1 text-[11px]">Client-Server synergy: Krati builds modern Next.js interfaces consuming Vishnu's high-speed REST/GraphQL APIs.</p>
-                          </div>
-                        </>
-                      )}
-                      {selectedNode.id === 'candidate_vishnu' && (
-                        <>
-                          <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-                            <span className="font-bold text-indigo-400">⚡ Vishnu + Mohit</span>
-                            <p className="text-slate-300 mt-1 text-[11px]">Python & FastAPI Core: Joint expertise in Python backend APIs, PostgreSQL, and scalable deployments.</p>
-                          </div>
-                          <div className="p-3 bg-slate-900/80 rounded-lg border border-slate-800">
-                            <span className="font-bold text-pink-400">⚡ Vishnu + Krati</span>
-                            <p className="text-slate-300 mt-1 text-[11px]">End-to-End Delivery: Vishnu delivers microservice APIs that Krati renders into high-performance UI workflows.</p>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-3 pt-2">
-                    <button
-                      onClick={() => navigate(`/studio?candidateId=${selectedNode.id}`)}
-                      className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all cursor-pointer"
-                    >
-                      <Wand2 className="w-4 h-4" />
-                      Open in AI Resume Studio
-                    </button>
-                    <button
-                      onClick={() => setSelectedCandidate(selectedNode.id)}
-                      className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-2 transition-all cursor-pointer"
-                    >
-                      <User className="w-4 h-4 text-indigo-400" />
-                      Focus Graph on {selectedNode.label.split(' ')[0]}
-                    </button>
-                  </div>
+            {/* Left Col: Main Node Overview */}
+            <div className="lg:col-span-2 space-y-4">
+              <div className="flex items-start gap-4">
+                <div
+                  className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg"
+                  style={{
+                    backgroundColor: `${NODE_COLORS[selectedNode.group] || '#6366f1'}22`,
+                    border: `1.5px solid ${NODE_COLORS[selectedNode.group] || '#6366f1'}`,
+                  }}
+                >
+                  {(() => {
+                    const IconComponent = NODE_ICONS[selectedNode.group] || Sparkles;
+                    return <IconComponent className="w-6 h-6" style={{ color: NODE_COLORS[selectedNode.group] || '#6366f1' }} />;
+                  })()}
                 </div>
-              )}
 
-              {/* Achievement / Award Node View */}
-              {selectedNode.group === 'achievement' && (
-                <div className="space-y-4">
-                  <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-500/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-amber-400 uppercase flex items-center gap-1.5">
-                        <Trophy className="w-4 h-4" /> Verified Honor & Competition Award
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <Badge variant="primary" className="capitalize text-xs">
+                      {selectedNode.group} Node
+                    </Badge>
+                    {selectedNode.is_shared && (
+                      <Badge variant="accent" className="text-xs bg-emerald-950/60 border-emerald-500/30 text-emerald-300">
+                        ⚡ Shared Skill Hub
+                      </Badge>
+                    )}
+                    {selectedNode.group === 'user' && (
+                      <span className="text-xs text-indigo-400 font-mono font-bold">
+                        Candidate Entity
                       </span>
-                      <span className="text-xs font-bold text-white font-mono">{selectedNode.attributes?.year}</span>
-                    </div>
-                    <h3 className="text-base font-extrabold text-white">{selectedNode.attributes?.title}</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">{selectedNode.attributes?.impact}</p>
-                    <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-                      <span className="text-slate-400">Issuing Body: <span className="text-slate-200 font-semibold">{selectedNode.attributes?.organization}</span></span>
-                      <span className="text-amber-300 font-bold">Winner: {selectedNode.attributes?.winner}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => handleCopyText(`- **${selectedNode.attributes?.title}** (${selectedNode.attributes?.year}) — ${selectedNode.attributes?.impact}`)}
-                    className="px-4 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  >
-                    {copiedAttribute ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    {copiedAttribute ? 'Copied Award Markdown!' : 'Copy Award to Clipboard for Resume'}
-                  </button>
-                </div>
-              )}
-
-              {/* Education Node View */}
-              {selectedNode.group === 'education' && (
-                <div className="space-y-4">
-                  <div className="bg-cyan-950/20 p-4 rounded-xl border border-cyan-500/30 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-cyan-400 uppercase flex items-center gap-1.5">
-                        <GraduationCap className="w-4 h-4" /> Academic Degree
-                      </span>
-                      <span className="text-xs font-mono text-slate-400">{selectedNode.attributes?.period}</span>
-                    </div>
-                    <h3 className="text-base font-bold text-white">{selectedNode.attributes?.degree}</h3>
-                    <p className="text-xs text-slate-300">{selectedNode.attributes?.institution}</p>
-                    <p className="text-xs text-slate-400 pt-1">{selectedNode.attributes?.details}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Certification Node View */}
-              {selectedNode.group === 'certification' && (
-                <div className="space-y-4">
-                  <div className="bg-teal-950/20 p-4 rounded-xl border border-teal-500/30 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-teal-400 uppercase flex items-center gap-1.5">
-                        <Award className="w-4 h-4" /> Professional Certification
-                      </span>
-                      <span className="text-xs font-mono text-slate-400">{selectedNode.attributes?.year}</span>
-                    </div>
-                    <h3 className="text-base font-bold text-white">{selectedNode.attributes?.name}</h3>
-                    <p className="text-xs text-slate-300">Issued by: <span className="font-semibold text-teal-300">{selectedNode.attributes?.issuer}</span></p>
-                  </div>
-                </div>
-              )}
-
-              {/* Project Node View */}
-              {selectedNode.group === 'project' && (
-                <div className="space-y-4">
-                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2">
-                    <span className="text-xs font-bold text-purple-400 uppercase flex items-center gap-1.5">
-                      <Cpu className="w-4 h-4" /> Featured Engineering Project
-                    </span>
-                    <h3 className="text-base font-bold text-white">{selectedNode.attributes?.title}</h3>
-                    <p className="text-xs text-slate-300 leading-relaxed">{selectedNode.attributes?.description}</p>
-                    {selectedNode.attributes?.tech_stack && (
-                      <div className="pt-2">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">Tech Stack:</span>
-                        <span className="text-xs font-semibold text-purple-300">{selectedNode.attributes.tech_stack}</span>
-                      </div>
                     )}
                   </div>
+                  <h2 className="text-xl font-extrabold text-white truncate">{selectedNode.label}</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Node ID: <code className="text-indigo-300 bg-slate-950 px-1.5 py-0.5 rounded font-mono">{selectedNode.id}</code>
+                  </p>
                 </div>
-              )}
+              </div>
 
-              {/* Work Experience Node View */}
-              {selectedNode.group === 'experience' && (
-                <div className="space-y-4">
-                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-pink-400 uppercase flex items-center gap-1.5">
-                        <Briefcase className="w-4 h-4" /> Work Experience
-                      </span>
-                      <span className="text-xs font-mono text-slate-400">{selectedNode.attributes?.period}</span>
-                    </div>
-                    <h3 className="text-base font-bold text-white">{selectedNode.attributes?.role}</h3>
-                    <p className="text-xs text-slate-300">{selectedNode.attributes?.company}</p>
-                    <p className="text-xs text-slate-300 leading-relaxed pt-2">{selectedNode.attributes?.achievements}</p>
+              {/* Dynamic Attributes Grid */}
+              {selectedNode.attributes && Object.keys(selectedNode.attributes).length > 0 && (
+                <div className="bg-slate-950/60 rounded-xl p-4 border border-slate-800/80">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Extracted Entity Metadata</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {Object.entries(selectedNode.attributes).map(([key, val]) => {
+                      if (typeof val === 'object' && val !== null) return null;
+                      return (
+                        <div key={key} className="flex flex-col gap-0.5 bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                          <span className="text-slate-500 capitalize font-medium">{key.replace(/_/g, ' ')}:</span>
+                          <span className="font-semibold text-slate-200 truncate">{String(val)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Shared Skill View */}
-              {selectedNode.group === 'skill' && (
-                <div className="space-y-4">
-                  <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-400 uppercase">Skill Mastered By</span>
-                      <span className="text-xs font-semibold text-emerald-400">Verified Competency</span>
-                    </div>
+              {/* Shared Skill Synergies View */}
+              {selectedNode.group === 'skill' && selectedNode.attributes?.holders && (
+                <div className="bg-slate-950/70 p-4 rounded-xl border border-emerald-500/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-400 uppercase">Shared Skill Multi-Candidate Synergies</span>
+                    <span className="text-xs font-bold text-slate-400">{selectedNode.attributes.holders.length} Qualified Candidates</span>
+                  </div>
+                  <div className="space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      {(selectedNode.attributes?.known_by || []).map((name, i) => (
-                        <span key={i} className="px-3 py-1 bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-bold text-xs rounded-lg flex items-center gap-1.5">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                          {name}
-                        </span>
+                      {selectedNode.attributes.holders.map((holder, idx) => (
+                        <div key={idx} className="flex items-center gap-1.5 px-3 py-1 bg-emerald-950/40 border border-emerald-500/30 text-emerald-300 text-xs rounded-xl font-semibold">
+                          <User className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{holder.name} ({holder.proficiency})</span>
+                        </div>
                       ))}
                     </div>
 
