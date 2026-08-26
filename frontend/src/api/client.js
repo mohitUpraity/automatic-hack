@@ -325,3 +325,49 @@ export async function customSearchOpportunities(query, category = 'all', profile
   return await res.json();
 }
 
+export async function fetchUserProfile(candidateId = 'candidate_mohit') {
+  const res = await fetchWithConfig(`${API_BASE}/api/user/profile?candidate_id=${encodeURIComponent(candidateId)}`);
+  if (!res.ok) return { status: 'error', profile: null };
+  return await res.json();
+}
+
+export async function updateUserProfile(profileData) {
+  const res = await fetchWithConfig(`${API_BASE}/api/user/profile`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profileData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to update profile' }));
+    throw new Error(err.detail || 'Failed to update profile');
+  }
+  return await res.json();
+}
+
+export async function uploadUserTemplate(file, candidateId = 'candidate_mohit') {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('candidate_id', candidateId);
+
+  const res = await fetchWithConfig(`${API_BASE}/api/user/upload-template`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Template upload failed' }));
+    throw new Error(err.detail || 'Template upload failed');
+  }
+  return await res.json();
+}
+
+export async function extractSocialLinks(resumeMarkdown) {
+  const res = await fetchWithConfig(`${API_BASE}/api/user/extract-links`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resume_markdown: resumeMarkdown }),
+  });
+  if (!res.ok) return { status: 'error', extracted: {} };
+  return await res.json();
+}
+
+

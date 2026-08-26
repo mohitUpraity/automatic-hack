@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Shield, MessageSquare, FileText, Activity, GitBranch, Menu, X, Wand2 } from 'lucide-react';
+import { Shield, MessageSquare, FileText, Activity, GitBranch, Menu, X, Wand2, User } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Sidebar({ stats }) {
@@ -7,6 +7,7 @@ export default function Sidebar({ stats }) {
 
   const navItems = [
     { name: 'Home/Chat', path: '/', icon: MessageSquare },
+    { name: 'Profile & Preferences', path: '/profile', icon: User },
     { name: 'AI Resume Studio', path: '/studio', icon: Wand2 },
     { name: 'Documents & Opps', path: '/documents', icon: FileText },
     { name: 'Observatory', path: '/observatory', icon: Activity },

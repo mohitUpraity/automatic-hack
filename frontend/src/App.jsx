@@ -7,6 +7,7 @@ import OpportunityPage from './pages/OpportunityPage';
 import ObservatoryPage from './pages/ObservatoryPage';
 import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
 import ResumeStudioPage from './pages/ResumeStudioPage';
+import ProfilePage from './pages/ProfilePage';
 import { fetchStats } from './api/client';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
         <main className="flex-1 md:ml-[260px] min-h-screen w-full">
           <Routes>
             <Route path="/" element={<ChatPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/studio" element={<ResumeStudioPage />} />
             <Route path="/resume-studio" element={<ResumeStudioPage />} />
             <Route path="/documents" element={<DocumentsPage />} />

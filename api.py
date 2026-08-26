@@ -140,6 +140,34 @@ class AttackRequest(BaseModel):
     secured: Optional[bool] = True
 
 
+class UserProfileReq(BaseModel):
+    user_id: Optional[str] = "default-user"
+    candidate_id: Optional[str] = "candidate_mohit"
+    name: Optional[str] = None
+    email: Optional[str] = None
+    avatar_url: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
+    role: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    leetcode_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
+    work_mode: Optional[str] = "Remote"  # Remote, Hybrid, Onsite, Any
+    target_roles: Optional[list] = None
+    location_preferences: Optional[list] = None
+    preferred_categories: Optional[list] = None
+    min_compensation: Optional[str] = None
+    notice_period: Optional[str] = "Immediate"
+    active_template_id: Optional[str] = "candidate_mohit"
+    custom_resume_markdown: Optional[str] = None
+
+
+class ExtractLinksReq(BaseModel):
+    resume_markdown: str
+
+
 @app.get("/")
 def read_root():
     return {
@@ -603,6 +631,259 @@ async def query_db(req: QueryRequest, user_id: str = Depends(get_current_user)):
     context = get_rag_context(req.question, user_id=user_id)
     answer = call_groq_llm(f"Candidate Context:\n{context}\n\nUser Question: {req.question}")
     return {"status": "success", "question": req.question, "answer": answer}
+
+
+import re
+
+def extract_social_links_from_text(text: str) -> dict:
+    """Extracts LinkedIn, GitHub, LeetCode, Portfolio, Email, and Phone from resume markdown."""
+    linkedin_match = re.search(r'(?:https?://)?(?:www\.)?linkedin\.com/in/([a-zA-Z0-9_-]+)', text, re.I)
+    github_match = re.search(r'(?:https?://)?(?:www\.)?github\.com/([a-zA-Z0-9_-]+)', text, re.I)
+    leetcode_match = re.search(r'(?:https?://)?(?:www\.)?leetcode\.com/(?:u/)?([a-zA-Z0-9_-]+)', text, re.I)
+    codeforces_match = re.search(r'(?:https?://)?(?:www\.)?codeforces\.com/profile/([a-zA-Z0-9_-]+)', text, re.I)
+    portfolio_match = re.search(r'(?:https?://)?([a-zA-Z0-9_-]+\.(?:dev|me|io|app|tech|ai|vercel\.app|github\.io))', text, re.I)
+    email_match = re.search(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', text)
+    phone_match = re.search(r'(\+?[0-9]{1,3}?[-. ]?\(?[0-9]{2,4}\)?[-. ]?[0-9]{3,4}[-. ]?[0-9]{3,4})', text)
+
+    return {
+        "linkedin_url": f"https://linkedin.com/in/{linkedin_match.group(1)}" if linkedin_match else "",
+        "github_url": f"https://github.com/{github_match.group(1)}" if github_match else "",
+        "leetcode_url": f"https://leetcode.com/u/{leetcode_match.group(1)}" if leetcode_match else (f"https://codeforces.com/profile/{codeforces_match.group(1)}" if codeforces_match else ""),
+        "portfolio_url": f"https://{portfolio_match.group(1)}" if portfolio_match else "",
+        "email": email_match.group(1) if email_match else "",
+        "phone": phone_match.group(1) if phone_match else "",
+    }
+
+
+# In-memory session profile overrides with fallback to CANDIDATES_REGISTRY
+USER_PROFILE_STORE = {
+    "candidate_mohit": {
+        "user_id": "333c3701-93f2-497b-994e-98ec8177950f",
+        "candidate_id": "candidate_mohit",
+        "name": "Mohit Prasad Upraity",
+        "email": "mohitupraity123@gmail.com",
+        "phone": "+91-9876543210",
+        "role": "Autonomous Agentic AI Engineer & System Architect",
+        "location": "Noida, Uttar Pradesh, India",
+        "bio": "Building autonomous multi-agent pipelines, ArmorIQ security shields, and high-performance Web3/AI applications.",
+        "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Mohit",
+        "linkedin_url": "https://linkedin.com/in/mohitupraity",
+        "github_url": "https://github.com/mohitupraity",
+        "leetcode_url": "https://leetcode.com/u/mohitupraity",
+        "portfolio_url": "https://mohitupraity.dev",
+        "work_mode": "Remote",
+        "target_roles": ["Autonomous AI Engineer", "Agentic Systems Architect", "Full Stack AI Developer", "Research Engineer"],
+        "location_preferences": ["Remote", "Noida", "Bangalore", "San Francisco"],
+        "preferred_categories": ["job", "internship", "competition", "hackathon"],
+        "min_compensation": "$120,000 / ₹25 LPA",
+        "notice_period": "Immediate (0 Days)",
+        "active_template_id": "candidate_mohit"
+    },
+    "candidate_krati": {
+        "user_id": "db4a7b96-079d-4695-9c0c-990a41cf88aa",
+        "candidate_id": "candidate_krati",
+        "name": "Krati Verma",
+        "email": "krati.verma@careeros.ai",
+        "phone": "+91-9811223344",
+        "role": "Lead Frontend & Design System Architect",
+        "location": "Noida, Uttar Pradesh, India",
+        "bio": "Specialist in React, Tailwind CSS, TypeScript, design tokens, and high-performance accessible UI systems.",
+        "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Krati",
+        "linkedin_url": "https://linkedin.com/in/krati-verma-ui",
+        "github_url": "https://github.com/krativerma",
+        "leetcode_url": "https://leetcode.com/u/krativerma",
+        "portfolio_url": "https://krativerma.design",
+        "work_mode": "Hybrid",
+        "target_roles": ["Lead Frontend Engineer", "UI/UX Systems Architect", "Design Technologist"],
+        "location_preferences": ["Noida", "Delhi NCR", "Remote"],
+        "preferred_categories": ["job", "internship", "hackathon"],
+        "min_compensation": "₹22 LPA",
+        "notice_period": "15 Days",
+        "active_template_id": "candidate_krati"
+    },
+    "candidate_vishnu": {
+        "user_id": "f4b3d0ed-0334-4460-9805-b1cb21e03335",
+        "candidate_id": "candidate_vishnu",
+        "name": "Vishnu Kumar",
+        "email": "vishnu.kumar@careeros.ai",
+        "phone": "+91-9123456789",
+        "role": "Senior Backend & API Engineer",
+        "location": "Noida, Uttar Pradesh, India",
+        "bio": "Distributed microservices, PostgreSQL query optimization, FastAPI, and real-time Kafka streaming architectures.",
+        "avatar_url": "https://api.dicebear.com/7.x/bottts/svg?seed=Vishnu",
+        "linkedin_url": "https://linkedin.com/in/vishnu-kumar-backend",
+        "github_url": "https://github.com/vishnukumar",
+        "leetcode_url": "https://leetcode.com/u/vishnukumar_dev",
+        "portfolio_url": "https://vishnukumar.tech",
+        "work_mode": "Remote",
+        "target_roles": ["Senior Backend Engineer", "Distributed Systems Specialist", "Python Architect"],
+        "location_preferences": ["Remote", "Noida", "Bangalore"],
+        "preferred_categories": ["job", "competition"],
+        "min_compensation": "₹24 LPA",
+        "notice_period": "30 Days",
+        "active_template_id": "candidate_vishnu"
+    }
+}
+
+
+@app.get("/api/user/profile")
+def get_user_profile(candidate_id: Optional[str] = "candidate_mohit", user_id: str = Depends(get_current_user)):
+    """Retrieves full candidate profile, career preferences, social URLs, and available base templates."""
+    cand_key = candidate_id if candidate_id in USER_PROFILE_STORE else "candidate_mohit"
+    profile_data = dict(USER_PROFILE_STORE.get(cand_key, USER_PROFILE_STORE["candidate_mohit"]))
+    
+    # Try fetching real database records if available
+    db_users = read_from_db("users").get("records", [])
+    matched_db_user = next((u for u in db_users if str(u.get("id")) == str(profile_data.get("user_id")) or u.get("email") == profile_data.get("email")), None)
+    if matched_db_user:
+        profile_data["name"] = matched_db_user.get("name") or profile_data["name"]
+        profile_data["email"] = matched_db_user.get("email") or profile_data["email"]
+        profile_data["linkedin_url"] = matched_db_user.get("linkedin_url") or profile_data.get("linkedin_url")
+        profile_data["github_url"] = matched_db_user.get("github_url") or profile_data.get("github_url")
+        profile_data["portfolio_url"] = matched_db_user.get("portfolio_url") or profile_data.get("portfolio_url")
+
+    # Available Templates list
+    templates = [
+        {
+            "id": "candidate_mohit",
+            "name": "Mohit Prasad Upraity — AI Systems & Edge Vision Template",
+            "role": "Autonomous Agentic AI Engineer",
+            "preview": CANDIDATES_REGISTRY["candidate_mohit"]["resume_markdown"][:250] + "...",
+            "is_default": cand_key == "candidate_mohit"
+        },
+        {
+            "id": "candidate_krati",
+            "name": "Krati Verma — Design Systems & React UI Template",
+            "role": "Lead Frontend Architect",
+            "preview": CANDIDATES_REGISTRY["candidate_krati"]["resume_markdown"][:250] + "...",
+            "is_default": cand_key == "candidate_krati"
+        },
+        {
+            "id": "candidate_vishnu",
+            "name": "Vishnu Kumar — Distributed Systems & PostgreSQL Template",
+            "role": "Senior Backend Engineer",
+            "preview": CANDIDATES_REGISTRY["candidate_vishnu"]["resume_markdown"][:250] + "...",
+            "is_default": cand_key == "candidate_vishnu"
+        }
+    ]
+
+    # Active template markdown
+    active_cand_info = CANDIDATES_REGISTRY.get(profile_data.get("active_template_id", cand_key), CANDIDATES_REGISTRY["candidate_mohit"])
+    profile_data["resume_markdown"] = profile_data.get("custom_resume_markdown") or active_cand_info.get("resume_markdown", "")
+    profile_data["available_templates"] = templates
+
+    return {"status": "success", "profile": profile_data}
+
+
+@app.post("/api/user/profile")
+def update_user_profile(req: UserProfileReq, user_id: str = Depends(get_current_user)):
+    """Saves user profile preferences, social URLs, and active template to Supabase & in-memory cache."""
+    cand_key = req.candidate_id or req.active_template_id or "candidate_mohit"
+    
+    current_entry = USER_PROFILE_STORE.get(cand_key, USER_PROFILE_STORE["candidate_mohit"]).copy()
+    update_data = req.dict(exclude_unset=True)
+    current_entry.update({k: v for k, v in update_data.items() if v is not None})
+    USER_PROFILE_STORE[cand_key] = current_entry
+
+    # Sync into CANDIDATES_REGISTRY
+    if cand_key in CANDIDATES_REGISTRY:
+        if req.name: CANDIDATES_REGISTRY[cand_key]["name"] = req.name
+        if req.role: CANDIDATES_REGISTRY[cand_key]["role"] = req.role
+        if req.location: CANDIDATES_REGISTRY[cand_key]["location"] = req.location
+        if req.custom_resume_markdown: CANDIDATES_REGISTRY[cand_key]["resume_markdown"] = req.custom_resume_markdown
+
+    # Persist to Supabase users table
+    try:
+        supabase = get_supabase()
+        if supabase:
+            supa_payload = {
+                "name": current_entry.get("name"),
+                "email": current_entry.get("email"),
+                "linkedin_url": current_entry.get("linkedin_url"),
+                "github_url": current_entry.get("github_url"),
+                "portfolio_url": current_entry.get("portfolio_url"),
+                "target_roles": current_entry.get("target_roles"),
+                "location_preferences": current_entry.get("location_preferences")
+            }
+            supabase.table("users").update(supa_payload).eq("id", current_entry.get("user_id")).execute()
+    except Exception as e:
+        print(f"Supabase user sync error (non-fatal): {e}")
+
+    return {"status": "success", "message": "Profile and career preferences updated successfully", "profile": current_entry}
+
+
+@app.post("/api/user/upload-template")
+async def upload_user_template(
+    file: UploadFile = File(...),
+    candidate_id: str = Form("candidate_mohit"),
+    user_id: str = Depends(get_current_user)
+):
+    """Uploads a candidate's original resume (PDF/DOCX/image), parses via Docling OCR,
+    extracts social links and contact info, and saves as the candidate's active Golden Template.
+    """
+    temp_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "temp_uploads")
+    os.makedirs(temp_dir, exist_ok=True)
+    temp_path = os.path.join(temp_dir, f"template_{uuid.uuid4()}_{file.filename}")
+
+    try:
+        content = await file.read()
+        with open(temp_path, "wb") as f:
+            f.write(content)
+
+        # Parse via Docling OCR
+        doc_res = convert_document(temp_path, "resume")
+        raw_markdown = doc_res.get("markdown") or f"# Uploaded Resume\n\nFile: {file.filename}"
+        
+        # Extract social links & contact fields
+        extracted = extract_social_links_from_text(raw_markdown)
+
+        # Store in Supabase documents
+        doc_id = str(uuid.uuid4())
+        store_document(
+            doc_id=doc_id,
+            user_id=USER_PROFILE_STORE.get(candidate_id, {}).get("user_id", user_id),
+            filename=file.filename,
+            doc_type="resume",
+            raw_markdown=raw_markdown,
+            metadata={"chunk_count": doc_res.get("chunk_count", 0), "is_golden_template": True}
+        )
+
+        if doc_res.get("chunks"):
+            embedded = embed_chunks(doc_res["chunks"])
+            store_embeddings(doc_id, user_id, embedded)
+
+        # Update candidate registry and profile store
+        cand_key = candidate_id if candidate_id in CANDIDATES_REGISTRY else "candidate_mohit"
+        CANDIDATES_REGISTRY[cand_key]["resume_markdown"] = raw_markdown
+        CANDIDATES_REGISTRY[cand_key]["doc_name"] = file.filename
+
+        if cand_key in USER_PROFILE_STORE:
+            USER_PROFILE_STORE[cand_key]["custom_resume_markdown"] = raw_markdown
+            if extracted.get("linkedin_url"): USER_PROFILE_STORE[cand_key]["linkedin_url"] = extracted["linkedin_url"]
+            if extracted.get("github_url"): USER_PROFILE_STORE[cand_key]["github_url"] = extracted["github_url"]
+            if extracted.get("leetcode_url"): USER_PROFILE_STORE[cand_key]["leetcode_url"] = extracted["leetcode_url"]
+            if extracted.get("portfolio_url"): USER_PROFILE_STORE[cand_key]["portfolio_url"] = extracted["portfolio_url"]
+            if extracted.get("phone"): USER_PROFILE_STORE[cand_key]["phone"] = extracted["phone"]
+            if extracted.get("email"): USER_PROFILE_STORE[cand_key]["email"] = extracted["email"]
+
+        return {
+            "status": "success",
+            "doc_id": doc_id,
+            "filename": file.filename,
+            "extracted": extracted,
+            "resume_markdown": raw_markdown,
+            "message": f"Successfully parsed {file.filename} via Docling OCR and extracted contact & social links!"
+        }
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
+@app.post("/api/user/extract-links")
+def extract_links_endpoint(req: ExtractLinksReq):
+    """Extracts social links and contact info from any raw resume markdown."""
+    extracted = extract_social_links_from_text(req.resume_markdown)
+    return {"status": "success", "extracted": extracted}
 
 
 @app.get("/api/profiles")
