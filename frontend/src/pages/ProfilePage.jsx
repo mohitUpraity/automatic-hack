@@ -21,7 +21,8 @@ import {
   Shield,
   LogOut,
   RefreshCw,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react';
 
 const LinkedinIcon = ({ className = "w-3.5 h-3.5" }) => (
@@ -42,12 +43,14 @@ import {
   updateUserProfile,
   uploadUserTemplate,
   extractSocialLinks,
+  deleteCandidate,
+  setActiveCandidateTemplate,
 } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function ProfilePage() {
-  const { user, logout } = useAuth();
+  const { user, selectedCandidateId, setSelectedCandidateId, activeCandidate, candidates, refreshCandidates, logout } = useAuth();
   const navigate = useNavigate();
 
   const [profile, setProfile] = useState({
@@ -80,24 +83,25 @@ export default function ProfilePage() {
   const [error, setError] = useState(null);
   const [newRoleInput, setNewRoleInput] = useState('');
 
-  // Fetch active user profile
+  // Fetch active candidate persona profile
   const loadProfile = async () => {
-    if (!user?.id) return;
+    const targetId = selectedCandidateId === 'all' ? (user?.id || 'default-user') : selectedCandidateId;
+    if (!targetId) return;
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetchUserProfile(user.id);
+      const res = await fetchUserProfile(targetId);
       if (res?.profile) {
         setProfile({
           ...res.profile,
-          name: res.profile.name || user.name || '',
-          email: res.profile.email || user.email || '',
-          role: res.profile.role || user.role || 'Software Engineer'
+          name: res.profile.name || activeCandidate?.name || user?.name || '',
+          email: res.profile.email || activeCandidate?.email || user?.email || '',
+          role: res.profile.role || activeCandidate?.role || user?.role || 'Software Engineer'
         });
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
-      setError('Could not load your profile.');
+      setError('Could not load profile.');
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +109,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     loadProfile();
-  }, [user?.id]);
+  }, [user?.id, selectedCandidateId]);
 
   const handleSignOut = () => {
     logout();
@@ -116,17 +120,38 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setIsSaving(true);
     setError(null);
+    const targetId = selectedCandidateId === 'all' ? (user?.id || 'default-user') : selectedCandidateId;
     try {
       await updateUserProfile({
         ...profile,
         user_id: user?.id || 'default-user',
-        candidate_id: user?.id || 'default-user',
+        candidate_id: targetId,
       });
+      await refreshCandidates(user?.id);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to save profile:', err);
-      setError('Failed to save changes. Please check backend connection.');
+      setError('Failed to save changes. Please check database connection.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeletePersona = async () => {
+    const targetId = selectedCandidateId === 'all' ? (user?.id || 'default-user') : selectedCandidateId;
+    const personaName = profile.name || activeCandidate?.name || 'this persona';
+    if (!window.confirm(`Are you sure you want to permanently delete candidate persona "${personaName}"? This will remove their profile and linked knowledge records.`)) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await deleteCandidate(targetId);
+      if (refreshCandidates) await refreshCandidates(user?.id);
+      setSelectedCandidateId('all');
+    } catch (err) {
+      console.error('Delete persona failed:', err);
+      setError('Failed to delete persona: ' + (err.message || 'Error'));
     } finally {
       setIsSaving(false);
     }
@@ -139,38 +164,38 @@ export default function ProfilePage() {
 
     setIsUploading(true);
     setError(null);
+    const targetId = selectedCandidateId === 'all' ? (user?.id || 'default-user') : selectedCandidateId;
     try {
-      const res = await uploadUserTemplate(file, user?.id || 'default-user');
-      if (res.status === 'success') {
+      const res = await uploadUserTemplate(file, targetId);
+      if (res?.status === 'success') {
         setUploadSuccess(true);
         setTimeout(() => setUploadSuccess(false), 4000);
-
-        setProfile((prev) => ({
-          ...prev,
-          resume_markdown: res.resume_markdown,
-          linkedin_url: res.extracted?.linkedin_url || prev.linkedin_url,
-          github_url: res.extracted?.github_url || prev.github_url,
-          leetcode_url: res.extracted?.leetcode_url || prev.leetcode_url,
-          portfolio_url: res.extracted?.portfolio_url || prev.portfolio_url,
-          email: res.extracted?.email || prev.email,
-          phone: res.extracted?.phone || prev.phone,
-          name: res.extracted?.name || prev.name,
-          available_templates: [
-            {
-              id: res.document_id || 'doc_master',
-              name: file.name,
-              role: prev.role || 'Software Engineer',
-              preview: res.resume_markdown.substring(0, 250) + '...',
-              is_default: true
-            }
-          ]
-        }));
+        await refreshCandidates(user?.id);
+        await loadProfile();
       }
     } catch (err) {
       console.error('Upload template failed:', err);
       setError('Failed to upload and parse template with Docling OCR: ' + (err.message || ''));
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleSelectTemplate = async (tpl) => {
+    const targetId = selectedCandidateId === 'all' ? (user?.id || 'default-user') : selectedCandidateId;
+    setProfile((prev) => ({
+      ...prev,
+      active_template_id: tpl.id,
+      resume_markdown: tpl.raw_markdown || prev.resume_markdown,
+    }));
+    try {
+      await setActiveCandidateTemplate(targetId, tpl.id);
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+      if (refreshCandidates) await refreshCandidates(user?.id);
+    } catch (err) {
+      console.error('Failed to set active template:', err);
+      setError('Failed to activate template: ' + (err.message || 'Server error'));
     }
   };
 
@@ -198,6 +223,15 @@ export default function ProfilePage() {
     }
   };
 
+  const toggleLocation = (loc) => {
+    const current = profile.location_preferences || [];
+    if (current.includes(loc)) {
+      setProfile({ ...profile, location_preferences: current.filter((l) => l !== loc) });
+    } else {
+      setProfile({ ...profile, location_preferences: [...current, loc] });
+    }
+  };
+
   const getInitials = (nameStr) => {
     if (!nameStr) return 'U';
     return nameStr.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
@@ -205,33 +239,45 @@ export default function ProfilePage() {
 
   return (
     <PageShell
-      title="User Profile & Template Preferences"
-      subtitle="Google OAuth, Docling OCR golden resume preservation, social links hub & granular search tweaks"
-      icon={User}
+      title="Candidate Persona & Profile"
+      description="Manage multi-candidate preferences, target roles, contact coordinates, and Golden Resume templates."
+      actions={
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSaveProfile}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-semibold text-sm shadow-lg shadow-indigo-500/25 transition disabled:opacity-50 cursor-pointer"
+          >
+            {isSaving ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            <span>{isSaving ? 'Saving...' : 'Save Profile'}</span>
+          </button>
+        </div>
+      }
     >
-      <div className="space-y-8 max-w-7xl mx-auto pb-12">
+      <div className="space-y-6 max-w-5xl pb-12">
+        {/* Error Alert */}
+        {error && (
+          <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm animate-fade-in">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
-        {/* Top Header Card */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800/80 shadow-xl">
-          <div className="flex items-center gap-5">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center text-xl font-black text-white shadow-lg border border-indigo-400/30">
-                {getInitials(profile.name || user?.name)}
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-slate-900 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-              </div>
+        {/* Profile Card Header */}
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-indigo-500/20">
+              {getInitials(profile.name || user?.name)}
             </div>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-slate-100">{profile.name || user?.name || 'Engineer'}</h2>
-                <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Google Verified
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">{profile.role || user?.role || 'Software Engineer'}</p>
-              <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                <span>{profile.email || user?.email}</span>
+            <div>
+              <h2 className="text-xl font-bold text-slate-100">{profile.name || user?.name || 'Candidate Persona'}</h2>
+              <p className="text-sm text-indigo-400 font-medium">{profile.role || 'Software Engineer'}</p>
+              <div className="flex items-center gap-2 mt-1 text-xs text-slate-400">
+                <span>{profile.email || user?.email || 'authenticated'}</span>
                 <span>•</span>
                 <span>{profile.location || 'Remote'}</span>
               </div>
@@ -239,10 +285,31 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <div className="text-xs font-semibold text-slate-300">{user?.email}</div>
-              <div className="text-[10px] text-emerald-400">Authenticated Session Active</div>
+            <div className="relative min-w-[200px]">
+              <select
+                value={selectedCandidateId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedCandidateId(val);
+                }}
+                className="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
+              >
+                {candidates.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
+            <button
+              onClick={handleDeletePersona}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-950/60 hover:bg-red-900 text-red-300 text-xs font-bold border border-red-800/80 transition cursor-pointer disabled:opacity-50"
+              title="Delete this Candidate Persona"
+            >
+              <Trash2 className="w-4 h-4 text-red-400" />
+              <span>Delete Persona</span>
+            </button>
             <button
               onClick={handleSignOut}
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-red-950 hover:text-red-300 text-slate-300 text-xs font-semibold border border-slate-700 transition cursor-pointer"
@@ -554,23 +621,41 @@ export default function ProfilePage() {
 
               <div className="space-y-3">
                 {(profile.available_templates || []).length > 0 ? (
-                  profile.available_templates.map((tpl) => (
-                    <div
-                      key={tpl.id}
-                      className="p-3.5 rounded-xl border bg-indigo-600/15 border-indigo-500 shadow-md"
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="text-xs font-bold text-slate-200">{tpl.name}</div>
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-500 text-white">
-                          Active
-                        </span>
+                  profile.available_templates.map((tpl) => {
+                    const isActive = tpl.id === profile.active_template_id || tpl.is_active;
+                    return (
+                      <div
+                        key={tpl.id}
+                        onClick={() => handleSelectTemplate(tpl)}
+                        className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500/50 shadow-lg shadow-indigo-500/15'
+                            : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="text-xs font-bold text-slate-100 flex items-center gap-1.5">
+                            <FileText className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-400' : 'text-slate-500'}`} />
+                            <span className="truncate max-w-[180px]">{tpl.name}</span>
+                          </div>
+                          {isActive ? (
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Active Master
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-slate-800 text-slate-400 hover:text-indigo-300 border border-slate-700">
+                              Click to Set Active
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400 mb-2">{tpl.role}</div>
+                        <div className="text-[10px] text-slate-500 font-mono bg-slate-900/80 p-2 rounded-lg truncate border border-slate-800/50">
+                          {tpl.preview}
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-400 mb-2">{tpl.role}</div>
-                      <div className="text-[10px] text-slate-500 font-mono bg-slate-900 p-2 rounded-lg truncate">
-                        {tpl.preview}
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="p-4 rounded-xl border border-dashed border-slate-800 text-center text-xs text-slate-500">
                     No custom resume uploaded yet. Upload your PDF resume above to establish your master template.

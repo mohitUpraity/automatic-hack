@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import ForceGraph2D from 'react-force-graph-2d';
 import { useNavigate } from 'react-router-dom';
 import { fetchKnowledgeGraph, fetchCandidates } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 import LoadingSpinner from '../ui/LoadingSpinner';
@@ -267,16 +268,25 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
   const [graphMetrics, setGraphMetrics] = useState({ total_candidates: 1, total_nodes: 0, shared_skills_count: 0 });
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState(null);
+  const { user, selectedCandidateId, setSelectedCandidateId, candidates } = useAuth();
   const [hoverNode, setHoverNode] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedExcerpt, setCopiedExcerpt] = useState(false);
   const [copiedAttribute, setCopiedAttribute] = useState(false);
 
   useEffect(() => {
-    if (userId) {
+    if (candidates && candidates.length > 0) {
+      setCandidatesList(candidates);
+    }
+  }, [candidates]);
+
+  useEffect(() => {
+    if (selectedCandidateId) {
+      setSelectedCandidate(selectedCandidateId === 'all' ? 'candidate_all' : selectedCandidateId);
+    } else if (userId) {
       setSelectedCandidate(userId);
     }
-  }, [userId]);
+  }, [selectedCandidateId, userId]);
 
   // ── Theme & Style Engine ───────────────────────────────────────────────────
   const [visualTheme, setVisualTheme] = useState('cyberpunk');   // 'cyberpunk' | 'cosmic' | 'matrix' | 'minimal_glass'
@@ -682,18 +692,22 @@ export default function KnowledgeGraph({ userId = 'default-user' }) {
           <div className="relative min-w-[260px]">
             <select
               value={selectedCandidate}
-              onChange={(e) => setSelectedCandidate(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedCandidate(val);
+                if (setSelectedCandidateId) {
+                  setSelectedCandidateId(val === 'candidate_all' ? 'all' : val);
+                }
+                loadGraph(val);
+              }}
               className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 font-bold appearance-none pr-8 cursor-pointer shadow-inner"
             >
-              {candidatesList.length === 0 ? (
-                <option value="candidate_all">🌐 Multi-Candidate Global Network</option>
-              ) : (
-                candidatesList.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
-                  </option>
-                ))
-              )}
+              <option value="candidate_all">🌐 All Candidates (Combined Network)</option>
+              {candidatesList.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
+                </option>
+              ))}
             </select>
             <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
           </div>

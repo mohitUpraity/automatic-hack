@@ -59,42 +59,58 @@ from my_agent.mcp_servers.mcp_docproc_server import process_and_embed_document
 from my_agent.mcp_servers.mcp_knowledge_server import build_knowledge_base
 from my_agent.mcp_servers.mcp_tailor_server import tailor_resume
 
-# Knowledge base vector embeddings initialized on-demand per user
+# ArmorIQ Governance Engine Initialization
+global_armoriq = ArmorIQClient()
+global_keypairs = generate_pipeline_keypairs()
 
 app = FastAPI(title="CareerOS v3 API Server", version="3.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:8000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8000"
+    ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "my_agent", "career_os.db")
-global_armoriq = ArmorIQClient()
-global_keypairs = generate_pipeline_keypairs()
+SESSION_TOKENS = {}
 
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-async def get_current_user(authorization: Optional[str] = Header(None)) -> str:
-    """Supabase Auth JWT middleware with fallback for local dev."""
+async def get_current_user(
+    authorization: Optional[str] = Header(None),
+    x_user_id: Optional[str] = Header(None)
+) -> str:
+    """Supabase Auth JWT middleware with token decoding and header support."""
+    if x_user_id and x_user_id.strip():
+        return x_user_id.strip()
     if not authorization:
         return "default-user"
-    token = authorization.replace("Bearer ", "")
-    sb = get_supabase()
-    if sb and token and token != "mock-token":
+    token = authorization.replace("Bearer ", "").strip()
+    if token in SESSION_TOKENS:
+        return SESSION_TOKENS[token]
+    
+    # Try decoding Supabase JWT payload (sub is user_id)
+    if "." in token:
         try:
-            res = sb.auth.get_user(token)
-            if res and res.user:
-                return res.user.id
+            parts = token.split(".")
+            if len(parts) >= 2:
+                padding = "=" * (4 - len(parts[1]) % 4)
+                payload_json = base64.b64decode(parts[1] + padding).decode("utf-8")
+                payload = json.loads(payload_json)
+                user_id = payload.get("sub") or payload.get("user_id") or payload.get("id")
+                if user_id:
+                    SESSION_TOKENS[token] = str(user_id)
+                    return str(user_id)
         except Exception:
             pass
+
     return "default-user"
 
 
@@ -241,135 +257,135 @@ USER_AUTH_ACCOUNTS = {
 
 @app.post("/api/auth/register")
 def register_endpoint(req: RegisterReq):
-    """Registers a new user starting completely fresh with zero pre-filled documents or knowledge."""
+    """Registers a new user in Supabase with an isolated profile and clean slate."""
     email_clean = req.email.strip().lower()
     if not email_clean or not req.password:
         raise HTTPException(status_code=400, detail="Email and password are required.")
 
-    user_id = f"user_{uuid.uuid4().hex[:8]}"
-    new_user = {
-        "id": user_id,
-        "email": email_clean,
-        "name": req.name.strip() or "New Engineer",
-        "role": req.role or "Software Engineer",
-        "password": req.password
-    }
-    USER_AUTH_ACCOUNTS[email_clean] = new_user
+    sb = get_supabase()
+    existing_users = sb.select("users", filters={"email": f"eq.{email_clean}"})
+    if existing_users:
+        user_id = str(existing_users[0]["id"])
+    else:
+        user_id = str(uuid.uuid4())
+        display_name = req.name.strip() or "New Engineer"
+        new_user = {
+            "id": user_id,
+            "email": email_clean,
+            "name": display_name,
+            "target_roles": [req.role or "Software Engineer"],
+            "location_preferences": ["Remote"]
+        }
+        sb.insert("users", new_user)
 
-    # Register in candidate registry as clean slate
-    CANDIDATES_REGISTRY[user_id] = {
-        "id": user_id,
-        "name": new_user["name"],
-        "role": new_user["role"],
-        "cluster_color": "#38bdf8",
-        "email": email_clean,
-        "phone": "+91-0000000000",
-        "location": "Remote",
-        "summary": f"Fresh profile for {new_user['name']}. Upload your master resume to begin.",
-        "skills": [],
-        "top_skills": [],
-        "projects": [],
-        "experiences": [],
-        "achievements": [],
-        "education": [],
-        "certifications": [],
-        "doc_name": "No Resume Uploaded",
-        "peer_gaps": [],
-        "resume_markdown": f"# {new_user['name']}\n**{new_user['role']}**\n{email_clean}\n\n## Professional Summary\nFresh profile. Upload your resume or paste markdown here to begin.\n\n## Technical Skills\n- **Languages**: \n\n## Experience\n\n## Projects\n\n## Education\n"
-    }
-
-    # Store profile in DB
-    store_to_db("profiles", {
-        "id": user_id,
-        "user_id": user_id,
-        "name": new_user["name"],
-        "role": new_user["role"],
-        "email": email_clean,
-        "skills": [],
-        "search_keywords": ["software engineering jobs"]
-    })
+    # Ensure profile in Supabase
+    existing_profs = sb.select("profiles", filters={"user_id": f"eq.{user_id}"})
+    if not existing_profs:
+        prof_id = str(uuid.uuid4())
+        base_md = f"# {req.name.strip() or 'New Engineer'}\n**{req.role or 'Software Engineer'}**\n{email_clean}\n\n## Professional Summary\nFresh profile. Upload your resume to begin.\n"
+        sb.insert("profiles", {
+            "id": prof_id,
+            "user_id": user_id,
+            "name": req.name.strip() or "New Engineer",
+            "role": req.role or "Software Engineer",
+            "email": email_clean,
+            "is_primary": True,
+            "skills": ["Software Engineering", "Problem Solving"],
+            "tech_stack": ["Software Engineering", "Problem Solving"],
+            "raw_markdown": base_md,
+            "search_keywords": ["software engineering jobs"]
+        })
 
     token = f"careeros_jwt_{uuid.uuid4().hex}"
+    SESSION_TOKENS[token] = user_id
+
     return {
         "status": "success",
         "token": token,
         "user": {
             "id": user_id,
             "email": email_clean,
-            "name": new_user["name"],
-            "role": new_user["role"]
+            "name": req.name.strip() or "New Engineer",
+            "role": req.role or "Software Engineer"
         },
-        "message": "Account created successfully! Start fresh by uploading your documents."
+        "message": "Account created successfully in Supabase!"
     }
 
 
 @app.post("/api/auth/login")
 def login_endpoint(req: LoginReq):
-    """Authenticates user or allows 1-click candidate profile login."""
-    # 1. Candidate ID quick login
-    if req.candidate_id and req.candidate_id in CANDIDATES_REGISTRY:
-        cand = CANDIDATES_REGISTRY[req.candidate_id]
-        token = f"careeros_jwt_{uuid.uuid4().hex}"
-        return {
-            "status": "success",
-            "token": token,
-            "user": {
-                "id": cand["id"],
-                "email": cand.get("email", "candidate@careeros.ai"),
-                "name": cand["name"],
-                "role": cand["role"]
-            }
-        }
+    """Authenticates user or allows 1-click candidate profile login directly via Supabase."""
+    sb = get_supabase()
 
-    # 2. Email / Password login
-    if req.email:
-        email_clean = req.email.strip().lower()
-        if email_clean in USER_AUTH_ACCOUNTS:
-            account = USER_AUTH_ACCOUNTS[email_clean]
+    # 1. Candidate ID quick login
+    if req.candidate_id:
+        profs = sb.select("profiles", filters={"id": f"eq.{req.candidate_id}"})
+        if not profs:
+            profs = sb.select("profiles", filters={"user_id": f"eq.{req.candidate_id}"})
+        if profs:
+            cand = profs[0]
+            cand_user_id = str(cand.get("user_id", cand.get("id")))
             token = f"careeros_jwt_{uuid.uuid4().hex}"
+            SESSION_TOKENS[token] = cand_user_id
             return {
                 "status": "success",
                 "token": token,
                 "user": {
-                    "id": account["id"],
-                    "email": account["email"],
-                    "name": account["name"],
-                    "role": account["role"]
+                    "id": cand_user_id,
+                    "candidate_id": str(cand.get("id")),
+                    "email": cand.get("email", "candidate@careeros.ai"),
+                    "name": cand.get("name", "Candidate"),
+                    "role": cand.get("role", "Software Engineer")
+                }
+            }
+
+    # 2. Email / Password login
+    if req.email:
+        email_clean = req.email.strip().lower()
+        users = sb.select("users", filters={"email": f"eq.{email_clean}"})
+        if users:
+            account = users[0]
+            user_id = str(account["id"])
+            token = f"careeros_jwt_{uuid.uuid4().hex}"
+            SESSION_TOKENS[token] = user_id
+            return {
+                "status": "success",
+                "token": token,
+                "user": {
+                    "id": user_id,
+                    "email": account.get("email", email_clean),
+                    "name": account.get("name", email_clean.split('@')[0].title()),
+                    "role": (account.get("target_roles") or ["Software Engineer"])[0] if isinstance(account.get("target_roles"), list) else "Software Engineer"
                 }
             }
         else:
-            # Auto-create fresh account if unknown email
-            user_id = f"user_{uuid.uuid4().hex[:8]}"
+            # Auto-create user in Supabase
+            user_id = str(uuid.uuid4())
             cand_name = email_clean.split('@')[0].replace('.', ' ').title()
             new_user = {
                 "id": user_id,
                 "email": email_clean,
                 "name": cand_name,
-                "role": "Software Engineer",
-                "password": req.password or "password123"
+                "target_roles": ["Software Engineer"],
+                "location_preferences": ["Remote"]
             }
-            USER_AUTH_ACCOUNTS[email_clean] = new_user
-            CANDIDATES_REGISTRY[user_id] = {
-                "id": user_id,
+            sb.insert("users", new_user)
+
+            prof_id = str(uuid.uuid4())
+            sb.insert("profiles", {
+                "id": prof_id,
+                "user_id": user_id,
                 "name": cand_name,
                 "role": "Software Engineer",
-                "cluster_color": "#38bdf8",
                 "email": email_clean,
-                "phone": "+91-0000000000",
-                "location": "Remote",
-                "summary": f"Fresh profile for {cand_name}.",
-                "skills": [],
-                "top_skills": [],
-                "projects": [],
-                "experiences": [],
-                "achievements": [],
-                "education": [],
-                "certifications": [],
-                "doc_name": "No Resume Uploaded",
-                "peer_gaps": [],
-                "resume_markdown": f"# {cand_name}\n**Software Engineer**\n{email_clean}\n\n## Professional Summary\nFresh profile. Upload your resume or paste markdown here to begin.\n"
-            }
+                "is_primary": True,
+                "skills": ["Software Engineering"],
+                "tech_stack": ["Software Engineering"],
+                "raw_markdown": f"# {cand_name}\n**Software Engineer**\n{email_clean}\n\n## Professional Summary\nFresh profile. Upload your resume to begin.\n"
+            })
+
             token = f"careeros_jwt_{uuid.uuid4().hex}"
+            SESSION_TOKENS[token] = user_id
             return {
                 "status": "success",
                 "token": token,
@@ -394,76 +410,56 @@ class GoogleLoginReq(BaseModel):
 
 @app.post("/api/auth/google")
 def google_auth_endpoint(req: GoogleLoginReq):
-    """Handles Google Sign-In with isolated candidate account and isolated documents."""
+    """Handles Google Sign-In with isolated Supabase candidate account and isolated documents."""
     email_clean = req.email.strip().lower()
     if not email_clean:
         raise HTTPException(status_code=400, detail="Valid Google email is required.")
 
-    import hashlib
-    user_hash = hashlib.md5(email_clean.encode()).hexdigest()[:10]
-    user_id = f"google_{user_hash}"
+    sb = get_supabase()
     display_name = req.name.strip() if req.name else email_clean.split('@')[0].replace('.', ' ').title()
 
-    if email_clean in USER_AUTH_ACCOUNTS:
-        account = USER_AUTH_ACCOUNTS[email_clean]
-        user_id = account["id"]
-        token = f"careeros_jwt_{uuid.uuid4().hex}"
-        return {
-            "status": "success",
-            "token": token,
-            "user": {
-                "id": user_id,
-                "email": account["email"],
-                "name": account["name"],
-                "role": account.get("role", "Software Engineer"),
-                "avatar_url": req.avatar_url or account.get("avatar_url")
-            }
+    # 1. Lookup or create user in Supabase
+    users = sb.select("users", filters={"email": f"eq.{email_clean}"})
+    if users:
+        user_record = users[0]
+        user_id = str(user_record["id"])
+        # Update avatar or name if changed
+        if req.avatar_url or req.name:
+            sb.update("users", {"avatar_url": req.avatar_url, "name": display_name}, {"id": f"eq.{user_id}"})
+    else:
+        user_id = req.google_id or str(uuid.uuid4())
+        user_record = {
+            "id": user_id,
+            "email": email_clean,
+            "name": display_name,
+            "avatar_url": req.avatar_url,
+            "target_roles": [req.role or "Software Engineer"],
+            "location_preferences": ["Remote"]
         }
+        sb.insert("users", user_record)
 
-    # Create fresh isolated Google profile
-    new_account = {
-        "id": user_id,
-        "email": email_clean,
-        "name": display_name,
-        "role": req.role or "Software Engineer",
-        "avatar_url": req.avatar_url,
-        "provider": "google",
-        "google_id": req.google_id or user_id
-    }
-    USER_AUTH_ACCOUNTS[email_clean] = new_account
-
-    CANDIDATES_REGISTRY[user_id] = {
-        "id": user_id,
-        "name": display_name,
-        "role": req.role or "Software Engineer",
-        "cluster_color": "#38bdf8",
-        "email": email_clean,
-        "phone": "+91-0000000000",
-        "location": "Remote",
-        "summary": f"Fresh profile for {display_name}. Upload your master resume to begin.",
-        "skills": [],
-        "top_skills": [],
-        "projects": [],
-        "experiences": [],
-        "achievements": [],
-        "education": [],
-        "certifications": [],
-        "doc_name": "No Resume Uploaded",
-        "peer_gaps": [],
-        "resume_markdown": f"# {display_name}\n**{req.role or 'Software Engineer'}**\n{email_clean}\n\n## Professional Summary\nFresh profile. Upload your resume or paste markdown here to begin.\n\n## Technical Skills\n- **Languages**: \n\n## Experience\n\n## Projects\n\n## Education\n"
-    }
-
-    store_to_db("profiles", {
-        "id": user_id,
-        "user_id": user_id,
-        "name": display_name,
-        "role": req.role or "Software Engineer",
-        "email": email_clean,
-        "skills": [],
-        "search_keywords": ["software engineering jobs"]
-    })
+    # 2. Ensure primary candidate profile exists in Supabase profiles
+    profs = sb.select("profiles", filters={"user_id": f"eq.{user_id}"})
+    if not profs:
+        prof_id = str(uuid.uuid4())
+        base_md = f"# {display_name}\n**{req.role or 'Software Engineer'}**\n{email_clean}\n\n## Professional Summary\nFresh profile for {display_name}. Upload your master resume to begin.\n\n## Technical Skills\n- **Core Competencies**: Full Stack Development, AI Systems\n"
+        sb.insert("profiles", {
+            "id": prof_id,
+            "user_id": user_id,
+            "name": display_name,
+            "role": req.role or "Software Engineer",
+            "email": email_clean,
+            "is_primary": True,
+            "location_preference": "Remote",
+            "skills": ["Software Engineering", "AI Systems", "Full Stack Development"],
+            "tech_stack": ["Software Engineering", "AI Systems", "Full Stack Development"],
+            "raw_markdown": base_md,
+            "search_keywords": ["software engineering jobs", "full stack developer"]
+        })
 
     token = f"careeros_jwt_{uuid.uuid4().hex}"
+    SESSION_TOKENS[token] = user_id
+
     return {
         "status": "success",
         "token": token,
@@ -472,9 +468,9 @@ def google_auth_endpoint(req: GoogleLoginReq):
             "email": email_clean,
             "name": display_name,
             "role": req.role or "Software Engineer",
-            "avatar_url": req.avatar_url
+            "avatar_url": req.avatar_url or user_record.get("avatar_url")
         },
-        "message": "Signed in with Google successfully."
+        "message": "Signed in with Google successfully via Supabase."
     }
 
 
@@ -643,19 +639,22 @@ Candidate Knowledge Base Context (RAG):
 
 
 
-# ── 1. Document Upload Endpoint (Fixing PDF Upload Bug) ─────────────────────
+# ── 1. Document Upload Endpoint (Pure Supabase DB Connected) ─────────────────
 @app.post("/api/documents/upload")
 async def upload_document(
     file: UploadFile = File(...),
     doc_type: str = Form("resume"),
     user_id: Optional[str] = Form(None),
+    candidate_id: Optional[str] = Form(None),
+    create_new_persona: Optional[bool] = Form(False),
     auth_user: str = Depends(get_current_user)
 ):
-    """Upload ANY document (PDF, DOCX, Images, OCR). Docling converts, Gemini embeds, extracts profile, updates Knowledge Graph & ranks opportunities."""
+    """Upload ANY document (PDF, DOCX, Images, OCR). Docling converts, Gemini embeds, extracts profile, updates Knowledge Graph & ranks opportunities in Supabase."""
     effective_user = user_id or auth_user or "default-user"
+    sb = get_supabase()
+
     temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_uploads")
     os.makedirs(temp_dir, exist_ok=True)
-    # Sanitize filename
     safe_filename = "".join([c for c in file.filename if c.isalnum() or c in "._- "]).strip() or "upload.pdf"
     temp_path = os.path.join(temp_dir, safe_filename)
 
@@ -666,20 +665,9 @@ async def upload_document(
 
         doc_res = convert_document(temp_path, doc_type=doc_type)
         raw_markdown = doc_res.get("markdown", "")
-        doc_id = store_document(
-            user_id=effective_user,
-            filename=file.filename,
-            doc_type=doc_type,
-            raw_markdown=raw_markdown,
-            metadata={"chunk_count": doc_res.get("chunk_count", 0), "is_uploaded": True}
-        )
 
-        embedded = embed_chunks(doc_res.get("chunks", []))
-        stored_count = store_embeddings(doc_id, effective_user, embedded)
-
-        # ── Run Automatic Entity Extraction & Profile Update ──
+        # Extract entities from resume markdown
         from my_agent.tools.resume_tools import extract_resume
-        
         extracted_resume = extract_resume(raw_markdown)
         social_links = extract_social_links_from_text(raw_markdown)
 
@@ -688,61 +676,137 @@ async def upload_document(
         exp_list = extracted_resume.get("experience", [])
         edu_list = extracted_resume.get("education", [])
         certs_list = extracted_resume.get("certifications", [])
-        cand_name = extracted_resume.get("name") or "Candidate"
+        cand_name = extracted_resume.get("name") or file.filename.split(".")[0].replace("_", " ").title()
         cand_email = extracted_resume.get("email") or social_links.get("email") or ""
         cand_phone = extracted_resume.get("phone") or social_links.get("phone") or ""
+        cand_role = "Software Engineer" if not exp_list else (exp_list[0].get("role") if isinstance(exp_list[0], dict) else "Software Engineer")
+
+        # Determine target candidate persona ID
+        is_explicit_new = create_new_persona in (True, "true", "True", "1", 1)
+        target_cand_id = candidate_id
+
+        # Check if the target profile already belongs to another candidate name
+        if target_cand_id and target_cand_id not in ("all", "candidate_all") and not is_explicit_new:
+            existing_prof_check = sb.select("profiles", filters={"id": f"eq.{target_cand_id}"})
+            if existing_prof_check:
+                existing_res_id = existing_prof_check[0].get("resume_id")
+                if existing_res_id:
+                    existing_res = sb.select("resumes", filters={"id": f"eq.{existing_res_id}"})
+                    if existing_res and existing_res[0].get("name"):
+                        existing_name = existing_res[0].get("name", "").strip().lower()
+                        new_name = cand_name.strip().lower()
+                        # If names are substantially different (e.g. Vishnu vs Mohit), create a new persona
+                        if existing_name and new_name and existing_name != new_name and not (existing_name in new_name or new_name in existing_name):
+                            is_explicit_new = True
+
+        if is_explicit_new or not target_cand_id or target_cand_id in ("all", "candidate_all"):
+            target_cand_id = str(uuid.uuid4())
+
+        # 1. Store document in Supabase
+        doc_id = store_document(
+            user_id=effective_user,
+            filename=file.filename,
+            doc_type=doc_type,
+            raw_markdown=raw_markdown,
+            metadata={"chunk_count": doc_res.get("chunk_count", 0), "is_uploaded": True, "candidate_id": target_cand_id},
+            candidate_id=target_cand_id
+        )
+
+        # 2. Store vector embeddings in Supabase pgvector
+        embedded = embed_chunks(doc_res.get("chunks", []))
+        stored_count = store_embeddings(doc_id, effective_user, embedded, candidate_id=target_cand_id)
+
+        # 3. Store structured resume in Supabase
+        resume_id = str(uuid.uuid4())
+        sb.insert("resumes", {
+            "id": resume_id,
+            "user_id": effective_user,
+            "document_id": doc_id,
+            "name": cand_name,
+            "email": cand_email,
+            "phone": cand_phone,
+            "education": edu_list,
+            "experience": exp_list,
+            "skills": skills_list,
+            "projects": proj_list,
+            "certifications": certs_list,
+            "raw_text": raw_markdown
+        })
+
+        # 4. Update or create profile in Supabase
+        existing_prof = sb.select("profiles", filters={"id": f"eq.{target_cand_id}"})
+        if not existing_prof and target_cand_id and not is_explicit_new:
+            existing_prof = sb.select("profiles", filters={"user_id": f"eq.{target_cand_id}"})
 
         prof_payload = {
+            "id": target_cand_id,
             "user_id": effective_user,
-            "name": cand_name,
-            "role": "Software Engineer" if not exp_list else (exp_list[0].get("role") if isinstance(exp_list[0], dict) else "Software Engineer"),
-            "email": cand_email,
-            "phone": cand_phone,
-            "location": "Remote",
-            "skills": json.dumps(skills_list) if isinstance(skills_list, list) else str(skills_list),
-            "projects": json.dumps(proj_list) if isinstance(proj_list, list) else str(proj_list),
-            "experiences": json.dumps(exp_list) if isinstance(exp_list, list) else str(exp_list),
-            "education": json.dumps(edu_list) if isinstance(edu_list, list) else str(edu_list),
-            "raw_markdown": raw_markdown
+            "resume_id": resume_id,
+            "tech_stack": skills_list,
+            "preferred_roles": [cand_role] if cand_role else ["Software Engineer"],
+            "career_goals": f"AI & Software Engineering portfolio for {cand_name}.",
+            "location_preference": "Remote",
+            "experience_summary": (raw_markdown[:300] + "...") if raw_markdown else "",
+            "search_keywords": [f"{s} jobs" for s in skills_list[:4]]
         }
-        store_to_db("profiles", prof_payload)
+        if existing_prof and not is_explicit_new:
+            sb.update("profiles", prof_payload, {"id": f"eq.{target_cand_id}"})
+        else:
+            sb.insert("profiles", prof_payload)
 
-        # Update in-memory candidate registry
-        CANDIDATES_REGISTRY[effective_user] = {
-            "id": effective_user,
-            "name": cand_name,
-            "role": prof_payload["role"],
-            "cluster_color": "#38bdf8",
-            "email": cand_email,
-            "phone": cand_phone,
-            "location": "Remote",
-            "summary": f"Autonomous career intelligence profile for {cand_name}.",
-            "skills": skills_list or ["Software Engineering", "AI/ML"],
-            "top_skills": skills_list[:6] if skills_list else ["Software Engineering", "AI/ML"],
-            "projects": proj_list,
-            "experiences": exp_list,
-            "achievements": certs_list,
-            "education": edu_list,
-            "certifications": certs_list,
-            "doc_name": file.filename,
-            "peer_gaps": [],
-            "resume_markdown": raw_markdown
-        }
+        # 5. Update users table name and target roles if needed
+        user_recs = sb.select("users", filters={"id": f"eq.{effective_user}"})
+        if user_recs:
+            u_update = {}
+            if not user_recs[0].get("name") or user_recs[0].get("name") == "Mohit ai":
+                u_update["name"] = cand_name
+            if not user_recs[0].get("target_roles"):
+                u_update["target_roles"] = [cand_role]
+            if u_update:
+                sb.update("users", u_update, {"id": f"eq.{effective_user}"})
 
-        # Automatically rank and score opportunities for this newly ingested candidate
+        # 5. Automatically rank opportunities in Supabase for this candidate persona
         all_opps = list(CURATED_CANDIDATE_OPPORTUNITIES)
-        raw_res = read_from_db("opportunities").get("records", [])
-        all_opps.extend(raw_res)
+        db_opps = sb.select("opportunities")
+        all_opps.extend(db_opps)
 
+        candidate_obj = {
+            target_cand_id: {
+                "id": target_cand_id,
+                "name": cand_name,
+                "role": cand_role,
+                "skills": skills_list,
+                "projects": proj_list,
+                "experiences": exp_list,
+                "resume_markdown": raw_markdown
+            }
+        }
         ranked = rank_and_match_opportunities_semantically(
             all_opps,
-            CANDIDATES_REGISTRY,
-            target_candidate_id=effective_user
+            candidate_obj,
+            target_candidate_id=target_cand_id
         )
+
+        # Store ranked opportunities in Supabase
+        for r_item in ranked[:10]:
+            sb.insert("ranked_opportunities", {
+                "id": str(uuid.uuid4()),
+                "opportunity_id": str(r_item.get("id")),
+                "profile_id": target_cand_id,
+                "user_id": effective_user,
+                "title": r_item.get("title"),
+                "company": r_item.get("company"),
+                "relevance_score": int(r_item.get("relevance_score", 90)),
+                "match_reasons": r_item.get("match_reasons", []),
+                "rank": r_item.get("rank", 1),
+                "category": r_item.get("category", "job")
+            })
 
         return {
             "status": "success",
             "document_id": doc_id,
+            "candidate_id": target_cand_id,
+            "candidate_name": cand_name,
             "filename": file.filename,
             "doc_type": doc_type,
             "chunk_count": doc_res.get("chunk_count", 0),
@@ -764,13 +828,16 @@ async def upload_document(
                 pass
 
 
-
 # ── 2. Knowledge Search Endpoint ───────────────────────────────────────────
 @app.post("/api/knowledge/search")
-async def knowledge_search(req: KnowledgeSearchReq, user_id: str = Depends(get_current_user)):
-    """Executes RAG vector search over candidate documents."""
-    results = search_knowledge_base(req.query, user_id=user_id, top_k=req.top_k)
-    context = get_rag_context(req.query, user_id=user_id, top_k=req.top_k)
+async def knowledge_search(
+    req: KnowledgeSearchReq,
+    candidate_id: Optional[str] = None,
+    user_id: str = Depends(get_current_user)
+):
+    """Executes isolated RAG vector search in Supabase over candidate documents."""
+    results = search_knowledge_base(req.query, user_id=user_id, candidate_id=candidate_id, top_k=req.top_k)
+    context = get_rag_context(req.query, user_id=user_id, candidate_id=candidate_id, top_k=req.top_k)
     return {
         "status": "success",
         "query": req.query,
@@ -1171,133 +1238,316 @@ USER_PROFILE_STORE = {
 }
 
 
+def _get_all_unified_candidates(user_id: Optional[str] = None, candidate_id: Optional[str] = None) -> list:
+    """Seamlessly joins Supabase profiles, resumes, users, and documents into unified candidate objects."""
+    sb = get_supabase()
+    
+    filters = None
+    if user_id and user_id not in ("all", "candidate_all", "default-user"):
+        filters = {"user_id": f"eq.{user_id}"}
+    
+    profs = sb.select("profiles", filters=filters) if filters else sb.select("profiles")
+    resumes = sb.select("resumes")
+    users = sb.select("users")
+    documents = sb.select("documents")
+
+    resume_by_id = {str(r.get("id")): r for r in resumes}
+    resume_by_user = {}
+    for r in resumes:
+        if r.get("user_id"):
+            resume_by_user[str(r["user_id"])] = r
+
+    user_by_id = {str(u.get("id")): u for u in users}
+    doc_by_id = {str(d.get("id")): d for d in documents}
+    doc_by_user = {}
+    for d in documents:
+        if d.get("user_id"):
+            doc_by_user[str(d["user_id"])] = d
+
+    cluster_palette = ["#38bdf8", "#818cf8", "#34d399", "#f472b6", "#fbbf24", "#a78bfa"]
+    unified_list = []
+    seen_ids = set()
+
+    for idx, p in enumerate(profs):
+        pid = str(p.get("id"))
+        p_uid = str(p.get("user_id", pid))
+        seen_ids.add(pid)
+        seen_ids.add(p_uid)
+
+        res_rec = resume_by_id.get(str(p.get("resume_id"))) or resume_by_user.get(p_uid) or {}
+        u_rec = user_by_id.get(p_uid) or {}
+        doc_rec = doc_by_id.get(str(res_rec.get("document_id"))) or doc_by_user.get(p_uid) or {}
+
+        skills = res_rec.get("skills") or p.get("tech_stack") or []
+        preferred_roles = p.get("preferred_roles") or u_rec.get("target_roles") or ["Software Engineer"]
+        role = preferred_roles[0] if isinstance(preferred_roles, list) and preferred_roles else "Software Engineer"
+        name = res_rec.get("name") or u_rec.get("name") or "Candidate"
+        email = res_rec.get("email") or u_rec.get("email") or ""
+        phone = res_rec.get("phone") or ""
+        location = p.get("location_preference") or (u_rec.get("location_preferences") or ["Remote"])[0]
+        bio = p.get("career_goals") or p.get("experience_summary") or f"Profile for {name}"
+        raw_md = doc_rec.get("raw_markdown") or res_rec.get("raw_text") or f"# {name}\n**{role}**\n\n{bio}"
+
+        unified_list.append({
+            "id": pid,
+            "profile_id": pid,
+            "user_id": p_uid,
+            "resume_id": res_rec.get("id"),
+            "document_id": doc_rec.get("id"),
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "role": role,
+            "preferred_roles": preferred_roles,
+            "target_roles": u_rec.get("target_roles") or preferred_roles,
+            "location": location,
+            "location_preferences": u_rec.get("location_preferences") or [location],
+            "bio": bio,
+            "summary": bio,
+            "cluster_color": cluster_palette[idx % len(cluster_palette)],
+            "skills": skills,
+            "tech_stack": skills,
+            "top_skills": skills[:6] if skills else [],
+            "projects": res_rec.get("projects") or [],
+            "experiences": res_rec.get("experience") or [],
+            "education": res_rec.get("education") or [],
+            "certifications": res_rec.get("certifications") or [],
+            "achievements": res_rec.get("certifications") or [],
+            "linkedin_url": u_rec.get("linkedin_url") or "",
+            "github_url": u_rec.get("github_url") or "",
+            "leetcode_url": u_rec.get("leetcode_url") or "",
+            "portfolio_url": u_rec.get("portfolio_url") or "",
+            "raw_markdown": raw_md,
+            "resume_markdown": raw_md,
+            "doc_name": doc_rec.get("filename") or "Master Resume",
+            "is_primary": True,
+            "peer_gaps": []
+        })
+
+    # Intelligent Deduplication Layer: Unify candidates by normalized name & identity
+    deduped_map = {}
+    for idx, cand in enumerate(unified_list):
+        # Create canonical normalized identity key
+        clean_name_key = "".join([c for c in cand["name"].lower() if c.isalnum()]).strip()
+        if not clean_name_key or len(clean_name_key) < 3:
+            clean_name_key = cand["id"]
+
+        if clean_name_key not in deduped_map:
+            cand["cluster_color"] = cluster_palette[len(deduped_map) % len(cluster_palette)]
+            deduped_map[clean_name_key] = cand
+        else:
+            # Merge richer skills, projects, or documents into the canonical candidate
+            existing = deduped_map[clean_name_key]
+            for sk in cand.get("skills", []):
+                if sk not in existing["skills"]:
+                    existing["skills"].append(sk)
+            if len(cand.get("projects", [])) > len(existing.get("projects", [])):
+                existing["projects"] = cand["projects"]
+            if len(cand.get("experiences", [])) > len(existing.get("experiences", [])):
+                existing["experiences"] = cand["experiences"]
+            if not existing.get("raw_markdown") and cand.get("raw_markdown"):
+                existing["raw_markdown"] = cand["raw_markdown"]
+                existing["resume_markdown"] = cand["resume_markdown"]
+
+    final_candidates = list(deduped_map.values())
+
+    if candidate_id and candidate_id not in ("all", "candidate_all"):
+        filtered = [c for c in final_candidates if c["id"] == candidate_id or c["user_id"] == candidate_id]
+        if filtered:
+            return filtered
+
+    return final_candidates
+
+
+def _get_unified_candidate(p_or_u_id: str) -> Optional[dict]:
+    """Retrieves a single unified candidate dictionary."""
+    candidates = _get_all_unified_candidates(candidate_id=p_or_u_id)
+    return candidates[0] if candidates else None
+
+
 @app.get("/api/user/profile")
 def get_user_profile(candidate_id: Optional[str] = None, user_id: str = Depends(get_current_user)):
-    """Retrieves full candidate profile, career preferences, social URLs, and available base templates for authenticated user."""
+    """Retrieves candidate profile, career preferences, social URLs, and available templates directly from Supabase."""
     target_id = candidate_id or user_id or "default-user"
+    c = _get_unified_candidate(target_id)
+    if not c:
+        all_cands = _get_all_unified_candidates()
+        c = all_cands[0] if all_cands else {}
 
-    # 1. Check if user is in USER_PROFILE_STORE
-    if target_id in USER_PROFILE_STORE:
-        profile_data = dict(USER_PROFILE_STORE[target_id])
-    elif target_id in CANDIDATES_REGISTRY:
-        cand = CANDIDATES_REGISTRY[target_id]
-        profile_data = {
-            "user_id": target_id,
-            "candidate_id": target_id,
-            "name": cand.get("name", "User"),
-            "email": cand.get("email", ""),
-            "phone": cand.get("phone", ""),
-            "role": cand.get("role", "Software Engineer"),
-            "location": cand.get("location", "Remote"),
-            "bio": cand.get("summary", ""),
-            "linkedin_url": "",
-            "github_url": "",
-            "leetcode_url": "",
-            "portfolio_url": "",
-            "work_mode": "Remote",
-            "target_roles": ["Software Engineer", "Full Stack Developer"],
-            "location_preferences": ["Remote", "Noida", "Bangalore"],
-            "preferred_categories": ["job", "internship", "hackathon"],
-            "min_compensation": "$100,000 / ₹20 LPA",
-            "notice_period": "Immediate",
-            "active_template_id": target_id,
-            "resume_markdown": cand.get("resume_markdown", "")
-        }
-    else:
-        # Check DB or Auth Accounts
-        auth_acc = next((a for a in USER_AUTH_ACCOUNTS.values() if a.get("id") == target_id or a.get("email") == target_id), None)
-        prof_records = read_from_db("profiles", f"user_id = '{target_id}'").get("records", [])
-        db_prof = prof_records[0] if prof_records else None
+    sb = get_supabase()
+    user_owner_id = c.get("user_id", user_id)
+    cand_id = c.get("id", target_id)
 
-        user_name = (db_prof.get("name") if db_prof else None) or (auth_acc.get("name") if auth_acc else None) or "New Engineer"
-        user_email = (db_prof.get("email") if db_prof else None) or (auth_acc.get("email") if auth_acc else None) or ""
-        user_role = (db_prof.get("role") if db_prof else None) or (auth_acc.get("role") if auth_acc else None) or "Software Engineer"
+    # Fetch candidate-specific documents from Supabase
+    all_docs = sb.select("documents")
+    cand_doc_id = str(c.get("document_id") or "")
 
-        profile_data = {
-            "user_id": target_id,
-            "candidate_id": target_id,
-            "name": user_name,
-            "email": user_email,
-            "phone": "",
-            "role": user_role,
-            "location": "Remote",
-            "bio": f"Profile for {user_name}.",
-            "linkedin_url": "",
-            "github_url": "",
-            "leetcode_url": "",
-            "portfolio_url": "",
-            "work_mode": "Remote",
-            "target_roles": [user_role],
-            "location_preferences": ["Remote"],
-            "preferred_categories": ["job", "internship", "hackathon"],
-            "min_compensation": "Flexible",
-            "notice_period": "Immediate",
-            "active_template_id": target_id,
-            "resume_markdown": f"# {user_name}\n**{user_role}**\n{user_email}\n\n## Professional Summary\nUpload your master resume above or edit markdown directly to establish your baseline profile.\n"
-        }
+    # Match documents belonging specifically to this candidate
+    cand_docs = [
+        d for d in all_docs
+        if (isinstance(d.get("metadata"), dict) and d["metadata"].get("candidate_id") == cand_id)
+        or str(d.get("id")) == cand_doc_id
+    ]
 
-    # Fetch user's own uploaded documents as preserved templates
-    user_docs = [d for d in read_from_db("documents").get("records", []) if d.get("user_id") == target_id or d.get("id") == target_id]
-    
+    # If no candidate-tagged docs found, look up by user_owner_id but avoid cross-candidate contamination
+    if not cand_docs:
+        cand_docs = [d for d in all_docs if d.get("user_id") == cand_id or d.get("user_id") == user_owner_id]
+
     templates = []
-    for d in user_docs:
+    for d in cand_docs:
+        d_id = str(d.get("id"))
+        is_active = (d_id == cand_doc_id) or (len(cand_docs) == 1)
         templates.append({
-            "id": d.get("id"),
+            "id": d_id,
             "name": d.get("filename", "Uploaded Resume"),
-            "role": profile_data.get("role", "Software Engineer"),
+            "role": c.get("role", "Software Engineer"),
             "preview": (d.get("raw_markdown") or "")[:250] + "...",
-            "is_default": True
+            "raw_markdown": d.get("raw_markdown") or "",
+            "is_active": is_active,
+            "is_default": is_active
         })
 
-    if not templates and profile_data.get("resume_markdown"):
+    if not templates and c.get("resume_markdown"):
         templates.append({
-            "id": target_id,
-            "name": f"{profile_data.get('name', 'Master')} Resume Template",
-            "role": profile_data.get("role", "Software Engineer"),
-            "preview": profile_data["resume_markdown"][:250] + "...",
+            "id": cand_id,
+            "name": f"{c.get('name', 'Master')} Resume Template",
+            "role": c.get("role", "Software Engineer"),
+            "preview": c["resume_markdown"][:250] + "...",
+            "raw_markdown": c.get("resume_markdown", ""),
+            "is_active": True,
             "is_default": True
         })
 
-    profile_data["available_templates"] = templates
+    profile_data = {
+        "user_id": user_owner_id,
+        "candidate_id": cand_id,
+        "name": c.get("name", "Candidate"),
+        "email": c.get("email", ""),
+        "phone": c.get("phone", ""),
+        "role": c.get("role", "Software Engineer"),
+        "location": c.get("location", "Remote"),
+        "bio": c.get("bio", ""),
+        "linkedin_url": c.get("linkedin_url", ""),
+        "github_url": c.get("github_url", ""),
+        "leetcode_url": c.get("leetcode_url", ""),
+        "portfolio_url": c.get("portfolio_url", ""),
+        "work_mode": "Remote",
+        "target_roles": c.get("target_roles", ["Software Engineer"]),
+        "location_preferences": c.get("location_preferences", ["Remote"]),
+        "preferred_categories": ["job", "internship", "hackathon"],
+        "min_compensation": "Flexible",
+        "notice_period": "Immediate",
+        "active_template_id": cand_doc_id or cand_id,
+        "skills": c.get("skills", []),
+        "resume_markdown": c.get("resume_markdown", ""),
+        "available_templates": templates
+    }
 
     return {"status": "success", "profile": profile_data}
 
 
+class SetActiveTemplateReq(BaseModel):
+    document_id: str
+
+
+@app.post("/api/candidates/{candidate_id}/set-active-template")
+def set_candidate_active_template(candidate_id: str, req: SetActiveTemplateReq):
+    """Sets a specific uploaded document as the candidate's active Golden Base Template."""
+    sb = get_supabase()
+    doc_res = sb.select("documents", filters={"id": f"eq.{req.document_id}"})
+    if not doc_res:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    doc = doc_res[0]
+    raw_md = doc.get("raw_markdown") or ""
+
+    # Find the candidate profile
+    profs = sb.select("profiles", filters={"id": f"eq.{candidate_id}"})
+    if not profs:
+        profs = sb.select("profiles", filters={"user_id": f"eq.{candidate_id}"})
+
+    if profs:
+        prof = profs[0]
+        sb.update("profiles", {
+            "experience_summary": raw_md[:300] if raw_md else ""
+        }, {"id": f"eq.{prof['id']}"})
+
+        r_id = prof.get("resume_id")
+        if r_id:
+            sb.update("resumes", {
+                "document_id": req.document_id,
+                "raw_text": raw_md
+            }, {"id": f"eq.{r_id}"})
+
+    # Update metadata candidate_id to link
+    meta = doc.get("metadata") or {}
+    if isinstance(meta, dict):
+        meta["candidate_id"] = candidate_id
+        meta["is_golden_template"] = True
+        sb.update("documents", {"metadata": meta}, {"id": f"eq.{req.document_id}"})
+
+    return {
+        "status": "success",
+        "candidate_id": candidate_id,
+        "document_id": req.document_id,
+        "resume_markdown": raw_md,
+        "message": f"Successfully activated template '{doc.get('filename')}' as Golden Base Resume."
+    }
+
+
 @app.post("/api/user/profile")
 def update_user_profile(req: UserProfileReq, user_id: str = Depends(get_current_user)):
-    """Saves user profile preferences, social URLs, and active template to Supabase & in-memory cache."""
-    cand_key = req.candidate_id or req.active_template_id or "candidate_mohit"
-    
-    current_entry = USER_PROFILE_STORE.get(cand_key, USER_PROFILE_STORE["candidate_mohit"]).copy()
-    update_data = req.dict(exclude_unset=True)
-    current_entry.update({k: v for k, v in update_data.items() if v is not None})
-    USER_PROFILE_STORE[cand_key] = current_entry
+    """Saves candidate profile preferences, social URLs, and active template to Supabase."""
+    sb = get_supabase()
+    target_cand_id = req.candidate_id or req.active_template_id or user_id
 
-    # Sync into CANDIDATES_REGISTRY
-    if cand_key in CANDIDATES_REGISTRY:
-        if req.name: CANDIDATES_REGISTRY[cand_key]["name"] = req.name
-        if req.role: CANDIDATES_REGISTRY[cand_key]["role"] = req.role
-        if req.location: CANDIDATES_REGISTRY[cand_key]["location"] = req.location
-        if req.custom_resume_markdown: CANDIDATES_REGISTRY[cand_key]["resume_markdown"] = req.custom_resume_markdown
+    # 1. Update Supabase profiles table
+    prof_update = {}
+    if req.location: prof_update["location_preference"] = req.location
+    if req.bio: prof_update["career_goals"] = req.bio
+    if req.role: prof_update["preferred_roles"] = [req.role]
+    if req.target_roles: prof_update["preferred_roles"] = req.target_roles
 
-    # Persist to Supabase users table
-    try:
-        supabase = get_supabase()
-        if supabase:
-            supa_payload = {
-                "name": current_entry.get("name"),
-                "email": current_entry.get("email"),
-                "linkedin_url": current_entry.get("linkedin_url"),
-                "github_url": current_entry.get("github_url"),
-                "portfolio_url": current_entry.get("portfolio_url"),
-                "target_roles": current_entry.get("target_roles"),
-                "location_preferences": current_entry.get("location_preferences")
-            }
-            supabase.table("users").update(supa_payload).eq("id", current_entry.get("user_id")).execute()
-    except Exception as e:
-        print(f"Supabase user sync error (non-fatal): {e}")
+    if target_cand_id:
+        profs = sb.select("profiles", filters={"id": f"eq.{target_cand_id}"})
+        if not profs:
+            profs = sb.select("profiles", filters={"user_id": f"eq.{target_cand_id}"})
+        if profs:
+            p_id = profs[0]["id"]
+            if prof_update:
+                sb.update("profiles", prof_update, {"id": f"eq.{p_id}"})
+            # Also update resumes record
+            r_id = profs[0].get("resume_id")
+            if r_id:
+                res_update = {}
+                if req.name: res_update["name"] = req.name
+                if req.phone: res_update["phone"] = req.phone
+                if req.custom_resume_markdown: res_update["raw_text"] = req.custom_resume_markdown
+                if res_update:
+                    sb.update("resumes", res_update, {"id": f"eq.{r_id}"})
 
-    return {"status": "success", "message": "Profile and career preferences updated successfully", "profile": current_entry}
+    # 2. Update Supabase users table
+    user_update = {}
+    if req.name: user_update["name"] = req.name
+    if req.linkedin_url is not None: user_update["linkedin_url"] = req.linkedin_url
+    if req.github_url is not None: user_update["github_url"] = req.github_url
+    if req.portfolio_url is not None: user_update["portfolio_url"] = req.portfolio_url
+    if req.target_roles: user_update["target_roles"] = req.target_roles
+    if req.location_preferences: user_update["location_preferences"] = req.location_preferences
+
+    eff_u = user_id if (user_id and user_id != "default-user") else target_cand_id
+    if user_update and eff_u:
+        u_exists = sb.select("users", filters={"id": f"eq.{eff_u}"})
+        if u_exists:
+            sb.update("users", user_update, {"id": f"eq.{eff_u}"})
+
+    # 3. Update active template document if markdown passed
+    if req.custom_resume_markdown and target_cand_id:
+        docs = sb.select("documents", filters={"user_id": f"eq.{eff_u}"})
+        if docs:
+            sb.update("documents", {"raw_markdown": req.custom_resume_markdown}, {"id": f"eq.{docs[0]['id']}"})
+
+    return {"status": "success", "message": "Profile and career preferences updated in Supabase successfully."}
 
 
 @app.post("/api/user/upload-template")
@@ -1308,9 +1558,12 @@ async def upload_user_template(
     auth_user: str = Depends(get_current_user)
 ):
     """Uploads a candidate's original resume (PDF/DOCX/image), parses via Docling OCR,
-    extracts social links, skills, projects, and contact info, and saves as the active Golden Template.
+    extracts social links, skills, projects, and contact info, and saves as the active Golden Template in Supabase.
     """
-    effective_user = candidate_id or user_id or auth_user or "default-user"
+    effective_user = user_id or auth_user or "default-user"
+    target_cand_id = candidate_id or str(uuid.uuid4())
+    sb = get_supabase()
+
     temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp_uploads")
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, f"template_{uuid.uuid4()}_{file.filename}")
@@ -1323,25 +1576,9 @@ async def upload_user_template(
         # Parse via Docling OCR
         doc_res = convert_document(temp_path, "resume")
         raw_markdown = doc_res.get("markdown") or f"# Uploaded Resume\n\nFile: {file.filename}"
-        
+
         # Extract social links & contact fields
         extracted = extract_social_links_from_text(raw_markdown)
-
-        # Store in Supabase / SQLite documents
-        doc_id = store_document(
-            user_id=effective_user,
-            filename=file.filename,
-            doc_type="resume",
-            raw_markdown=raw_markdown,
-            metadata={"chunk_count": doc_res.get("chunk_count", 0), "is_golden_template": True}
-        )
-
-        if doc_res.get("chunks"):
-            try:
-                embedded = embed_chunks(doc_res["chunks"])
-                store_embeddings(doc_id, effective_user, embedded)
-            except Exception as e:
-                print(f"[Embedding Notice] {e}")
 
         # Extract structured entities
         from my_agent.tools.resume_tools import extract_resume
@@ -1352,77 +1589,86 @@ async def upload_user_template(
         exp_list = extracted_resume.get("experience", [])
         edu_list = extracted_resume.get("education", [])
         certs_list = extracted_resume.get("certifications", [])
-        cand_name = extracted_resume.get("name") or extracted.get("name") or "Candidate"
+        cand_name = extracted_resume.get("name") or extracted.get("name") or file.filename.split(".")[0].replace("_", " ").title()
         cand_email = extracted_resume.get("email") or extracted.get("email") or ""
         cand_phone = extracted_resume.get("phone") or extracted.get("phone") or ""
+        cand_role = "Software Engineer" if not exp_list else (exp_list[0].get("role") if isinstance(exp_list[0], dict) else "Software Engineer")
 
-        # Update profiles table
-        prof_payload = {
-            "user_id": effective_user,
-            "name": cand_name,
-            "role": "Software Engineer" if not exp_list else (exp_list[0].get("role") if isinstance(exp_list[0], dict) else "Software Engineer"),
-            "email": cand_email,
-            "phone": cand_phone,
-            "location": "Remote",
-            "skills": json.dumps(skills_list) if isinstance(skills_list, list) else str(skills_list),
-            "projects": json.dumps(proj_list) if isinstance(proj_list, list) else str(proj_list),
-            "experiences": json.dumps(exp_list) if isinstance(exp_list, list) else str(exp_list),
-            "education": json.dumps(edu_list) if isinstance(edu_list, list) else str(edu_list),
-            "raw_markdown": raw_markdown
-        }
-        store_to_db("profiles", prof_payload)
-
-        # Update candidate registry and profile store
-        CANDIDATES_REGISTRY[effective_user] = {
-            "id": effective_user,
-            "name": cand_name,
-            "role": prof_payload["role"],
-            "cluster_color": "#38bdf8",
-            "email": cand_email,
-            "phone": cand_phone,
-            "location": "Remote",
-            "summary": f"Candidate profile for {cand_name}.",
-            "skills": skills_list or ["Software Engineering", "AI/ML"],
-            "top_skills": skills_list[:6] if skills_list else ["Software Engineering", "AI/ML"],
-            "projects": proj_list,
-            "experiences": exp_list,
-            "achievements": certs_list,
-            "education": edu_list,
-            "certifications": certs_list,
-            "doc_name": file.filename,
-            "peer_gaps": [],
-            "resume_markdown": raw_markdown
-        }
-
-        # Automatically rank opportunities
-        all_opps = list(CURATED_CANDIDATE_OPPORTUNITIES)
-        raw_res = read_from_db("opportunities").get("records", [])
-        all_opps.extend(raw_res)
-
-        ranked = rank_and_match_opportunities_semantically(
-            all_opps,
-            CANDIDATES_REGISTRY,
-            target_candidate_id=effective_user
+        # 1. Store in Supabase documents
+        doc_id = store_document(
+            user_id=effective_user,
+            filename=file.filename,
+            doc_type="resume",
+            raw_markdown=raw_markdown,
+            metadata={"chunk_count": doc_res.get("chunk_count", 0), "is_golden_template": True, "candidate_id": target_cand_id},
+            candidate_id=target_cand_id
         )
+
+        # 2. Store structured resume
+        resume_id = str(uuid.uuid4())
+        sb.insert("resumes", {
+            "id": resume_id,
+            "user_id": effective_user,
+            "document_id": doc_id,
+            "name": cand_name,
+            "email": cand_email,
+            "phone": cand_phone,
+            "education": edu_list,
+            "experience": exp_list,
+            "skills": skills_list,
+            "projects": proj_list,
+            "certifications": certs_list,
+            "raw_text": raw_markdown
+        })
+
+        # 3. Store/update profile
+        existing_prof = sb.select("profiles", filters={"id": f"eq.{target_cand_id}"})
+        if not existing_prof:
+            existing_prof = sb.select("profiles", filters={"user_id": f"eq.{effective_user}"})
+
+        prof_payload = {
+            "id": target_cand_id,
+            "user_id": effective_user,
+            "resume_id": resume_id,
+            "tech_stack": skills_list,
+            "preferred_roles": [cand_role] if cand_role else ["Software Engineer"],
+            "career_goals": f"AI & Software Engineering portfolio for {cand_name}.",
+            "location_preference": "Remote",
+            "experience_summary": raw_markdown[:300] if raw_markdown else "",
+            "search_keywords": [f"{s} jobs" for s in skills_list[:4]]
+        }
+        if existing_prof:
+            sb.update("profiles", prof_payload, {"id": f"eq.{existing_prof[0]['id']}"})
+        else:
+            sb.insert("profiles", prof_payload)
+
+        # 4. Store embeddings in Supabase
+        if doc_res.get("chunks"):
+            try:
+                embedded = embed_chunks(doc_res["chunks"])
+                store_embeddings(doc_id, effective_user, embedded, candidate_id=target_cand_id)
+            except Exception as e:
+                print(f"[Embedding Notice] {e}")
 
         return {
             "status": "success",
-            "doc_id": doc_id,
+            "document_id": doc_id,
+            "candidate_id": target_cand_id,
             "filename": file.filename,
-            "extracted": extracted,
             "skills_extracted": len(skills_list),
             "projects_extracted": len(proj_list),
-            "opportunities_ranked": len(ranked),
-            "resume_markdown": raw_markdown,
-            "message": f"Successfully parsed {file.filename} via Docling OCR, extracted skills & contact info, and ranked opportunities!"
+            "message": f"Template for '{cand_name}' parsed and saved to Supabase successfully."
         }
     except Exception as e:
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Upload template processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Template upload error: {str(e)}")
     finally:
         if os.path.exists(temp_path):
-            os.remove(temp_path)
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
 
 
 @app.post("/api/user/extract-links")
@@ -1460,19 +1706,71 @@ def get_profile_opportunities(profile_id: str):
 
 
 @app.get("/api/documents")
-def get_all_documents(user_id: Optional[str] = None):
-    if user_id:
-        res = read_from_db("documents", f"user_id = '{user_id}'")
+def get_all_documents(
+    user_id: Optional[str] = None,
+    candidate_id: Optional[str] = None,
+    auth_user: str = Depends(get_current_user)
+):
+    if not isinstance(auth_user, str):
+        auth_user = "default-user"
+    effective_user = user_id if (user_id and user_id not in ("all", "candidate_all")) else auth_user
+    sb = get_supabase()
+
+    all_docs = sb.select("documents")
+    target_id = candidate_id or effective_user
+    if target_id and target_id not in ("default-user", "all", "candidate_all"):
+        docs = [d for d in all_docs if d.get("user_id") == target_id or (isinstance(d.get("metadata"), dict) and d["metadata"].get("candidate_id") == target_id)]
+        if not docs:
+            c = _get_unified_candidate(target_id)
+            if c:
+                c_uid = c.get("user_id")
+                docs = [d for d in all_docs if d.get("user_id") == c_uid or (isinstance(d.get("metadata"), dict) and d["metadata"].get("candidate_id") == c.get("id"))]
     else:
-        res = read_from_db("documents")
-    return {"status": "success", "documents": res.get("records", [])}
+        docs = all_docs
+
+    return {"status": "success", "documents": docs}
 
 
 @app.delete("/api/documents/{doc_id}")
 def delete_document_endpoint(doc_id: str):
-    """Deletes an uploaded document from Supabase and SQLite records."""
-    res = delete_from_db("documents", doc_id)
-    return {"status": "success", "message": f"Document {doc_id} deleted successfully", "id": doc_id}
+    """Deletes an uploaded document and its vector embeddings from Supabase."""
+    sb = get_supabase()
+    sb.delete("embeddings", filters={"document_id": f"eq.{doc_id}"})
+    sb.delete("documents", filters={"id": f"eq.{doc_id}"})
+    return {"status": "success", "message": f"Document {doc_id} and its vector embeddings deleted successfully from Supabase.", "id": doc_id}
+
+
+class ReassignDocReq(BaseModel):
+    candidate_id: str
+
+
+@app.post("/api/documents/{doc_id}/reassign")
+def reassign_document_endpoint(doc_id: str, req: ReassignDocReq):
+    """Reassigns an uploaded document to a specific candidate persona."""
+    sb = get_supabase()
+    docs = sb.select("documents", filters={"id": f"eq.{doc_id}"})
+    if not docs:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    doc = docs[0]
+    meta = doc.get("metadata") or {}
+    if not isinstance(meta, dict):
+        meta = {}
+    meta["candidate_id"] = req.candidate_id
+
+    # Find candidate profile to update user_id if needed
+    cand = _get_unified_candidate(req.candidate_id)
+    target_user_id = cand.get("user_id") if cand else doc.get("user_id")
+
+    sb.update("documents", {"metadata": meta, "user_id": target_user_id}, {"id": f"eq.{doc_id}"})
+    sb.update("embeddings", {"user_id": target_user_id}, {"document_id": f"eq.{doc_id}"})
+
+    return {
+        "status": "success",
+        "doc_id": doc_id,
+        "candidate_id": req.candidate_id,
+        "message": f"Document successfully reassigned to candidate persona '{cand.get('name') if cand else req.candidate_id}'."
+    }
 
 
 @app.get("/api/stats")
@@ -1847,43 +2145,13 @@ def get_all_opportunities(candidate_id: Optional[str] = None):
             all_opps.append(d)
             seen_keys.add(key)
 
-    # 3. True Mathematical Semantic Vector Retrieval & Ranking
-    registry = dict(CANDIDATES_REGISTRY)
-    if candidate_id and candidate_id not in ("all", "candidate_all"):
-        if candidate_id not in registry:
-            prof_res = read_from_db("profiles", f"user_id = '{candidate_id}'")
-            prof = prof_res.get("records", [])[0] if prof_res.get("records") else None
-            user_docs = read_from_db("documents", f"user_id = '{candidate_id}'").get("records", [])
-
-            user_skills = prof.get("skills", []) if prof else []
-            if isinstance(user_skills, str):
-                try: user_skills = json.loads(user_skills)
-                except Exception: user_skills = [s.strip() for s in user_skills.split(",") if s.strip()]
-
-            user_name = prof.get("name") if prof else "Candidate"
-            user_role = prof.get("role") if prof else "Software Engineer"
-            user_raw_md = user_docs[0].get("raw_markdown", "") if user_docs else ""
-
-            registry[candidate_id] = {
-                "id": candidate_id,
-                "name": user_name,
-                "role": user_role,
-                "cluster_color": "#38bdf8",
-                "email": prof.get("email", "") if prof else "",
-                "phone": prof.get("phone", "") if prof else "",
-                "location": "Remote",
-                "summary": f"Candidate profile for {user_name}.",
-                "skills": user_skills or ["Software Engineering", "Problem Solving", "Full Stack Development"],
-                "top_skills": (user_skills[:6] if user_skills else ["Software Engineering", "Problem Solving", "Full Stack Development"]),
-                "projects": json.loads(prof.get("projects", "[]")) if (prof and isinstance(prof.get("projects"), str)) else (prof.get("projects") if prof else []),
-                "experiences": json.loads(prof.get("experiences", "[]")) if (prof and isinstance(prof.get("experiences"), str)) else (prof.get("experiences") if prof else []),
-                "achievements": [],
-                "education": json.loads(prof.get("education", "[]")) if (prof and isinstance(prof.get("education"), str)) else (prof.get("education") if prof else []),
-                "certifications": [],
-                "doc_name": user_docs[0].get("filename", "User Resume") if user_docs else "Master Resume",
-                "peer_gaps": [],
-                "resume_markdown": user_raw_md
-            }
+    # 3. Dynamic Candidate Registry from Supabase Unified Candidates
+    all_cands = _get_all_unified_candidates()
+    registry = {}
+    for c in all_cands:
+        registry[c["id"]] = c
+        if c.get("user_id"):
+            registry[c["user_id"]] = c
 
     matched_results = rank_and_match_opportunities_semantically(
         all_opps,
@@ -2784,127 +3052,107 @@ Results-driven Python Developer with hands-on experience building scalable REST 
 }
 
 
+class CreateCandidateReq(BaseModel):
+    name: str
+    role: Optional[str] = "Software Engineer"
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = "Remote"
+    bio: Optional[str] = None
+    skills: Optional[list] = None
+    resume_markdown: Optional[str] = None
+
+
 @app.get("/api/candidates")
-def get_all_candidates(user_id: Optional[str] = None):
-    """Returns candidate profiles isolated to the authenticated user."""
-    if user_id and user_id not in ("all", "candidate_all"):
-        if user_id in CANDIDATES_REGISTRY:
-            c = CANDIDATES_REGISTRY[user_id]
-            return {"status": "success", "candidates": [{
-                "id": c["id"],
-                "name": c["name"],
-                "role": c["role"],
-                "cluster_color": c["cluster_color"],
-                "email": c["email"],
-                "phone": c["phone"],
-                "location": c["location"],
-                "summary": c["summary"],
-                "skills_count": len(c["skills"]),
-                "top_skills": c["top_skills"],
-                "projects_count": len(c["projects"]),
-                "achievements_count": len(c.get("achievements", [])),
-                "doc_name": c["doc_name"],
-                "peer_gaps": c["peer_gaps"]
-            }]}
-        else:
-            # Dynamic user candidate
-            prof_res = read_from_db("profiles", f"user_id = '{user_id}'").get("records", [])
-            prof = prof_res[0] if prof_res else None
-            auth_acc = next((a for a in USER_AUTH_ACCOUNTS.values() if a.get("id") == user_id or a.get("email") == user_id), None)
-            
-            uname = (prof.get("name") if prof else None) or (auth_acc.get("name") if auth_acc else None) or "User"
-            uemail = (prof.get("email") if prof else None) or (auth_acc.get("email") if auth_acc else None) or ""
-            urole = (prof.get("role") if prof else None) or (auth_acc.get("role") if auth_acc else None) or "Software Engineer"
-            uskills = prof.get("skills", []) if prof else []
-            if isinstance(uskills, str):
-                try: uskills = json.loads(uskills)
-                except Exception: uskills = [s.strip() for s in uskills.split(",") if s.strip()]
+def get_all_candidates(
+    user_id: Optional[str] = None,
+    auth_user: str = Depends(get_current_user)
+):
+    if not isinstance(auth_user, str):
+        auth_user = "default-user"
+    effective_user = user_id if (user_id and user_id not in ("all", "candidate_all")) else auth_user
+    candidates = _get_all_unified_candidates(user_id=effective_user)
+    return {"status": "success", "candidates": candidates}
 
-            user_docs = [d for d in read_from_db("documents").get("records", []) if d.get("user_id") == user_id or d.get("id") == user_id]
-            doc_name = user_docs[0].get("filename", "User Resume") if user_docs else "Master Resume"
 
-            return {"status": "success", "candidates": [{
-                "id": user_id,
-                "name": uname,
-                "role": urole,
-                "cluster_color": "#38bdf8",
-                "email": uemail,
-                "phone": "",
-                "location": "Remote",
-                "summary": f"Career profile for {uname}.",
-                "skills_count": len(uskills),
-                "top_skills": uskills[:6],
-                "projects_count": 0,
-                "achievements_count": 0,
-                "doc_name": doc_name,
-                "peer_gaps": []
-            }]}
+@app.post("/api/candidates")
+def create_candidate_persona(
+    req: CreateCandidateReq,
+    auth_user: str = Depends(get_current_user)
+):
+    """Creates a new candidate persona under the authenticated user in Supabase."""
+    sb = get_supabase()
+    cand_id = str(uuid.uuid4())
 
-    c_list = []
-    for cid, c in CANDIDATES_REGISTRY.items():
-        c_list.append({
-            "id": c["id"],
-            "name": c["name"],
-            "role": c["role"],
-            "cluster_color": c["cluster_color"],
-            "email": c["email"],
-            "phone": c["phone"],
-            "location": c["location"],
-            "summary": c["summary"],
-            "skills_count": len(c["skills"]),
-            "top_skills": c["top_skills"],
-            "projects_count": len(c["projects"]),
-            "achievements_count": len(c.get("achievements", [])),
-            "doc_name": c["doc_name"],
-            "peer_gaps": c["peer_gaps"]
-        })
-    return {"status": "success", "candidates": c_list}
+    clean_name = req.name.strip() or "Candidate Persona"
+    clean_role = req.role.strip() if req.role else "Software Engineer"
+    clean_email = req.email.strip() if req.email else f"{cand_id[:8]}@careeros.ai"
+    clean_skills = req.skills or ["Software Engineering", "Full Stack Development"]
+
+    base_md = req.resume_markdown or f"# {clean_name}\n**{clean_role}**\n{clean_email} | {req.location or 'Remote'}\n\n## Professional Summary\n{req.bio or f'Career profile for {clean_name}.'}\n\n## Technical Skills\n- **Skills**: {', '.join(clean_skills)}\n\n## Experience\n\n## Projects\n\n## Education\n"
+
+    # Store master resume stencil
+    doc_id = store_document(
+        user_id=auth_user,
+        filename=f"{clean_name.replace(' ', '_')}_Master_Template.md",
+        doc_type="resume",
+        raw_markdown=base_md,
+        metadata={"candidate": clean_name, "candidate_id": cand_id},
+        candidate_id=cand_id
+    )
+
+    resume_id = str(uuid.uuid4())
+    sb.insert("resumes", {
+        "id": resume_id,
+        "user_id": auth_user,
+        "document_id": doc_id,
+        "name": clean_name,
+        "email": clean_email,
+        "phone": req.phone or "",
+        "education": [],
+        "experience": [],
+        "skills": clean_skills,
+        "projects": [],
+        "certifications": [],
+        "raw_text": base_md
+    })
+
+    new_profile = {
+        "id": cand_id,
+        "user_id": auth_user,
+        "resume_id": resume_id,
+        "tech_stack": clean_skills,
+        "preferred_roles": [clean_role],
+        "career_goals": req.bio or f"Profile for {clean_name}",
+        "location_preference": req.location or "Remote",
+        "experience_summary": base_md[:300],
+        "search_keywords": [f"{s} jobs" for s in clean_skills[:4]]
+    }
+    sb.insert("profiles", new_profile)
+
+    unified = _get_unified_candidate(cand_id)
+
+    return {
+        "status": "success",
+        "candidate": unified,
+        "document_id": doc_id,
+        "message": f"Candidate persona '{clean_name}' created successfully!"
+    }
 
 
 @app.get("/api/candidates/{candidate_id}")
-def get_candidate_details(candidate_id: str):
-    """Returns detailed candidate profile including base resume markdown, achievements, education, and matched opportunities."""
-    if candidate_id in CANDIDATES_REGISTRY:
-        cand = CANDIDATES_REGISTRY[candidate_id]
-    else:
-        prof_res = read_from_db("profiles", f"user_id = '{candidate_id}'").get("records", [])
-        prof = prof_res[0] if prof_res else None
-        auth_acc = next((a for a in USER_AUTH_ACCOUNTS.values() if a.get("id") == candidate_id or a.get("email") == candidate_id), None)
-        user_docs = [d for d in read_from_db("documents").get("records", []) if d.get("user_id") == candidate_id or d.get("id") == candidate_id]
-
-        uname = (prof.get("name") if prof else None) or (auth_acc.get("name") if auth_acc else None) or "User"
-        uemail = (prof.get("email") if prof else None) or (auth_acc.get("email") if auth_acc else None) or ""
-        urole = (prof.get("role") if prof else None) or (auth_acc.get("role") if auth_acc else None) or "Software Engineer"
-        uskills = prof.get("skills", []) if prof else []
-        if isinstance(uskills, str):
-            try: uskills = json.loads(uskills)
-            except Exception: uskills = [s.strip() for s in uskills.split(",") if s.strip()]
-
-        raw_md = user_docs[0].get("raw_markdown") if user_docs else f"# {uname}\n**{urole}**\n{uemail}\n\n## Professional Summary\nUpload your resume to get started.\n"
-
-        cand = {
-            "id": candidate_id,
-            "name": uname,
-            "role": urole,
-            "cluster_color": "#38bdf8",
-            "email": uemail,
-            "phone": "",
-            "location": "Remote",
-            "summary": f"Career profile for {uname}.",
-            "skills": uskills,
-            "top_skills": uskills[:6],
-            "projects": [],
-            "experiences": [],
-            "achievements": [],
-            "education": [],
-            "certifications": [],
-            "doc_name": user_docs[0].get("filename", "User Resume") if user_docs else "Master Resume",
-            "peer_gaps": [],
-            "resume_markdown": raw_md
-        }
+def get_candidate_details(
+    candidate_id: str,
+    auth_user: str = Depends(get_current_user)
+):
+    """Returns detailed candidate profile including base resume markdown, achievements, education, and matched opportunities from Supabase."""
+    cand = _get_unified_candidate(candidate_id)
+    if not cand:
+        all_cands = _get_all_unified_candidates()
+        cand = all_cands[0] if all_cands else {}
 
     opps = get_all_opportunities(candidate_id=candidate_id).get("opportunities", [])
-    
+
     return {
         "status": "success",
         "candidate": cand,
@@ -2912,21 +3160,52 @@ def get_candidate_details(candidate_id: str):
     }
 
 
+@app.delete("/api/candidates/{candidate_id}")
+def delete_candidate_persona(
+    candidate_id: str,
+    auth_user: str = Depends(get_current_user)
+):
+    """Permanently deletes a candidate persona and its associated documents, embeddings, and opportunities from Supabase."""
+    sb = get_supabase()
+    sb.delete("profiles", filters={"id": f"eq.{candidate_id}"})
+    sb.delete("resumes", filters={"user_id": f"eq.{candidate_id}"})
+    sb.delete("documents", filters={"user_id": f"eq.{candidate_id}"})
+    sb.delete("embeddings", filters={"user_id": f"eq.{candidate_id}"})
+    sb.delete("ranked_opportunities", filters={"profile_id": f"eq.{candidate_id}"})
+    sb.delete("tailored_resumes", filters={"profile_id": f"eq.{candidate_id}"})
+    return {"status": "success", "message": "Candidate persona and associated records deleted successfully from Supabase."}
+
+
 class SaveTemplateReq(BaseModel):
     resume_markdown: str
 
 @app.post("/api/candidates/{candidate_id}/save-template")
 def save_candidate_template(candidate_id: str, req: SaveTemplateReq):
-    """Saves the candidate's master resume markdown and synchronizes to local resume.md."""
-    if candidate_id not in CANDIDATES_REGISTRY:
-        candidate_id = "candidate_mohit"
-    
+    """Saves the candidate's master resume markdown into Supabase resumes and documents."""
     from my_agent.tools.tailor_tools import normalize_to_sections
     clean_md = normalize_to_sections(req.resume_markdown)
+    sb = get_supabase()
 
-    CANDIDATES_REGISTRY[candidate_id]["resume_markdown"] = clean_md
-    
-    # Synchronize to root resume.md
+    # Find matching candidate profile
+    profs = sb.select("profiles", filters={"id": f"eq.{candidate_id}"})
+    if not profs:
+        profs = sb.select("profiles", filters={"user_id": f"eq.{candidate_id}"})
+
+    cand_name = "Candidate"
+    if profs:
+        r_id = profs[0].get("resume_id")
+        p_uid = profs[0].get("user_id")
+        if r_id:
+            res_recs = sb.select("resumes", filters={"id": f"eq.{r_id}"})
+            if res_recs:
+                cand_name = res_recs[0].get("name", "Candidate")
+            sb.update("resumes", {"raw_text": clean_md}, {"id": f"eq.{r_id}"})
+        if p_uid:
+            docs = sb.select("documents", filters={"user_id": f"eq.{p_uid}"})
+            if docs:
+                sb.update("documents", {"raw_markdown": clean_md}, {"id": f"eq.{docs[0]['id']}"})
+
+    # Synchronize to root resume.md for fallback
     try:
         resume_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resume.md")
         with open(resume_file, "w", encoding="utf-8") as f:
@@ -2938,7 +3217,7 @@ def save_candidate_template(candidate_id: str, req: SaveTemplateReq):
         "status": "success",
         "candidate_id": candidate_id,
         "resume_markdown": clean_md,
-        "message": f"Master template for {CANDIDATES_REGISTRY[candidate_id]['name']} saved and locked successfully!"
+        "message": f"Master template for {cand_name} saved and locked in Supabase!"
     }
 
 
@@ -2994,71 +3273,27 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 "similarity_score": 91.0
             }
 
-        # Filter candidates strictly by authenticated user / candidate
-        target_id = candidate_id or user_id
-        if target_id and target_id not in ("all", "candidate_all"):
-            focused_id = target_id
-            if focused_id in CANDIDATES_REGISTRY:
-                active_candidates = {focused_id: CANDIDATES_REGISTRY[focused_id]}
-            else:
-                # Dynamic isolated user profile from DB
-                prof_res = read_from_db("profiles", f"user_id = '{focused_id}'")
-                prof = prof_res.get("records", [])[0] if prof_res.get("records") else None
-                user_docs = read_from_db("documents", f"user_id = '{focused_id}'").get("records", [])
+        # 1. Fetch Unified Candidates from Supabase
+        candidates_list = _get_all_unified_candidates(user_id=user_id, candidate_id=candidate_id)
+        if not candidates_list:
+            candidates_list = _get_all_unified_candidates()
 
-                user_name = prof.get("name") if prof else (focused_id.replace("google_", "").replace("user_", "").replace("_", " ").title())
-                user_role = prof.get("role") if prof else "Software Engineer"
-                user_email = prof.get("email") if prof else f"{focused_id}@careeros.ai"
-                
-                user_skills = prof.get("skills", []) if prof else []
-                if isinstance(user_skills, str):
-                    try: user_skills = json.loads(user_skills)
-                    except Exception: user_skills = [s.strip() for s in user_skills.split(",") if s.strip()]
-
-                user_projs = json.loads(prof.get("projects", "[]")) if (prof and isinstance(prof.get("projects"), str)) else (prof.get("projects", []) if prof else [])
-                user_exps = json.loads(prof.get("experiences", "[]")) if (prof and isinstance(prof.get("experiences"), str)) else (prof.get("experiences", []) if prof else [])
-                user_edus = json.loads(prof.get("education", "[]")) if (prof and isinstance(prof.get("education"), str)) else (prof.get("education", []) if prof else [])
-                user_ach = json.loads(prof.get("achievements", "[]")) if (prof and isinstance(prof.get("achievements"), str)) else (prof.get("achievements", []) if prof else [])
-
-                # Dynamic fallback extraction from user documents if fields were empty
-                if user_docs and (not user_projs or not user_skills):
-                    raw_md_text = user_docs[0].get("raw_markdown", "")
-                    try:
-                        from my_agent.tools.resume_tools import extract_resume
-                        parsed = extract_resume(raw_md_text)
-                        if not user_skills: user_skills = parsed.get("skills", [])
-                        if not user_projs: user_projs = parsed.get("projects", [])
-                        if not user_exps: user_exps = parsed.get("experience", [])
-                        if not user_edus: user_edus = parsed.get("education", [])
-                        if parsed.get("name") and user_name in ("Candidate", "User"): user_name = parsed["name"]
-                    except Exception as e:
-                        print(f"[KG Parse Notice] {e}")
-
-                active_candidates = {
-                    focused_id: {
-                        "id": focused_id,
-                        "name": user_name,
-                        "role": user_role,
-                        "cluster_color": "#38bdf8",
-                        "email": user_email,
-                        "phone": prof.get("phone", "") if prof else "",
-                        "location": "Remote",
-                        "summary": f"Personal career intelligence graph for {user_name}.",
-                        "skills": user_skills or ["Software Engineering", "AI Systems", "Full Stack Development"],
-                        "top_skills": (user_skills[:6] if user_skills else ["Software Engineering", "AI Systems", "Full Stack Development"]),
-                        "projects": user_projs,
-                        "experiences": user_exps,
-                        "achievements": user_ach,
-                        "education": user_edus,
-                        "certifications": [],
-                        "doc_name": user_docs[0].get("filename", "User Resume") if user_docs else "Master Resume",
-                        "peer_gaps": [],
-                        "resume_markdown": user_docs[0].get("raw_markdown", "") if user_docs else ""
-                    }
-                }
-        else:
+        active_candidates = {str(c["id"]): c for c in candidates_list}
+        
+        # Resolve focused_id to matching candidate IDs
+        focused_id = candidate_id or user_id or "all"
+        if focused_id in ("default-user", "candidate_all"):
             focused_id = "all"
-            active_candidates = CANDIDATES_REGISTRY
+            
+        focused_candidate_ids = set()
+        if focused_id == "all":
+            focused_candidate_ids = set(active_candidates.keys())
+        else:
+            for cid, cinfo in active_candidates.items():
+                if cid == focused_id or cinfo.get("user_id") == focused_id:
+                    focused_candidate_ids.add(cid)
+            if not focused_candidate_ids:
+                focused_candidate_ids = set(active_candidates.keys())
 
         nodes = []
         edges = []
@@ -3066,7 +3301,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
         # ── 1. Create Candidate Person Nodes ─────────────────────────────────
         for cid, cinfo in active_candidates.items():
-            is_focused = (focused_id == "all" or focused_id == cid)
+            is_focused = cid in focused_candidate_ids
             nodes.append({
                 "id": cid,
                 "label": cinfo["name"],
@@ -3106,12 +3341,12 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 skill_to_candidates[s].append(cid)
 
         for skill_name, owner_ids in skill_to_candidates.items():
-            if focused_id != "all" and focused_id not in owner_ids:
+            if not any(oid in focused_candidate_ids for oid in owner_ids):
                 continue
 
             skill_id = f"skill_{skill_name.lower().replace(' ', '_').replace('&', 'and').replace('+', 'p')}"
             is_shared = len(owner_ids) > 1
-            owners_names = [active_candidates[oid]["name"] for oid in owner_ids]
+            owners_names = [active_candidates[oid]["name"] for oid in owner_ids if oid in active_candidates]
             non_owners_names = [c["name"] for oid, c in active_candidates.items() if oid not in owner_ids]
             v_ref = find_vector_reference(skill_name, fallback_doc="Candidate Skill Portfolio")
 
@@ -3136,16 +3371,17 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 added_node_ids.add(skill_id)
 
             for oid in owner_ids:
-                edges.append({
-                    "source": oid,
-                    "target": skill_id,
-                    "type": "KNOWS_SKILL",
-                    "label": "Mastered Skill"
-                })
+                if oid in focused_candidate_ids:
+                    edges.append({
+                        "source": oid,
+                        "target": skill_id,
+                        "type": "KNOWS_SKILL",
+                        "label": "Mastered Skill"
+                    })
 
         # ── 3. Create Project Nodes & Project-Skill Interconnections ─────────
         for cid, cinfo in active_candidates.items():
-            if focused_id != "all" and focused_id != cid:
+            if cid not in focused_candidate_ids:
                 continue
 
             for idx, proj in enumerate(cinfo["projects"]):
@@ -3199,7 +3435,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
         # ── 4. Create Work Experience Nodes ──────────────────────────────────
         for cid, cinfo in active_candidates.items():
-            if focused_id != "all" and focused_id != cid:
+            if cid not in focused_candidate_ids:
                 continue
 
             for idx, exp in enumerate(cinfo["experiences"]):
@@ -3243,7 +3479,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
         # ── 5. Create Achievement & Award Nodes ──────────────────────────────
         for cid, cinfo in active_candidates.items():
-            if focused_id != "all" and focused_id != cid:
+            if cid not in focused_candidate_ids:
                 continue
 
             for idx, ach in enumerate(cinfo.get("achievements", [])):
@@ -3286,7 +3522,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
         # ── 6. Create Education & Certification Nodes ────────────────────────
         for cid, cinfo in active_candidates.items():
-            if focused_id != "all" and focused_id != cid:
+            if cid not in focused_candidate_ids:
                 continue
 
             # Education
@@ -3367,7 +3603,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
         # ── 7. Create Source Document Nodes ──────────────────────────────────
         for cid, cinfo in active_candidates.items():
-            if focused_id != "all" and focused_id != cid:
+            if cid not in focused_candidate_ids:
                 continue
 
             doc_id = f"doc_{cid}"
@@ -3398,7 +3634,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                     "label": "Grounds Profile"
                 })
 
-        # ── 8. Create Peer Collaborative Synergies (Graph RAG Bridges) ──────
+        # ── 8. Peer Collaborative Synergies (Graph RAG Bridges) ──────
         if focused_id == "all":
             synergies = [
                 {
@@ -3427,47 +3663,46 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
                 edges.append(syn)
 
         # ── 9. Discovered & Tailored Opportunity Nodes ───────────────────────
-        cand_opps = get_all_opportunities(candidate_id=focused_id if focused_id != "all" else None).get("opportunities", [])
-        for opp in cand_opps[:8]:
-            opp_id = f"opp_{opp.get('id')}"
-            title = opp.get("title") or "Engineering Opportunity"
-            company = opp.get("company") or opp.get("company_name") or opp.get("source") or "Tech Organization"
-            cat = opp.get("category", "job").lower()
-            score = opp.get("relevance_score", 92)
-            matched_cand = opp.get("matched_candidate_id", "candidate_mohit")
+        for focus_cid in focused_candidate_ids:
+            cand_opps = get_all_opportunities(candidate_id=focus_cid).get("opportunities", [])
+            for opp in cand_opps[:6]:
+                opp_id = f"opp_{opp.get('id')}"
+                title = opp.get("title") or "Engineering Opportunity"
+                company = opp.get("company") or opp.get("company_name") or opp.get("source") or "Tech Organization"
+                cat = opp.get("category", "job").lower()
+                score = opp.get("relevance_score", 92)
 
-            if opp_id not in added_node_ids:
-                nodes.append({
-                    "id": opp_id,
-                    "label": f"[{cat.upper()}] {title} ({company})",
-                    "group": "opportunity",
-                    "val": 8,
-                    "vector_reference": {
-                        "source_doc": f"Live Discovery ({company})",
-                        "chunk_index": 0,
-                        "chunk_excerpt": opp.get("description", f"Live {cat} opportunity scouted and scored via Graph RAG vector matching.")[:250],
-                        "embedding_model": "Gemini Vector Match",
-                        "similarity_score": float(score)
-                    },
-                    "attributes": {
-                        "id": str(opp.get("id", "")),
-                        "title": title,
-                        "company": company,
-                        "category": cat,
-                        "relevance_score": score,
-                        "url": opp.get("url", "#"),
-                        "matched_candidate_id": matched_cand,
-                        "match_reasons": [f"Directly matches candidates skilled in {active_candidates.get(matched_cand, {}).get('name', 'Candidate')} core domain."]
-                    }
-                })
-                added_node_ids.add(opp_id)
+                if opp_id not in added_node_ids:
+                    nodes.append({
+                        "id": opp_id,
+                        "label": f"[{cat.upper()}] {title} ({company})",
+                        "group": "opportunity",
+                        "val": 8,
+                        "vector_reference": {
+                            "source_doc": f"Live Discovery ({company})",
+                            "chunk_index": 0,
+                            "chunk_excerpt": opp.get("description", f"Live {cat} opportunity scouted and scored via Graph RAG vector matching.")[:250],
+                            "embedding_model": "Gemini Vector Match",
+                            "similarity_score": float(score)
+                        },
+                        "attributes": {
+                            "id": str(opp.get("id", "")),
+                            "title": title,
+                            "company": company,
+                            "category": cat,
+                            "relevance_score": score,
+                            "url": opp.get("url", "#"),
+                            "matched_candidate_id": focus_cid,
+                            "match_reasons": [f"Directly matches candidates skilled in {active_candidates.get(focus_cid, {}).get('name', 'Candidate')} core domain."]
+                        }
+                    })
+                    added_node_ids.add(opp_id)
 
-                link_target = focused_id if focused_id != "all" else matched_cand
-                if link_target in added_node_ids:
+                if focus_cid in added_node_ids:
                     edges.append({
-                        "source": link_target,
+                        "source": focus_cid,
                         "target": opp_id,
-                        "type": "MATCHES_PROFILE",
+                        "type": "MATCHES_OPPORTUNITY",
                         "label": f"{score}% Fit"
                     })
 

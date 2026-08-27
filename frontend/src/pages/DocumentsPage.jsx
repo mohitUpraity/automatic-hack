@@ -10,28 +10,21 @@ import { fetchCandidateDetails } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 export default function DocumentsPage() {
-  const { user } = useAuth();
+  const { user, selectedCandidateId, activeCandidate, candidates } = useAuth();
   const navigate = useNavigate();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [activeCandidate, setActiveCandidate] = useState(null);
-
-  useEffect(() => {
-    async function loadCandidate() {
-      if (user?.id) {
-        try {
-          const res = await fetchCandidateDetails(user.id);
-          if (res.candidate) setActiveCandidate(res.candidate);
-        } catch (err) {
-          console.error('Failed to load candidate details:', err);
-        }
-      }
-    }
-    loadCandidate();
-  }, [user?.id, refreshTrigger]);
 
   const handleUploadSuccess = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
   }, []);
+
+  const displayName = selectedCandidateId === 'all' 
+    ? 'All Candidate Personas (Combined View)' 
+    : (activeCandidate?.name || user?.name || 'Engineer');
+
+  const displayRole = selectedCandidateId === 'all'
+    ? `${candidates.length} Registered Candidate Personas`
+    : (activeCandidate?.role || user?.role || 'Software Engineer');
 
   return (
     <PageShell
@@ -43,13 +36,16 @@ export default function DocumentsPage() {
         {/* User Identity Highlight Card */}
         <GlassCard className="p-5 bg-slate-900/80 border border-indigo-500/30 rounded-2xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center font-black text-base text-indigo-400 shadow-inner">
-              {activeCandidate?.name ? activeCandidate.name.slice(0, 2).toUpperCase() : (user?.name ? user.name.slice(0, 2).toUpperCase() : 'ME')}
+            <div 
+              className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-base text-white shadow-inner"
+              style={{ backgroundColor: activeCandidate?.cluster_color || '#6366f1' }}
+            >
+              {displayName.slice(0, 2).toUpperCase()}
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h3 className="text-base font-extrabold text-white">{activeCandidate?.name || user?.name || 'Engineer'}</h3>
-                <Badge variant="primary" size="sm">{activeCandidate?.role || user?.role || 'Software Engineer'}</Badge>
+                <h3 className="text-base font-extrabold text-white">{displayName}</h3>
+                <Badge variant="primary" size="sm">{displayRole}</Badge>
               </div>
               <div className="flex items-center gap-4 text-xs text-slate-400">
                 <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-500" /> {activeCandidate?.location || 'Remote'}</span>
@@ -69,6 +65,23 @@ export default function DocumentsPage() {
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full md:w-auto">
+            <div className="relative min-w-[200px]">
+              <select
+                value={selectedCandidateId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedCandidateId(val);
+                }}
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
+              >
+                <option value="all">🌐 All Candidates (Combined View)</option>
+                {candidates.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button
               onClick={() => navigate('/studio')}
               className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer"
@@ -88,7 +101,7 @@ export default function DocumentsPage() {
         {/* Ingested Documents List with Delete Action */}
         <DocumentList 
           refreshTrigger={refreshTrigger} 
-          selectedCandidateId={user?.id || 'default-user'} 
+          selectedCandidateId={selectedCandidateId} 
         />
       </div>
     </PageShell>

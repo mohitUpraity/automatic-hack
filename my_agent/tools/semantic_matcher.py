@@ -239,6 +239,7 @@ def rank_and_match_opportunities_semantically(
         item = dict(opp)
         item["relevance_score"] = target_fit if (target_candidate_id and target_candidate_id != "candidate_all") else normalized_fit
         item["matched_candidate_id"] = best_cand
+        item["matched_candidate_name"] = candidates_registry.get(best_cand, {}).get("name", "Candidate")
         item["semantic_cosine_similarity"] = round(best_sim, 4)
         item["candidate_similarities"] = {k: round(v, 4) for k, v in cand_sims.items()}
 
@@ -246,12 +247,15 @@ def rank_and_match_opportunities_semantically(
 
     # 3. Filtering & Sorting
     if target_candidate_id and target_candidate_id != "candidate_all":
+        target_cand_meta = candidates_registry.get(target_candidate_id, {})
+        target_name = target_cand_meta.get("name", "Candidate")
         # Score each opportunity specifically against the target candidate's profile vector
         for o in scored_opps:
             target_sim = o.get("candidate_similarities", {}).get(target_candidate_id, 0.0)
             o["semantic_cosine_similarity"] = round(target_sim, 4)
             o["relevance_score"] = int(min(99, max(60, round(60 + (target_sim * 45)))))
             o["matched_candidate_id"] = target_candidate_id
+            o["matched_candidate_name"] = target_name
         
         # Sort descending by the target candidate's exact semantic similarity
         scored_opps.sort(key=lambda x: x.get("semantic_cosine_similarity", 0), reverse=True)

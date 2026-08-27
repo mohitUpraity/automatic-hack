@@ -130,8 +130,10 @@ def main():
     # 1. Load master resume
     if not os.path.exists(args.resume):
         print(f"Error: {args.resume} not found. Creating default master resume.md...")
-        from api import CANDIDATES_REGISTRY
-        default_md = CANDIDATES_REGISTRY["candidate_mohit"]["resume_markdown"]
+        from my_agent.tools.db_tools import read_from_db
+        prof_res = read_from_db("profiles")
+        records = prof_res.get("records", [])
+        default_md = records[0].get("raw_markdown") if records else "# Candidate Resume\n**Software Engineer**\n"
         save_text_file(args.resume, default_md)
 
     resume_content = load_text_file(args.resume)

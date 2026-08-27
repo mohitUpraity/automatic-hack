@@ -48,12 +48,16 @@ import {
 } from 'lucide-react';
 
 export default function ResumeStudioPage() {
-  const { user } = useAuth();
+  const { user, selectedCandidateId, candidates } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
   // Candidate state bound to authenticated user
-  const [activeCandidateId, setActiveCandidateId] = useState(user?.id || 'default-user');
+  const effectiveCandId = selectedCandidateId === 'all' 
+    ? (candidates[0]?.id || user?.id || 'default-user')
+    : selectedCandidateId;
+
+  const [activeCandidateId, setActiveCandidateId] = useState(effectiveCandId);
   const [activeCandidate, setActiveCandidate] = useState(null);
 
   // Opportunities & Targets
@@ -91,14 +95,16 @@ export default function ResumeStudioPage() {
   };
 
   useEffect(() => {
-    if (user?.id) {
-      setActiveCandidateId(user.id);
-    }
-  }, [user?.id]);
+    const nextId = selectedCandidateId === 'all'
+      ? (candidates[0]?.id || user?.id || 'default-user')
+      : selectedCandidateId;
+    setActiveCandidateId(nextId);
+  }, [selectedCandidateId, candidates, user?.id]);
 
   // Load Candidate Profile & Resume
   useEffect(() => {
     async function loadCandidateProfile() {
+      if (!activeCandidateId) return;
       try {
         const cData = await fetchCandidateDetails(activeCandidateId);
         if (cData.candidate) {
@@ -283,14 +289,33 @@ export default function ResumeStudioPage() {
       <div className="space-y-6 animate-fade-in">
         {/* Top Candidate & Opportunity Navigation Bar */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl">
-          {/* Active User Badge */}
+          {/* Candidate Persona Selector */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center font-bold text-sm text-white shadow-inner">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center font-bold text-sm text-white shadow-inner shrink-0">
               {activeCandidate?.name ? activeCandidate.name.slice(0, 2).toUpperCase() : 'ME'}
             </div>
-            <div>
-              <div className="text-xs font-extrabold text-white">{activeCandidate?.name || user?.name || 'My Profile'}</div>
-              <div className="text-[10px] text-slate-400">{activeCandidate?.email || user?.email}</div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Users className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Candidate Persona:</span>
+              </div>
+              <div className="relative mt-0.5">
+                <select
+                  value={activeCandidateId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setActiveCandidateId(val);
+                  }}
+                  className="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
+                >
+                  {candidates.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2 pointer-events-none" />
+              </div>
             </div>
           </div>
 
@@ -523,15 +548,18 @@ export default function ResumeStudioPage() {
           {/* Left Column: Markdown Editor */}
           <div className="lg:col-span-7 space-y-4">
             <GlassCard className="p-5 bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-slate-800 pb-3 gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
                   <FileText className="w-4 h-4 text-indigo-400" />
                   <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">
-                    Markdown Resume Canvas ({activeCandidate?.name?.split(' ')[0] || 'Candidate'})
+                    {activeCandidate?.name || 'Candidate'} — Resume Stencil
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                    🛡️ Master Resume Pristine in DB
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={handleDownloadPdf}
                     disabled={downloadingPdf}
@@ -549,18 +577,18 @@ export default function ResumeStudioPage() {
                         ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-400'
                         : 'bg-indigo-950/80 border-indigo-500/40 text-indigo-300 hover:bg-indigo-900/80 hover:text-white'
                     }`}
-                    title="Save this markdown as the candidate's active Master Resume Template"
+                    title="Save this markdown as the candidate's active Master Resume Template in Supabase"
                   >
                     {masterSaved ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Save className="w-3.5 h-3.5" />}
                     {masterSaved ? 'Master Saved!' : isSavingMaster ? 'Saving...' : 'Set as Master'}
                   </button>
                   <button
                     onClick={() => setMarkdown(originalMarkdown)}
-                    className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Reset to Candidate's Base Resume"
+                    className="px-2.5 py-1.5 text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Reset back to Candidate's Pristine Master Resume"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Reset
+                    <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                    Reset to Master
                   </button>
                   <button
                     onClick={handleCopyMarkdown}

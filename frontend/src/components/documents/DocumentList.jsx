@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FolderOpen, UploadCloud, RefreshCw, FileText, Trash2, Eye, X, CheckCircle, AlertCircle } from 'lucide-react';
-import { fetchDocuments, deleteDocument } from '../../api/client';
+import { FolderOpen, UploadCloud, RefreshCw, FileText, Trash2, Eye, X, CheckCircle, AlertCircle, User } from 'lucide-react';
+import { fetchDocuments, deleteDocument, reassignDocument } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 import LoadingSpinner from '../ui/LoadingSpinner';
 
 export default function DocumentList({ refreshTrigger, selectedCandidateId = 'candidate_all' }) {
+  const { candidates, refreshCandidates, user } = useAuth();
   const [documents, setDocuments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -28,6 +30,20 @@ export default function DocumentList({ refreshTrigger, selectedCandidateId = 'ca
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments, refreshTrigger, selectedCandidateId]);
+
+  const handleReassign = async (docId, newCandId, filename) => {
+    try {
+      await reassignDocument(docId, newCandId);
+      setStatusMessage({ type: 'success', text: `Document "${filename}" reassigned successfully.` });
+      setTimeout(() => setStatusMessage(null), 4000);
+      await loadDocuments();
+      if (refreshCandidates) await refreshCandidates(user?.id);
+    } catch (err) {
+      console.error('Reassign failed:', err);
+      setStatusMessage({ type: 'error', text: `Failed to reassign document: ${err.message}` });
+      setTimeout(() => setStatusMessage(null), 4000);
+    }
+  };
 
   const handleDelete = async (docId, filename) => {
     if (!window.confirm(`Are you sure you want to permanently delete "${filename || 'this document'}"?`)) {
@@ -118,6 +134,25 @@ export default function DocumentList({ refreshTrigger, selectedCandidateId = 'ca
                   </div>
                 </div>
                 
+                {/* Persona Assignment Selector */}
+                <div className="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 bg-slate-950/80 p-2 rounded-xl border border-slate-800/80">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400">
+                    <User className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Belongs to Persona:</span>
+                  </div>
+                  <select
+                    value={doc.metadata?.candidate_id || doc.user_id || ''}
+                    onChange={(e) => handleReassign(doc.id, e.target.value, filename)}
+                    className="bg-slate-900 border border-slate-700/80 rounded-lg px-2 py-1 text-xs text-indigo-300 font-bold focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    {candidates.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="flex-grow mb-3">
                   <p className="text-xs text-slate-400 line-clamp-3 leading-relaxed font-mono bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/50">
                     {previewText.substring(0, 180)}

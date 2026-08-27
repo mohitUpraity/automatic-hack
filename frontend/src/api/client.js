@@ -7,25 +7,34 @@ export function setAuthToken(token) {
 }
 
 async function fetchWithConfig(url, options = {}) {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), 30000);
-  
   const token = authToken || localStorage.getItem('careeros_token');
   const headers = { ...options.headers };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Use caller signal if provided, otherwise a resilient 60s timeout controller
+  let id = null;
+  let signal = options.signal;
+  if (!signal) {
+    const controller = new AbortController();
+    id = setTimeout(() => controller.abort(), 60000);
+    signal = controller.signal;
   }
   
   try {
     const res = await fetch(url, {
       ...options,
       headers,
-      signal: controller.signal
+      signal
     });
-    clearTimeout(id);
+    if (id) clearTimeout(id);
     return res;
   } catch (error) {
-    clearTimeout(id);
+    if (id) clearTimeout(id);
+    if (error.name === 'AbortError') {
+      console.warn(`[Network timeout/aborted] Request to ${url} cancelled.`);
+    }
     throw error;
   }
 }
@@ -80,12 +89,18 @@ export async function loginWithGoogle(googleData) {
   return await res.json();
 }
 
-export async function uploadDocument(file, docType = 'resume', userId = null) {
+export async function uploadDocument(file, docType = 'resume', userId = null, candidateId = null, createNewPersona = false) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('doc_type', docType);
   if (userId) {
     formData.append('user_id', userId);
+  }
+  if (candidateId) {
+    formData.append('candidate_id', candidateId);
+  }
+  if (createNewPersona) {
+    formData.append('create_new_persona', 'true');
   }
 
   const res = await fetchWithConfig(`${API_BASE}/api/documents/upload`, {
@@ -119,6 +134,43 @@ export async function fetchCandidates(userId = null) {
   return await res.json();
 }
 
+export async function createCandidate(candidateData) {
+  const res = await fetchWithConfig(`${API_BASE}/api/candidates`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(candidateData),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to create candidate persona' }));
+    throw new Error(err.detail || 'Failed to create candidate persona');
+  }
+  return await res.json();
+}
+
+export async function deleteCandidate(candidateId) {
+  const res = await fetchWithConfig(`${API_BASE}/api/candidates/${encodeURIComponent(candidateId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to delete candidate persona' }));
+    throw new Error(err.detail || 'Failed to delete candidate persona');
+  }
+  return await res.json();
+}
+
+export async function reassignDocument(docId, candidateId) {
+  const res = await fetchWithConfig(`${API_BASE}/api/documents/${encodeURIComponent(docId)}/reassign`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ candidate_id: candidateId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to reassign document' }));
+    throw new Error(err.detail || 'Failed to reassign document');
+  }
+  return await res.json();
+}
+
 export async function fetchCandidateDetails(candidateId = 'default-user') {
   const res = await fetchWithConfig(`${API_BASE}/api/candidates/${encodeURIComponent(candidateId)}`);
   if (!res.ok) return { status: 'error', candidate: null };
@@ -134,6 +186,19 @@ export async function saveCandidateTemplate(candidateId, resumeMarkdown) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Failed to save master template' }));
     throw new Error(err.detail || 'Failed to save master template');
+  }
+  return await res.json();
+}
+
+export async function setActiveCandidateTemplate(candidateId, documentId) {
+  const res = await fetchWithConfig(`${API_BASE}/api/candidates/${encodeURIComponent(candidateId)}/set-active-template`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ document_id: documentId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to set active template' }));
+    throw new Error(err.detail || 'Failed to set active template');
   }
   return await res.json();
 }

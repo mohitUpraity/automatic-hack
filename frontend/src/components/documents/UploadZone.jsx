@@ -21,7 +21,8 @@ const PIPELINE_STAGES = [
 ];
 
 export default function UploadZone({ onUploadSuccess, onPipelineComplete }) {
-  const { user } = useAuth();
+  const { user, selectedCandidateId, candidates, refreshCandidates } = useAuth();
+  const [targetCandidate, setTargetCandidate] = useState(selectedCandidateId === 'all' ? 'auto' : (selectedCandidateId || 'auto'));
   const [mode, setMode] = useState('file'); // 'file', 'url', 'text'
   const [docType, setDocType] = useState('Resume');
   const [isUploading, setIsUploading] = useState(false);
@@ -32,6 +33,12 @@ export default function UploadZone({ onUploadSuccess, onPipelineComplete }) {
   const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (selectedCandidateId && selectedCandidateId !== 'all') {
+      setTargetCandidate(selectedCandidateId);
+    }
+  }, [selectedCandidateId]);
 
   // URL state
   const [url, setUrl] = useState('');
@@ -70,8 +77,11 @@ export default function UploadZone({ onUploadSuccess, onPipelineComplete }) {
     if (!file) return;
     setIsUploading(true);
     try {
-      const res = await uploadDocument(file, docType, user?.id || 'default-user');
+      const isAuto = targetCandidate === 'auto';
+      const activeCand = isAuto ? null : targetCandidate;
+      const res = await uploadDocument(file, docType, user?.id || 'default-user', activeCand, isAuto);
       setUploadResult(res);
+      await refreshCandidates(user?.id);
       if (onUploadSuccess) onUploadSuccess(res);
     } catch (err) {
       console.error(err);
@@ -86,6 +96,7 @@ export default function UploadZone({ onUploadSuccess, onPipelineComplete }) {
     try {
       const res = await uploadUrl(url, docType, user?.id || 'default-user');
       setUploadResult(res);
+      await refreshCandidates(user?.id);
       if (onUploadSuccess) onUploadSuccess(res);
     } catch (err) {
       console.error(err);
@@ -171,15 +182,33 @@ export default function UploadZone({ onUploadSuccess, onPipelineComplete }) {
             exit={{ opacity: 0, y: -10 }}
             className="space-y-4"
           >
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-medium text-slate-300">Document Type</label>
-              <select 
-                value={docType}
-                onChange={(e) => setDocType(e.target.value)}
-                className="bg-slate-900 border border-slate-700 rounded-md px-3 py-1 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
-              >
-                {DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-2">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Document Type</label>
+                <select 
+                  value={docType}
+                  onChange={(e) => setDocType(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-bold"
+                >
+                  {DOC_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Assign to Candidate</label>
+                <select 
+                  value={targetCandidate}
+                  onChange={(e) => setTargetCandidate(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-bold"
+                >
+                  <option value="auto">✨ Auto-Extract & Create Persona</option>
+                  {candidates.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div

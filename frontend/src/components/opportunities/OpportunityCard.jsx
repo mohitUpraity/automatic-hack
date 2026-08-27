@@ -4,10 +4,17 @@ import { MapPin, Building2, ArrowRight, ExternalLink, Wand2, Sparkles, Clock, Ch
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 import ScoreGauge from '../ui/ScoreGauge';
+import { useAuth } from '../../context/AuthContext';
 
 export default function OpportunityCard({ opportunity, onClick, candidateId = 'candidate_mohit' }) {
   const navigate = useNavigate();
+  const { candidates, activeCandidate } = useAuth();
   if (!opportunity) return null;
+
+  const matchedCand = candidates?.find(c => c.id === opportunity.matched_candidate_id || c.user_id === opportunity.matched_candidate_id) || activeCandidate;
+  const rawName = opportunity.matched_candidate_name || matchedCand?.name || 'Candidate';
+  const firstName = rawName.split(' ')[0];
+  const clusterColor = matchedCand?.cluster_color || '#818cf8';
 
   const getCategoryBadgeVariant = (category) => {
     switch (category?.toLowerCase()) {
@@ -44,15 +51,16 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
           </span>
         </div>
 
-        {opportunity.matched_candidate_id && (
-          <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
-            opportunity.matched_candidate_id === 'candidate_krati'
-              ? 'text-pink-400 bg-pink-950/70 border-pink-500/40'
-              : opportunity.matched_candidate_id === 'candidate_vishnu'
-              ? 'text-emerald-400 bg-emerald-950/70 border-emerald-500/40'
-              : 'text-indigo-400 bg-indigo-950/70 border-indigo-500/40'
-          }`}>
-            {opportunity.matched_candidate_id === 'candidate_krati' ? 'Krati' : opportunity.matched_candidate_id === 'candidate_vishnu' ? 'Vishnu' : 'Mohit'} Match
+        {firstName && (
+          <span 
+            className="text-[10px] font-mono font-bold px-2 py-0.5 rounded border"
+            style={{
+              color: clusterColor,
+              borderColor: `${clusterColor}50`,
+              backgroundColor: `${clusterColor}18`
+            }}
+          >
+            {firstName} Match
           </span>
         )}
       </div>

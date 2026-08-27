@@ -20,7 +20,7 @@ const MIN_SCORES = [
 ];
 
 export default function OpportunityFeed({ onSelectOpportunity }) {
-  const { user } = useAuth();
+  const { user, selectedCandidateId, setSelectedCandidateId, activeCandidate, candidates } = useAuth();
   const navigate = useNavigate();
   const [opportunities, setOpportunities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +40,8 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await fetchOpportunities(user?.id || 'default-user');
+      const activeCand = selectedCandidateId === 'all' ? 'candidate_all' : selectedCandidateId;
+      const data = await fetchOpportunities(activeCand);
       setOpportunities(data?.opportunities || []);
     } catch (err) {
       console.error('Failed to fetch opportunities:', err);
@@ -48,7 +49,7 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id]);
+  }, [selectedCandidateId]);
 
   useEffect(() => {
     loadData();
@@ -60,7 +61,8 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
     setIsSearching(true);
     try {
       const targetCat = category === 'All' ? 'all' : category.toLowerCase();
-      const res = await customSearchOpportunities(searchQuery, targetCat);
+      const activeCand = selectedCandidateId === 'all' ? null : selectedCandidateId;
+      const res = await customSearchOpportunities(searchQuery, targetCat, activeCand);
       if (res.opportunities && res.opportunities.length > 0) {
         setOpportunities(res.opportunities);
       }
@@ -75,7 +77,8 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
   const handleScout = async () => {
     setIsScouting(true);
     try {
-      await scoutProfileOpportunities(user?.id || 'default-user');
+      const targetProfile = selectedCandidateId === 'all' ? (user?.id || 'default-user') : selectedCandidateId;
+      await scoutProfileOpportunities(targetProfile);
       await loadData();
     } catch (err) {
       console.error('Scouting failed:', err);
@@ -109,15 +112,35 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
 
   return (
     <div className="w-full space-y-5">
-      {/* Header & User Info Bar */}
+      {/* Header & User Info Bar with Candidate Selector */}
       <GlassCard className="p-4 bg-slate-900/80 border border-slate-800 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center font-bold text-xs text-white shadow-inner">
-            {user?.name ? user.name.slice(0, 2).toUpperCase() : 'ME'}
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center font-bold text-xs text-white shadow-inner shrink-0">
+            {activeCandidate?.name ? activeCandidate.name.slice(0, 2).toUpperCase() : 'ME'}
           </div>
-          <div>
-            <div className="text-xs font-extrabold text-white">{user?.name || 'My Scouted Opportunities'}</div>
-            <div className="text-[10px] text-slate-400">Targeting {user?.role || 'Software Engineering'} roles</div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Candidate Perspective:</span>
+            </div>
+            <div className="relative mt-0.5 min-w-[220px]">
+              <select
+                value={selectedCandidateId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedCandidateId(val);
+                }}
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
+              >
+                <option value="all">🌐 All Candidates (Combined Feed)</option>
+                {candidates.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+            </div>
           </div>
         </div>
 

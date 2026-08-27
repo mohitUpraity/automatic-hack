@@ -374,23 +374,23 @@ def tailor_resume_for_opportunity(
     3. Grounded AI Tailoring -> Tailored Markdown
     4. Tailored Markdown -> Docling AST -> Publication-Grade PDF
     """
-    # 1. Retrieve candidate base resume dynamically
+    # 1. Retrieve candidate base resume dynamically from Supabase
     base_markdown = (original_markdown or "").strip()
-    if not base_markdown and candidate_id:
-        from api import CANDIDATES_REGISTRY
-        cand = CANDIDATES_REGISTRY.get(candidate_id)
-        if cand:
-            base_markdown = cand.get("resume_markdown", "")
+    if not base_markdown and (candidate_id or user_id):
+        target = candidate_id or user_id
+        from my_agent.tools.db_tools import get_supabase
+        sb = get_supabase()
+        # Look in documents first
+        docs = sb.select("documents", filters={"user_id": f"eq.{target}"})
+        if docs and docs[0].get("raw_markdown"):
+            base_markdown = docs[0]["raw_markdown"]
+        else:
+            resumes = sb.select("resumes", filters={"user_id": f"eq.{target}"})
+            if resumes and resumes[0].get("raw_text"):
+                base_markdown = resumes[0]["raw_text"]
     
-    if not base_markdown and candidate_id:
-        from api import CANDIDATES_REGISTRY
-        if candidate_id in CANDIDATES_REGISTRY:
-            base_markdown = CANDIDATES_REGISTRY[candidate_id]["resume_markdown"]
-
     if not base_markdown:
-        from api import CANDIDATES_REGISTRY
-        target_id = candidate_id if (candidate_id and candidate_id in CANDIDATES_REGISTRY) else "candidate_mohit"
-        base_markdown = CANDIDATES_REGISTRY[target_id]["resume_markdown"]
+        base_markdown = "# Candidate Profile\n**Software Engineer**\n\n## Professional Summary\nExperienced engineer targeting high-impact technical roles.\n\n## Technical Skills\nPython, JavaScript, React, PostgreSQL, Cloud Systems\n"
 
     # Step 1: Normalize through Docling Document parser
     from my_agent.tools.docling_tools import convert_resume_to_docling, markdown_to_docling_doc

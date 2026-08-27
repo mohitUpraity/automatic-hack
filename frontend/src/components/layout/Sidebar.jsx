@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Shield, MessageSquare, FileText, Activity, GitBranch, Menu, X, Wand2, User, Compass, LogOut } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import CandidateSelector from './CandidateSelector';
 
 export default function Sidebar({ stats }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -58,7 +59,12 @@ export default function Sidebar({ stats }) {
           </h1>
         </div>
 
-        <nav className="flex-1 px-4 py-4 overflow-y-auto">
+        {/* Candidate Persona Selector */}
+        <div className="px-4 pt-3 pb-1">
+          <CandidateSelector />
+        </div>
+
+        <nav className="flex-1 px-4 py-3 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink key={item.path} to={item.path} onClick={() => setIsOpen(false)} className={getNavLinkClass}>
               <item.icon className="w-5 h-5" />
