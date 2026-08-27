@@ -6,6 +6,12 @@ export function setAuthToken(token) {
   authToken = token;
 }
 
+const clientCache = new Map();
+
+export function invalidateClientCache() {
+  clientCache.clear();
+}
+
 async function fetchWithConfig(url, options = {}) {
   const token = authToken || localStorage.getItem('careeros_token');
   const headers = { ...options.headers };
@@ -13,27 +19,15 @@ async function fetchWithConfig(url, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  // Use caller signal if provided, otherwise a resilient 60s timeout controller
-  let id = null;
-  let signal = options.signal;
-  if (!signal) {
-    const controller = new AbortController();
-    id = setTimeout(() => controller.abort(), 60000);
-    signal = controller.signal;
-  }
-  
   try {
     const res = await fetch(url, {
       ...options,
-      headers,
-      signal
+      headers
     });
-    if (id) clearTimeout(id);
     return res;
   } catch (error) {
-    if (id) clearTimeout(id);
     if (error.name === 'AbortError') {
-      console.warn(`[Network timeout/aborted] Request to ${url} cancelled.`);
+      console.warn(`[Network aborted] Request to ${url} cancelled.`);
     }
     throw error;
   }
@@ -500,8 +494,9 @@ export async function customSearchOpportunities(query, category = 'all', profile
   return await res.json();
 }
 
-export async function fetchUserProfile(candidateId = 'candidate_mohit') {
-  const res = await fetchWithConfig(`${API_BASE}/api/user/profile?candidate_id=${encodeURIComponent(candidateId)}`);
+export async function fetchUserProfile(candidateId = null) {
+  const query = candidateId ? `?candidate_id=${encodeURIComponent(candidateId)}` : '';
+  const res = await fetchWithConfig(`${API_BASE}/api/user/profile${query}`);
   if (!res.ok) return { status: 'error', profile: null };
   return await res.json();
 }
@@ -519,10 +514,12 @@ export async function updateUserProfile(profileData) {
   return await res.json();
 }
 
-export async function uploadUserTemplate(file, candidateId = 'candidate_mohit') {
+export async function uploadUserTemplate(file, candidateId = null) {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('candidate_id', candidateId);
+  if (candidateId) {
+    formData.append('candidate_id', candidateId);
+  }
 
   const res = await fetchWithConfig(`${API_BASE}/api/user/upload-template`, {
     method: 'POST',

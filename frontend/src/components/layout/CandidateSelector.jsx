@@ -85,17 +85,23 @@ export default function CandidateSelector({ compact = false }) {
         isAll: true
       };
     }
+    const formatRole = (r) => {
+      if (!r) return 'Software Engineer';
+      const clean = r.split(' at ')[0].split('(')[0].split('|')[0].trim();
+      return clean.length > 25 ? clean.slice(0, 23) + '...' : clean;
+    };
+
     if (activeCandidate) {
       return {
         name: activeCandidate.name,
-        role: activeCandidate.role,
+        role: formatRole(activeCandidate.role),
         color: activeCandidate.cluster_color || '#38bdf8',
         isAll: false
       };
     }
     return {
       name: user?.name || 'Primary Profile',
-      role: user?.role || 'Software Engineer',
+      role: formatRole(user?.role),
       color: '#38bdf8',
       isAll: false
     };

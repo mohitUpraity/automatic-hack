@@ -111,20 +111,26 @@ export default function ChatInterface() {
 
         {/* Candidate Grounding Selector */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 max-w-full">
             <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Grounding:</span>
-            <select
-              value={selectedCandidateId}
-              onChange={(e) => setSelectedCandidateId(e.target.value)}
-              className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
-            >
-              <option value="all">🌐 All Personas (Multi-Profile RAG)</option>
-              {candidates.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
-                </option>
-              ))}
-            </select>
+            <div className="relative w-full sm:w-64 max-w-full">
+              <select
+                value={selectedCandidateId}
+                onChange={(e) => setSelectedCandidateId(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner truncate"
+              >
+                <option value="all">🌐 All Personas (Multi-Profile RAG)</option>
+                {candidates.map((c) => {
+                  const cleanRole = c.role ? c.role.split(' at ')[0].split('(')[0].split('|')[0].trim() : '';
+                  const shortRole = cleanRole.length > 25 ? cleanRole.slice(0, 23) + '...' : cleanRole;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {shortRole ? `(${shortRole})` : ''}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
           </div>
 
           <button

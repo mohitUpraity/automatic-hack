@@ -123,21 +123,25 @@ export default function OpportunityFeed({ onSelectOpportunity }) {
               <Users className="w-3.5 h-3.5 text-indigo-400" />
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Candidate Perspective:</span>
             </div>
-            <div className="relative mt-0.5 min-w-[220px]">
+            <div className="relative mt-0.5 w-full sm:w-64 max-w-full">
               <select
                 value={selectedCandidateId}
                 onChange={(e) => {
                   const val = e.target.value;
                   setSelectedCandidateId(val);
                 }}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner truncate"
               >
                 <option value="all">🌐 All Candidates (Combined Feed)</option>
-                {candidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
-                  </option>
-                ))}
+                {candidates.map((c) => {
+                  const cleanRole = c.role ? c.role.split(' at ')[0].split('(')[0].split('|')[0].trim() : '';
+                  const shortRole = cleanRole.length > 25 ? cleanRole.slice(0, 23) + '...' : cleanRole;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {shortRole ? `(${shortRole})` : ''}
+                    </option>
+                  );
+                })}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
             </div>

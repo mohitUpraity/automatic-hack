@@ -85,19 +85,16 @@ export default function ProfilePage() {
 
   // Fetch active candidate persona profile
   const loadProfile = async () => {
-    const targetId = selectedCandidateId === 'all' ? (user?.id || 'default-user') : selectedCandidateId;
+    const targetId = selectedCandidateId && selectedCandidateId !== 'all' 
+      ? selectedCandidateId 
+      : (candidates[0]?.id || user?.id || 'default-user');
     if (!targetId) return;
     setIsLoading(true);
     setError(null);
     try {
       const res = await fetchUserProfile(targetId);
       if (res?.profile) {
-        setProfile({
-          ...res.profile,
-          name: res.profile.name || activeCandidate?.name || user?.name || '',
-          email: res.profile.email || activeCandidate?.email || user?.email || '',
-          role: res.profile.role || activeCandidate?.role || user?.role || 'Software Engineer'
-        });
+        setProfile(res.profile);
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -284,21 +281,25 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative min-w-[200px]">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full sm:w-64 max-w-full">
               <select
-                value={selectedCandidateId}
+                value={selectedCandidateId === 'all' ? (candidates[0]?.id || '') : selectedCandidateId}
                 onChange={(e) => {
                   const val = e.target.value;
                   setSelectedCandidateId(val);
                 }}
-                className="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner truncate"
               >
-                {candidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
-                  </option>
-                ))}
+                {candidates.map((c) => {
+                  const cleanRole = c.role ? c.role.split(' at ')[0].split('(')[0].split('|')[0].trim() : '';
+                  const shortRole = cleanRole.length > 25 ? cleanRole.slice(0, 23) + '...' : cleanRole;
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {shortRole ? `(${shortRole})` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
             <button

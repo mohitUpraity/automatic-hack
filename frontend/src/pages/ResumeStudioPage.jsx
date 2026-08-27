@@ -299,20 +299,24 @@ export default function ResumeStudioPage() {
                 <Users className="w-3.5 h-3.5 text-indigo-400" />
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Candidate Persona:</span>
               </div>
-              <div className="relative mt-0.5">
+              <div className="relative mt-0.5 w-full sm:w-64 max-w-full">
                 <select
                   value={activeCandidateId}
                   onChange={(e) => {
                     const val = e.target.value;
                     setActiveCandidateId(val);
                   }}
-                  className="bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner truncate"
                 >
-                  {candidates.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.role ? `(${c.role.split('|')[0].trim()})` : ''}
-                    </option>
-                  ))}
+                  {candidates.map((c) => {
+                    const cleanRole = c.role ? c.role.split(' at ')[0].split('(')[0].split('|')[0].trim() : '';
+                    const shortRole = cleanRole.length > 25 ? cleanRole.slice(0, 23) + '...' : cleanRole;
+                    return (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {shortRole ? `(${shortRole})` : ''}
+                      </option>
+                    );
+                  })}
                 </select>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2 pointer-events-none" />
               </div>
