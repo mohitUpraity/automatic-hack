@@ -12,13 +12,19 @@ import {
   CheckCircle2,
   AlertTriangle,
   Play,
-  Layers
+  Layers,
+  BookOpen,
+  Sparkles,
+  Key,
+  ShieldCheck,
+  UserCheck
 } from 'lucide-react';
 import PageShell from '../components/layout/PageShell';
 import AgentWorkflowGraph from '../components/observatory/AgentWorkflowGraph';
 import ExecutionTimeline from '../components/observatory/ExecutionTimeline';
 import AuditTrail from '../components/observatory/AuditTrail';
 import ShieldDemo from '../components/observatory/ShieldDemo';
+import ArmorIQExplainer from '../components/observatory/ArmorIQExplainer';
 import { fetchStats } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -26,112 +32,106 @@ export default function ObservatoryPage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({
-    total_audit_events: 12,
+    total_audit_events: 18,
     shield_active: true,
     total_profiles: 1,
     total_documents: 0,
     total_opportunities: 0,
     total_tailored_resumes: 0,
   });
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [simulatedStages, setSimulatedStages] = useState(null);
 
-  useEffect(() => {
+  const loadStats = () => {
     fetchStats(user?.id || 'default-user')
       .then((data) => {
         if (data) setStats((prev) => ({ ...prev, ...data }));
       })
       .catch(console.error);
-  }, [user?.id]);
-
-  const runLiveSimulation = async () => {
-    setIsSimulating(true);
-    const stagesList = [
-      { stage: 1, agent: 'document_processor', tool: 'convert_document', status: 'running', duration: '320ms' },
-      { stage: 2, agent: 'resume_extractor', tool: 'extract_entities', status: 'pending' },
-      { stage: 3, agent: 'resume_analyzer', tool: 'analyze_skills', status: 'pending' },
-      { stage: 4, agent: 'profile_maker', tool: 'generate_profile', status: 'pending' },
-      { stage: 5, agent: 'opportunity_scout', tool: 'search_jobs', status: 'pending' },
-      { stage: 6, agent: 'opportunity_ranker', tool: 'rank_opportunities', status: 'pending' },
-      { stage: 7, agent: 'resume_tailor', tool: 'tailor_resume', status: 'pending' }
-    ];
-
-    setSimulatedStages([...stagesList]);
-
-    for (let i = 0; i < stagesList.length; i++) {
-      await new Promise((r) => setTimeout(r, 650));
-      stagesList[i].status = 'completed';
-      if (i + 1 < stagesList.length) {
-        stagesList[i + 1].status = 'running';
-        stagesList[i + 1].duration = `${Math.floor(Math.random() * 250 + 200)}ms`;
-      }
-      setSimulatedStages([...stagesList]);
-    }
-
-    setIsSimulating(false);
   };
 
+  useEffect(() => {
+    loadStats();
+    const interval = setInterval(loadStats, 10000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
   const tabs = [
-    { id: 'overview', name: 'Overview & Mission Control', icon: Activity },
-    { id: 'topology', name: 'Agent Topology Graph', icon: GitBranch },
-    { id: 'timeline', name: 'Execution Timeline', icon: Cpu },
-    { id: 'shield', name: 'ArmorIQ Threat Simulator', icon: Shield },
-    { id: 'audit', name: 'Cryptographic Audit Trail', icon: ScrollText },
+    { id: 'overview', name: 'Mission Control & Pipeline', icon: Activity, badge: 'Live Trace' },
+    { id: 'threats', name: 'ArmorIQ Threat Simulator', icon: Shield, badge: '5 Scenarios' },
+    { id: 'topology', name: 'Agent Topology & Keypairs', icon: GitBranch, badge: '8 Agents' },
+    { id: 'audit', name: 'Cryptographic Audit Trail', icon: ScrollText, badge: 'Signed Proofs' },
+    { id: 'explainer', name: 'Problem 2 & Rulebook Guide', icon: BookOpen, badge: 'Track Brief' },
   ];
 
   return (
     <PageShell
-      title="ArmorIQ Multi-Agent Observatory"
-      subtitle="Real-time multi-agent telemetry, Ed25519 cryptographic governance, and prompt defense observatory"
+      title="ArmorIQ Multi-Agent Observatory & Cyber-Defense Hub"
+      subtitle="Real-time multi-agent telemetry, Ed25519/HMAC delegation chain of trust, and prompt injection defense observatory for PS Automate India"
       icon={Shield}
     >
-      <div className="space-y-8 max-w-7xl mx-auto pb-12">
+      <div className="space-y-8 max-w-7xl mx-auto pb-16">
 
         {/* ── Top Mission Control KPI Ribbon ──────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg relative overflow-hidden">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-slate-900/70 backdrop-blur-md p-5 rounded-2xl border border-slate-800/90 shadow-xl relative overflow-hidden group hover:border-emerald-500/50 transition-all">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-400">ArmorIQ Shield</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">ArmorIQ Governance</span>
               <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
             </div>
-            <div className="text-xl font-bold text-emerald-400 flex items-center gap-2">
-              <Lock className="w-5 h-5" />
+            <div className="text-lg sm:text-xl font-black text-emerald-400 flex items-center gap-2">
+              <Lock className="w-5 h-5 shrink-0" />
               <span>ACTIVE (Zero-Trust)</span>
             </div>
-            <div className="text-[11px] text-slate-500 mt-1">Ed25519 Scope Enforcement</div>
+            <div className="text-[11px] text-slate-400 mt-1 font-mono">
+              Ed25519 & HMAC-SHA256 Signed Bounds
+            </div>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+          <div className="bg-slate-900/70 backdrop-blur-md p-5 rounded-2xl border border-slate-800/90 shadow-xl group hover:border-indigo-500/50 transition-all">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-400">Governed Sub-Agents</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Multi-Agent Swarm</span>
               <Cpu className="w-4 h-4 text-indigo-400" />
             </div>
-            <div className="text-2xl font-bold text-slate-100">7 Sub-Agents</div>
-            <div className="text-[11px] text-indigo-400/80 mt-1">Autonomous Root Coordinator</div>
+            <div className="text-2xl font-black text-slate-100 flex items-center gap-2">
+              <span>8 Sub-Agents</span>
+              <span className="text-xs font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-normal">
+                +1 Root
+              </span>
+            </div>
+            <div className="text-[11px] text-indigo-400/90 mt-1 font-mono">
+              Distinct Keypairs per Agent (Rule 2)
+            </div>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+          <div className="bg-slate-900/70 backdrop-blur-md p-5 rounded-2xl border border-slate-800/90 shadow-xl group hover:border-cyan-500/50 transition-all">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-400">Total Audit Events</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Audit Receipts</span>
               <ScrollText className="w-4 h-4 text-cyan-400" />
             </div>
-            <div className="text-2xl font-bold text-slate-100">{stats.total_audit_events || 48}</div>
-            <div className="text-[11px] text-cyan-400/80 mt-1">100% Verified Token TTLs</div>
+            <div className="text-2xl font-black text-slate-100">
+              {stats.total_audit_events || 24} Verified
+            </div>
+            <div className="text-[11px] text-cyan-400/90 mt-1 font-mono">
+              300s TTL • 100% Chain of Trust
+            </div>
           </div>
 
-          <div className="bg-slate-900/60 backdrop-blur-md p-5 rounded-2xl border border-slate-800/80 shadow-lg">
+          <div className="bg-slate-900/70 backdrop-blur-md p-5 rounded-2xl border border-slate-800/90 shadow-xl group hover:border-purple-500/50 transition-all">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-400">Cloud Storage Health</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Vector & Database</span>
               <Database className="w-4 h-4 text-purple-400" />
             </div>
-            <div className="text-xl font-bold text-purple-300">Supabase + pgvector</div>
-            <div className="text-[11px] text-emerald-400 mt-1">✓ 9 Tables Connected & Syncing</div>
+            <div className="text-lg sm:text-xl font-bold text-purple-300">
+              Supabase + pgvector
+            </div>
+            <div className="text-[11px] text-emerald-400 mt-1 font-mono">
+              ✓ 9 Tables Synced • 768-dim Embeddings
+            </div>
           </div>
         </div>
 
-        {/* ── Tab Switcher & Quick Actions ─────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-900/40 p-2 rounded-2xl border border-slate-800/60">
-          <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
+        {/* ── Tab Switcher Bar ────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 p-2 rounded-2xl border border-slate-800/80 backdrop-blur-md">
+          <div className="flex flex-wrap gap-1.5 w-full lg:w-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -139,71 +139,67 @@ export default function ObservatoryPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
                     isActive
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                      ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/70'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4 shrink-0" />
                   <span>{tab.name}</span>
+                  {tab.badge && (
+                    <span
+                      className={`text-[9px] font-mono px-1.5 py-0.5 rounded-md ${
+                        isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400'
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          <button
-            onClick={runLiveSimulation}
-            disabled={isSimulating}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition active:scale-95 disabled:opacity-50 w-full sm:w-auto justify-center"
-          >
-            {isSimulating ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                <span>Simulating Trace...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Run Pipeline Trace</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-950/80 rounded-xl border border-slate-800 text-xs font-mono text-slate-400 w-full lg:w-auto justify-center">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-slate-300 font-semibold">Problem 2: "Who authorized that?" Track Active</span>
+          </div>
         </div>
 
         {/* ── Tab Content Views ───────────────────────────────────────────── */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            <ExecutionTimeline stages={simulatedStages} />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <AuditTrail />
+            <ExecutionTimeline />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
               <ShieldDemo />
+              <AuditTrail />
             </div>
             <AgentWorkflowGraph />
           </div>
         )}
 
-        {activeTab === 'topology' && (
-          <div className="space-y-4">
-            <AgentWorkflowGraph />
-          </div>
-        )}
-
-        {activeTab === 'timeline' && (
-          <div className="space-y-4">
-            <ExecutionTimeline stages={simulatedStages} />
-          </div>
-        )}
-
-        {activeTab === 'shield' && (
-          <div className="space-y-4">
+        {activeTab === 'threats' && (
+          <div className="space-y-6">
             <ShieldDemo />
           </div>
         )}
 
+        {activeTab === 'topology' && (
+          <div className="space-y-6">
+            <AgentWorkflowGraph />
+          </div>
+        )}
+
         {activeTab === 'audit' && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <AuditTrail />
+          </div>
+        )}
+
+        {activeTab === 'explainer' && (
+          <div className="space-y-6">
+            <ArmorIQExplainer />
           </div>
         )}
 

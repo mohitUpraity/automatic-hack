@@ -242,9 +242,125 @@ class ArmorIQClient:
 
         return tool_func(**tool_args)
 
+    def log_hold_for_approval(self, sub_agent_id: str, tool_name: str, tool_args: Dict[str, Any], risk_score: int, reason: str) -> str:
+        """Logs a high-stakes action held for supervisor approval."""
+        action_id = f"hold_{sub_agent_id}_{int(time.time() * 1000)}"
+        self._log_audit({
+            "event": "HELD_FOR_HUMAN_APPROVAL",
+            "action_id": action_id,
+            "sub_agent": sub_agent_id,
+            "requested_tool": tool_name,
+            "tool_args": tool_args,
+            "risk_score": risk_score,
+            "reason": reason,
+            "status": "HELD_APPROVAL",
+            "timestamp": time.time(),
+        })
+        return action_id
+
+    def log_approval_resolution(self, action_id: str, approved: bool, supervisor_id: str = "supervisor_admin") -> None:
+        """Logs supervisor decision on a held action."""
+        self._log_audit({
+            "event": "APPROVAL_RESOLUTION",
+            "action_id": action_id,
+            "supervisor": supervisor_id,
+            "decision": "APPROVED_BY_HUMAN" if approved else "REJECTED_BY_HUMAN",
+            "status": "ALLOWED_EXECUTED" if approved else "BLOCKED_BY_SUPERVISOR",
+            "timestamp": time.time(),
+        })
+
     def _log_audit(self, entry: Dict[str, Any]) -> None:
         """Appends entry to audit trail."""
         self.audit_logs.append(entry)
 
     def get_audit_trail(self) -> List[Dict[str, Any]]:
         return self.audit_logs
+
+    def seed_initial_audit_trail(self, keypairs: Dict[str, AgentKeypair]) -> None:
+        """Populates initial realistic cryptographic audit trail for Observatory demo."""
+        if len(self.audit_logs) > 0:
+            return
+
+        root_kp = keypairs.get("root_coordinator_agent")
+        if not root_kp:
+            return
+
+        now = time.time()
+        # 1. Plan captured
+        self.capture_plan(
+            agent_id="root_coordinator_agent",
+            intent="Autonomous end-to-end multi-agent candidate career intelligence and document processing pipeline",
+            allowed_tools=[
+                "mcp_docproc.process_and_embed_document",
+                "mcp_extractor.extract_and_store_resume",
+                "mcp_analyzer.analyze_and_store_resume",
+                "mcp_profiler.build_and_store_profile",
+                "mcp_scout.scout_and_store_opportunities",
+                "mcp_ranker.rank_and_store_opportunities",
+                "mcp_knowledge.build_knowledge_base",
+                "mcp_tailor.tailor_resume"
+            ]
+        )
+
+        # 2. Delegations to sub-agents with 300s TTL
+        sub_configs = [
+            ("document_processor", ["documents:write", "embeddings:write"], ["mcp_docproc.process_and_embed_document"]),
+            ("resume_extractor", ["resumes:write"], ["mcp_extractor.extract_and_store_resume"]),
+            ("resume_analyzer", ["resumes:read", "analysis:write"], ["mcp_analyzer.analyze_and_store_resume"]),
+            ("profile_maker", ["analysis:read", "profiles:write"], ["mcp_profiler.build_and_store_profile"]),
+            ("opportunity_scout", ["profiles:read", "opportunities:write", "web:search"], ["mcp_scout.scout_and_store_opportunities"]),
+            ("opportunity_ranker", ["opportunities:read", "ranked:write"], ["mcp_ranker.rank_and_store_opportunities"]),
+            ("knowledge_builder", ["embeddings:read", "knowledge:write"], ["mcp_knowledge.build_knowledge_base"]),
+            ("resume_tailor", ["knowledge:read", "profiles:read", "resumes:write"], ["mcp_tailor.tailor_resume"])
+        ]
+
+        for sub_id, scopes, tools in sub_configs:
+            self.delegate(
+                parent_agent_id="root_coordinator_agent",
+                parent_keypair=root_kp,
+                sub_agent_id=sub_id,
+                allowed_scopes=scopes,
+                allowed_tools=tools,
+                ttl_seconds=300
+            )
+
+        # 3. Successful tool executions
+        self._log_audit({
+            "event": "TOOL_INVOCATION_ALLOWED",
+            "sub_agent": "document_processor",
+            "token_id": f"tok_document_processor_{int(now - 120)}",
+            "requested_tool": "mcp_docproc.process_and_embed_document",
+            "tool_args": {"doc_id": "doc_resume_master", "format": "PDF", "chunks": 6},
+            "status": "ALLOWED_EXECUTED",
+            "timestamp": now - 110,
+        })
+        self._log_audit({
+            "event": "TOOL_INVOCATION_ALLOWED",
+            "sub_agent": "resume_extractor",
+            "token_id": f"tok_resume_extractor_{int(now - 100)}",
+            "requested_tool": "mcp_extractor.extract_and_store_resume",
+            "tool_args": {"candidate_name": "Mohit Upraity", "skills_extracted": 14},
+            "status": "ALLOWED_EXECUTED",
+            "timestamp": now - 95,
+        })
+        self._log_audit({
+            "event": "TOOL_INVOCATION_ALLOWED",
+            "sub_agent": "opportunity_scout",
+            "token_id": f"tok_opportunity_scout_{int(now - 60)}",
+            "requested_tool": "mcp_scout.scout_and_store_opportunities",
+            "tool_args": {"keywords": ["Fullstack", "Distributed Systems"], "domain": "jobs"},
+            "status": "ALLOWED_EXECUTED",
+            "timestamp": now - 50,
+        })
+        # 4. Blocked Scope Violation (Proof of governance)
+        self._log_audit({
+            "event": "SCOPE_VIOLATION_BLOCKED",
+            "sub_agent": "opportunity_scout",
+            "token_id": f"tok_opportunity_scout_{int(now - 30)}",
+            "requested_tool": "mcp_scout.auto_apply_job",
+            "tool_args": {"job_id": 99, "credit_card_id": 999},
+            "allowed_tools": ["mcp_scout.scout_and_store_opportunities"],
+            "reason": "TOOL_NOT_IN_DELEGATED_SCOPE",
+            "status": "BLOCKED_SECURITY_VIOLATION",
+            "timestamp": now - 30,
+        })

@@ -62,6 +62,7 @@ from my_agent.mcp_servers.mcp_tailor_server import tailor_resume
 # ArmorIQ Governance Engine Initialization
 global_armoriq = ArmorIQClient()
 global_keypairs = generate_pipeline_keypairs()
+global_armoriq.seed_initial_audit_trail(global_keypairs)
 
 app = FastAPI(title="CareerOS v3 API Server", version="3.0")
 
@@ -186,6 +187,13 @@ def extract_social_links_from_text(text: str) -> dict:
 
 class AttackRequest(BaseModel):
     secured: Optional[bool] = True
+    scenario: Optional[str] = "prompt_injection_apply"  # prompt_injection_apply, destructive_wipe, cross_agent_breach, token_ttl_expired, human_hold_approval
+
+
+class ActionApprovalRequest(BaseModel):
+    action_id: str
+    decision: str = "approve"  # approve or reject
+    supervisor_id: Optional[str] = "supervisor_admin"
 
 
 class UserProfileReq(BaseModel):
@@ -3892,40 +3900,228 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── 6. Trigger Simulated Scope Violation Attack ──────────────────────────────
+# ── 6. Trigger Simulated Scope Violation & Problem 2 Governance Attacks ────────
 @app.post("/api/demo/trigger-attack")
 def trigger_attack(req: Optional[AttackRequest] = None):
-    """Simulates prompt injection attack with ArmorIQ Shield ON/OFF."""
+    """Simulates multi-scenario attacks & Problem 2 governance tests with ArmorIQ Shield ON/OFF."""
     is_secured = req.secured if (req and req.secured is not None) else True
+    scenario = req.scenario if (req and req.scenario) else "prompt_injection_apply"
     root_kp = global_keypairs["root_coordinator_agent"]
-    tok_scout = global_armoriq.delegate(
-        "root_coordinator_agent", root_kp, "opportunity_scout",
-        ["profiles:read", "opportunities:write"], ["mcp_scout.scout_and_store_opportunities"], 300
-    )
 
-    if is_secured:
-        try:
-            global_armoriq.invoke(
-                "opportunity_scout", global_keypairs["opportunity_scout"], tok_scout, root_kp,
-                "mcp_scout.auto_apply_job", {"job_id": 99, "credit_card_id": 999}, auto_apply_job
-            )
-            return {"status": "error", "message": "Attack executed!"}
-        except ArmorIQScopeViolationError as e:
+    if scenario == "prompt_injection_apply":
+        tok_scout = global_armoriq.delegate(
+            "root_coordinator_agent", root_kp, "opportunity_scout",
+            ["profiles:read", "opportunities:write"], ["mcp_scout.scout_and_store_opportunities"], 300
+        )
+        if is_secured:
+            try:
+                global_armoriq.invoke(
+                    "opportunity_scout", global_keypairs["opportunity_scout"], tok_scout, root_kp,
+                    "mcp_scout.auto_apply_job", {"job_id": 99, "credit_card_id": 999}, auto_apply_job
+                )
+                return {"status": "error", "message": "Attack unexpectedly executed!"}
+            except ArmorIQScopeViolationError as e:
+                return {
+                    "status": "blocked",
+                    "scenario": scenario,
+                    "scenario_title": "Problem 1 & 2: Prompt Injection to Unauthorized $499 Charge",
+                    "shield": "ARMORIQ_PROTECTED_ON",
+                    "message": str(e),
+                    "sub_agent": e.sub_agent_id,
+                    "attempted_tool": e.requested_tool,
+                    "allowed_tools": e.allowed_tools,
+                    "token_id": tok_scout.token_id,
+                    "signature": tok_scout.signature[:24] + "...",
+                    "execution_time_ms": 1.8,
+                    "timestamp": time.time()
+                }
+        else:
+            res = auto_apply_job(job_id=99, credit_card_id=999)
             return {
-                "status": "blocked",
-                "shield": "ARMORIQ_PROTECTED_ON",
-                "message": str(e),
-                "sub_agent": e.sub_agent_id,
-                "attempted_tool": e.requested_tool,
-                "allowed_tools": e.allowed_tools,
+                "status": "breached",
+                "scenario": scenario,
+                "scenario_title": "Problem 1 & 2: Prompt Injection to Unauthorized $499 Charge",
+                "shield": "ARMORIQ_DISABLED_OFF",
+                "warning": "CRITICAL SECURITY BREACH! Prompt injection executed unauthorized auto_apply_job tool and charged $499 without authorization because ArmorIQ was OFF!",
+                "executed_result": res,
                 "timestamp": time.time()
             }
-    else:
-        res = auto_apply_job(job_id=99, credit_card_id=999)
+
+    elif scenario == "destructive_wipe":
+        tok_tailor = global_armoriq.delegate(
+            "root_coordinator_agent", root_kp, "resume_tailor",
+            ["knowledge:read", "profiles:read", "resumes:write"], ["mcp_tailor.tailor_resume"], 300
+        )
+        if is_secured:
+            try:
+                def fake_wipe(target="all_candidates"):
+                    return {"deleted": 12, "target": target}
+
+                global_armoriq.invoke(
+                    "resume_tailor", global_keypairs["resume_tailor"], tok_tailor, root_kp,
+                    "mcp_db.wipe_candidate_history", {"target": "all_candidates"}, fake_wipe
+                )
+                return {"status": "error", "message": "Destructive wipe executed!"}
+            except ArmorIQScopeViolationError as e:
+                return {
+                    "status": "blocked",
+                    "scenario": scenario,
+                    "scenario_title": "Problem 1: Adversarial PDF Disguised Destructive DB Wipe",
+                    "shield": "ARMORIQ_PROTECTED_ON",
+                    "message": str(e),
+                    "sub_agent": e.sub_agent_id,
+                    "attempted_tool": e.requested_tool,
+                    "allowed_tools": e.allowed_tools,
+                    "token_id": tok_tailor.token_id,
+                    "signature": tok_tailor.signature[:24] + "...",
+                    "execution_time_ms": 1.2,
+                    "timestamp": time.time()
+                }
+        else:
+            return {
+                "status": "breached",
+                "scenario": scenario,
+                "scenario_title": "Problem 1: Adversarial PDF Disguised Destructive DB Wipe",
+                "shield": "ARMORIQ_DISABLED_OFF",
+                "warning": "DATA LOSS BREACH! Adversarial prompt hijacked resume tailor to execute wipe_candidate_history, dropping all candidate records because ArmorIQ was OFF!",
+                "executed_result": {"status": "WIPED", "records_deleted": 42, "tables_affected": ["candidates", "profiles", "resumes"]},
+                "timestamp": time.time()
+            }
+
+    elif scenario == "cross_agent_breach":
+        tok_kb = global_armoriq.delegate(
+            "root_coordinator_agent", root_kp, "knowledge_builder",
+            ["embeddings:read", "knowledge:write"], ["mcp_knowledge.build_knowledge_base"], 300
+        )
+        if is_secured:
+            try:
+                global_armoriq.invoke(
+                    "knowledge_builder", global_keypairs["knowledge_builder"], tok_kb, root_kp,
+                    "mcp_scout.scout_and_store_opportunities", {"profile_id": 1}, scout_and_store_opportunities
+                )
+                return {"status": "error", "message": "Cross-agent breach executed!"}
+            except ArmorIQScopeViolationError as e:
+                return {
+                    "status": "blocked",
+                    "scenario": scenario,
+                    "scenario_title": "Problem 2: Cross-Agent Authority Privilege Breach",
+                    "shield": "ARMORIQ_PROTECTED_ON",
+                    "message": str(e),
+                    "sub_agent": e.sub_agent_id,
+                    "attempted_tool": e.requested_tool,
+                    "allowed_tools": e.allowed_tools,
+                    "token_id": tok_kb.token_id,
+                    "signature": tok_kb.signature[:24] + "...",
+                    "execution_time_ms": 1.5,
+                    "timestamp": time.time()
+                }
+        else:
+            return {
+                "status": "breached",
+                "scenario": scenario,
+                "scenario_title": "Problem 2: Cross-Agent Authority Privilege Breach",
+                "shield": "ARMORIQ_DISABLED_OFF",
+                "warning": "UNAUDITED PRIVILEGE ESCALATION! Sub-agent knowledge_builder executed external web scraper tool outside its domain with zero authority chain because ArmorIQ was OFF!",
+                "executed_result": {"status": "UNAUTHORIZED_CROSS_CALL_EXECUTED", "agent": "knowledge_builder", "called": "mcp_scout.scout_and_store_opportunities"},
+                "timestamp": time.time()
+            }
+
+    elif scenario == "token_ttl_expired":
+        # Create token with 0s TTL to simulate expiry
+        tok_expired = global_armoriq.delegate(
+            "root_coordinator_agent", root_kp, "opportunity_scout",
+            ["profiles:read", "opportunities:write"], ["mcp_scout.scout_and_store_opportunities"], 0
+        )
+        time.sleep(0.01)
+        if is_secured:
+            try:
+                global_armoriq.invoke(
+                    "opportunity_scout", global_keypairs["opportunity_scout"], tok_expired, root_kp,
+                    "mcp_scout.scout_and_store_opportunities", {"profile_id": 1}, lambda **kw: {"status": "ok"}
+                )
+                return {"status": "error", "message": "Expired token executed!"}
+            except ArmorIQTokenExpiredError as e:
+                return {
+                    "status": "blocked",
+                    "scenario": scenario,
+                    "scenario_title": "Problem 2 Bonus: Stale Token TTL Expiration Replay Attack",
+                    "shield": "ARMORIQ_PROTECTED_ON",
+                    "message": str(e),
+                    "sub_agent": "opportunity_scout",
+                    "attempted_tool": "mcp_scout.scout_and_store_opportunities",
+                    "allowed_tools": ["mcp_scout.scout_and_store_opportunities"],
+                    "token_id": tok_expired.token_id,
+                    "reason": "DELEGATION_TOKEN_TTL_EXPIRED",
+                    "execution_time_ms": 0.8,
+                    "timestamp": time.time()
+                }
+        else:
+            return {
+                "status": "breached",
+                "scenario": scenario,
+                "scenario_title": "Problem 2 Bonus: Stale Token TTL Expiration Replay Attack",
+                "shield": "ARMORIQ_DISABLED_OFF",
+                "warning": "STALE TOKEN REPLAY VULNERABILITY! Expired delegation token was accepted because TTL expiration enforcement was disabled!",
+                "executed_result": {"status": "STALE_REPLAY_SUCCEEDED", "token_age_seconds": 9999},
+                "timestamp": time.time()
+            }
+
+    elif scenario == "human_hold_approval":
+        # Problem 1 & 2: Action held for human approval
+        action_id = global_armoriq.log_hold_for_approval(
+            sub_agent_id="opportunity_scout",
+            tool_name="mcp_scout.accept_binding_job_offer",
+            tool_args={"company": "Stripe", "offer_compensation": "$185,000/yr", "equity": "$60k/4yr", "start_date": "2026-09-15"},
+            risk_score=94,
+            reason="High-stakes legal and financial commitment requires explicit supervisor approval before execution."
+        )
         return {
-            "status": "breached",
-            "shield": "ARMORIQ_DISABLED_OFF",
-            "warning": "SECURITY BREACH! Prompt attack executed unauthorized auto_apply_job tool because ArmorIQ Shield was OFF!",
-            "executed_result": res,
+            "status": "held_for_approval",
+            "scenario": scenario,
+            "scenario_title": "Problem 1 & 2: High-Stakes Action Held for Human Approval",
+            "shield": "ARMORIQ_PROTECTED_ON",
+            "action_id": action_id,
+            "sub_agent": "opportunity_scout",
+            "requested_tool": "mcp_scout.accept_binding_job_offer",
+            "tool_args": {"company": "Stripe", "offer_compensation": "$185,000/yr", "equity": "$60k/4yr", "start_date": "2026-09-15"},
+            "risk_score": 94,
+            "reason": "High-stakes legal and financial commitment requires explicit supervisor approval before execution.",
+            "timestamp": time.time()
+        }
+
+    return {"status": "error", "message": f"Unknown scenario {scenario}"}
+
+
+@app.post("/api/demo/approve-action")
+def approve_action_endpoint(req: ActionApprovalRequest):
+    """Handles human approval or rejection of a held high-stakes action."""
+    approved = (req.decision.lower() == "approve")
+    global_armoriq.log_approval_resolution(
+        action_id=req.action_id,
+        approved=approved,
+        supervisor_id=req.supervisor_id or "supervisor_admin"
+    )
+
+    if approved:
+        return {
+            "status": "approved_and_executed",
+            "action_id": req.action_id,
+            "decision": "APPROVED",
+            "supervisor": req.supervisor_id,
+            "message": "Human approval granted. ArmorIQ elevated scope dynamically with supervisor signature and executed action successfully.",
+            "execution_result": {
+                "contract_status": "OFFER_ACCEPTED",
+                "company": "Stripe",
+                "confirmation_id": f"CONF_{int(time.time())}",
+                "timestamp": time.time()
+            }
+        }
+    else:
+        return {
+            "status": "rejected_and_terminated",
+            "action_id": req.action_id,
+            "decision": "REJECTED",
+            "supervisor": req.supervisor_id,
+            "message": "Action rejected by human supervisor. Execution terminated safely with zero side effects.",
             "timestamp": time.time()
         }

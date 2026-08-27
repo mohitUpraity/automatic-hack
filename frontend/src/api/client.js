@@ -333,15 +333,28 @@ export async function tailorResume(arg1, arg2, arg3, arg4, arg5) {
   return await res.json();
 }
 
-export async function triggerAttack(secured = true) {
+export async function triggerAttack(secured = true, scenario = 'prompt_injection_apply') {
   const res = await fetchWithConfig(`${API_BASE}/api/demo/trigger-attack`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ secured }),
+    body: JSON.stringify({ secured, scenario }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Attack simulation failed' }));
     throw new Error(err.detail || 'Attack simulation failed');
+  }
+  return await res.json();
+}
+
+export async function approveAction(actionId, decision = 'approve', supervisorId = 'supervisor_admin') {
+  const res = await fetchWithConfig(`${API_BASE}/api/demo/approve-action`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action_id: actionId, decision, supervisor_id: supervisorId }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Action approval resolution failed' }));
+    throw new Error(err.detail || 'Action approval resolution failed');
   }
   return await res.json();
 }
