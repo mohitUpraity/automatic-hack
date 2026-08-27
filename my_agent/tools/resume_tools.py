@@ -1,15 +1,13 @@
-"""Resume extraction tool for CareerOS powered by LiteLLM & Groq Cloud LLM."""
+"""Resume extraction tool for CareerOS powered by LiteLLM & Groq Cloud LLM with Pydantic validation."""
 
 import json
 import re
 from .llm_tools import call_groq_llm_json
+from ..models.schemas import ResumeSchema
 
 
 def extract_resume(resume_text: str) -> dict:
-    """Extracts structured information from raw resume text using Groq Cloud LLM.
-
-    Parses candidate name, email, phone, education, experience, skills, projects, and certifications.
-    """
+    """Extracts structured information from raw resume text using Groq Cloud LLM and enforces Pydantic schema validation."""
     prompt = f"""
 Parse the following resume text into a JSON object with these exact keys:
 "name": (string, candidate full name),
@@ -55,16 +53,25 @@ RESUME TEXT:
     elif not name:
         name = "Candidate"
 
-    return {
-        "status": "success",
-        "name": name,
-        "email": llm_res.get("email") or (email_match[0] if email_match else ""),
-        "phone": llm_res.get("phone") or (phone_match[0].strip() if phone_match else ""),
-        "education": llm_res.get("education") or [],
-        "experience": llm_res.get("experience") or [],
-        "skills": llm_res.get("skills") or [],
-        "projects": llm_res.get("projects") or [],
-        "certifications": llm_res.get("certifications") or [],
-        "raw_text": resume_text,
-        "llm_engine": "groq_openai_gpt_oss_20b"
-    }
+    # Enforce Pydantic Model Validation
+    edu_list = [{"degree": str(item)} for item in (llm_res.get("education") or [])]
+    exp_list = [{"role": str(item)} for item in (llm_res.get("experience") or [])]
+    proj_list = [{"title": str(item)} for item in (llm_res.get("projects") or [])]
+
+    pydantic_model = ResumeSchema(
+        user_id="default-user",
+        name=name,
+        email=email_val,
+        phone=llm_res.get("phone") or (phone_match[0].strip() if phone_match else ""),
+        education=edu_list,
+        experience=exp_list,
+        skills=[str(s) for s in (llm_res.get("skills") or [])],
+        projects=proj_list,
+        certifications=[str(c) for c in (llm_res.get("certifications") or [])],
+        raw_text=resume_text
+    )
+
+    validated_data = pydantic_model.model_dump() if hasattr(pydantic_model, "model_dump") else pydantic_model.dict()
+    validated_data["status"] = "success"
+    validated_data["llm_engine"] = "groq_openai_gpt_oss_20b"
+    return validated_data

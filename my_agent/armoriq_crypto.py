@@ -1,12 +1,15 @@
 """Cryptographic keypair utility for ArmorIQ multi-agent governance.
 
 Generates and manages Ed25519/HMAC keypairs for distinct agent identities:
-- keypair_root (Root Coordinator Agent)
-- keypair_extractor (Sub-Agent 1: resume_extractor)
-- keypair_analyzer (Sub-Agent 2: resume_analyzer)
-- keypair_profiler (Sub-Agent 3: profile_maker)
-- keypair_scout (Sub-Agent 4: opportunity_scout)
-- keypair_ranker (Sub-Agent 5: opportunity_ranker)
+- root_coordinator_agent
+- document_processor (Sub-Agent 1)
+- resume_extractor (Sub-Agent 2)
+- resume_analyzer (Sub-Agent 3)
+- profile_maker (Sub-Agent 4)
+- opportunity_scout (Sub-Agent 5)
+- opportunity_ranker (Sub-Agent 6)
+- knowledge_builder (Sub-Agent 7)
+- resume_tailor (Sub-Agent 8)
 """
 
 import base64
@@ -53,11 +56,14 @@ def generate_pipeline_keypairs() -> Dict[str, AgentKeypair]:
     """
     agent_ids = [
         "root_coordinator_agent",
+        "document_processor",
         "resume_extractor",
         "resume_analyzer",
         "profile_maker",
         "opportunity_scout",
         "opportunity_ranker",
+        "knowledge_builder",
+        "resume_tailor",
     ]
 
     keypairs = {}

@@ -9,12 +9,12 @@ def build_and_store_profile(resume_id: int) -> dict:
 
     Authorized Scope: 'analysis:read', 'profiles:write'
     """
-    resumes = read_from_db("resumes", f"id = {resume_id}")
+    resumes = read_from_db("resumes", f"id = '{resume_id}'")
     res_records = resumes.get("records", [])
     if not res_records:
         return {"status": "error", "message": f"Resume ID {resume_id} not found in DB"}
 
-    analyses = read_from_db("resume_analysis", f"resume_id = {resume_id}")
+    analyses = read_from_db("resume_analysis", f"resume_id = '{resume_id}'")
     ana_records = analyses.get("records", [])
     if not ana_records:
         return {"status": "error", "message": f"Analysis for Resume ID {resume_id} not found in DB"}

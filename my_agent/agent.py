@@ -1,100 +1,113 @@
+import os
+from dotenv import load_dotenv
+import litellm
+
+# Ensure .env is loaded
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
+load_dotenv(env_path)
+load_dotenv()
+
+litellm.telemetry = False
+litellm.drop_params = True
+
 from google.adk.agents.llm_agent import Agent
 
-# ── Import all tools ─────────────────────────────────────────────────────────
+# ── Import tools ─────────────────────────────────────────────────────────────
 from .tools.db_tools import store_to_db, read_from_db
+from .tools.docling_tools import convert_document
+from .tools.embedding_tools import embed_chunks
+from .tools.knowledge_tools import search_knowledge_base, get_rag_context
 from .tools.resume_tools import extract_resume
 from .tools.analysis_tools import analyze_resume
 from .tools.profile_tools import make_profile
 from .tools.search_tools import search_web
 from .tools.ranking_tools import rank_results
+from .tools.tailor_tools import tailor_resume_for_opportunity
 
-MODEL = "gemini-3.1-flash-lite"
+raw_model = os.getenv("GROQ_MODEL", "groq/qwen/qwen3.8-27b").strip()
+if raw_model == "groq/qwen3.8-27b":
+    MODEL = "groq/qwen/qwen3.8-27b"
+else:
+    MODEL = raw_model
 
-# ── Stage 1: Resume Extractor ────────────────────────────────────────────────
+
+# ── Sub-Agent 1: Document Processor ──────────────────────────────────────────
+document_processor = Agent(
+    model=MODEL,
+    name="document_processor",
+    description="Processes multi-format documents (PDF, DOCX, images, scanned docs), chunks, embeds with Gemini 001, and stores in knowledge base.",
+    instruction="Converts documents to markdown using Docling, creates semantic chunks, generates 768d vector embeddings, and stores records.",
+    tools=[convert_document, embed_chunks, store_to_db],
+    mode="single_turn",
+)
+
+# ── Sub-Agent 2: Resume Extractor ────────────────────────────────────────────
 resume_extractor = Agent(
     model=MODEL,
     name="resume_extractor",
-    description="Extracts structured information from an uploaded resume and stores it in the database. Call this agent with the full resume text.",
-    instruction="""You are the Resume Extractor agent. When you receive resume text:
-
-1. Call the `extract_resume` tool with the full resume text to parse it into structured fields.
-2. Call the `store_to_db` tool with table='resumes' and the extracted data as a JSON string to save it.
-3. Return the stored resume ID and a brief confirmation.
-
-Always complete both steps — extract then store.""",
+    description="Extracts structured fields from candidate resume.",
+    instruction="Extract structured fields from resume text and save record.",
     tools=[extract_resume, store_to_db],
     mode="single_turn",
 )
 
-# ── Stage 2: Resume Analyzer ─────────────────────────────────────────────────
+# ── Sub-Agent 3: Resume Analyzer ─────────────────────────────────────────────
 resume_analyzer = Agent(
     model=MODEL,
     name="resume_analyzer",
-    description="Analyzes stored resume data to identify strengths, weaknesses, experience level, and domain focus. Call this agent after resume extraction is complete.",
-    instruction="""You are the Resume Analyzer agent. When activated:
-
-1. Call `read_from_db` with table='resumes' to fetch the latest resume record.
-2. Call `analyze_resume` with the resume data (as a JSON string) to generate analysis.
-3. Call `store_to_db` with table='resume_analysis' and include the resume_id from step 1, along with the analysis fields.
-4. Return a brief summary of the analysis.
-
-Always complete all three steps — read, analyze, then store.""",
+    description="Analyzes stored resume data to identify strengths, weaknesses, experience level, and domain focus.",
+    instruction="Read resume record, analyze candidate strengths and domain focus, and store analysis.",
     tools=[read_from_db, analyze_resume, store_to_db],
     mode="single_turn",
 )
 
-# ── Stage 3: Profile Maker ───────────────────────────────────────────────────
+# ── Sub-Agent 4: Profile Maker ───────────────────────────────────────────────
 profile_maker = Agent(
     model=MODEL,
     name="profile_maker",
-    description="Builds a structured candidate profile from resume and analysis data including tech stack, interests, and career goals. Call this agent after resume analysis is complete.",
-    instruction="""You are the Profile Maker agent. When activated:
-
-1. Call `read_from_db` with table='resumes' to fetch the resume data.
-2. Call `read_from_db` with table='resume_analysis' to fetch the analysis data.
-3. Call `make_profile` with both the resume data and analysis data as JSON strings.
-4. Call `store_to_db` with table='profiles' and include the resume_id, along with the profile fields.
-5. Return a brief summary of the profile.
-
-Always complete all steps — read resume, read analysis, make profile, then store.""",
+    description="Builds candidate profile from resume and analysis data.",
+    instruction="Read resume and analysis records, compile tech stack and goals into candidate profile.",
     tools=[read_from_db, make_profile, store_to_db],
     mode="single_turn",
 )
 
-# ── Stage 4: Opportunity Scout ────────────────────────────────────────────────
+# ── Sub-Agent 5: Opportunity Scout ───────────────────────────────────────────
 opportunity_scout = Agent(
     model=MODEL,
     name="opportunity_scout",
-    description="Searches the live internet using Firecrawl MCP for jobs, internships, competitions, hackathons, and conclaves matching the candidate profile.",
-    instruction="""You are the Opportunity Scout agent. When activated:
-
-1. Call `read_from_db` with table='profiles' to fetch the candidate profile.
-2. Use the candidate's search_keywords to execute `search_web` queries powered by Firecrawl MCP.
-   For each keyword, search across target categories: 'job', 'internship', 'competition', 'hackathon', 'conclave'.
-   Perform at least 3-5 searches covering diverse categories.
-3. For each batch of results, call `store_to_db` with table='opportunities' to save each opportunity. Include the profile_id.
-4. Return how many opportunities were discovered via Firecrawl MCP.
-
-Be thorough — leverage Firecrawl MCP for deep web opportunity extraction.""",
+    description="Searches web using Firecrawl MCP for jobs, internships, hackathons, and conclaves.",
+    instruction="Read candidate profile search_keywords, execute Firecrawl web searches, and store opportunities.",
     tools=[read_from_db, search_web, store_to_db],
     mode="single_turn",
 )
 
-# ── Stage 5: Opportunity Ranker ───────────────────────────────────────────────
+# ── Sub-Agent 6: Opportunity Ranker ──────────────────────────────────────────
 opportunity_ranker = Agent(
     model=MODEL,
     name="opportunity_ranker",
-    description="Ranks and organizes found opportunities by relevance to the candidate, scoring them 0-100. Call this agent after opportunity search is complete.",
-    instruction="""You are the Opportunity Ranker agent. When activated:
-
-1. Call `read_from_db` with table='profiles' to fetch the candidate profile.
-2. Call `read_from_db` with table='opportunities' to fetch all raw opportunities.
-3. Call `rank_results` with the profile data and opportunities data as JSON strings.
-4. For each ranked result, call `store_to_db` with table='ranked_opportunities' to save it.
-5. Return the top ranked opportunities showing rank, title, category, score, and match reasons.
-
-Always complete all steps — read, rank, store, then present.""",
+    description="Ranks found opportunities by relevance score (0-100) using RAG candidate context.",
+    instruction="Read profile and raw opportunities, compute relevance scores, and store ranked list.",
     tools=[read_from_db, rank_results, store_to_db],
+    mode="single_turn",
+)
+
+# ── Sub-Agent 7: Knowledge Builder ───────────────────────────────────────────
+knowledge_builder = Agent(
+    model=MODEL,
+    name="knowledge_builder",
+    description="Executes RAG vector search over candidate documents and builds context.",
+    instruction="Semantic query over user embeddings table and format RAG context.",
+    tools=[search_knowledge_base, get_rag_context, read_from_db],
+    mode="single_turn",
+)
+
+# ── Sub-Agent 8: Resume Tailor ───────────────────────────────────────────────
+resume_tailor = Agent(
+    model=MODEL,
+    name="resume_tailor",
+    description="Generates company-specific tailored resume content (markdown) and WeasyPrint PDF.",
+    instruction="Retrieve candidate RAG context for opportunity requirements, tailor resume text via LLM, and render PDF.",
+    tools=[get_rag_context, tailor_resume_for_opportunity, store_to_db],
     mode="single_turn",
 )
 
@@ -102,24 +115,42 @@ Always complete all steps — read, rank, store, then present.""",
 root_agent = Agent(
     model=MODEL,
     name="root_agent",
-    description="CareerOS coordinator — orchestrates the full resume-to-opportunities pipeline.",
-    instruction="""You are the CareerOS coordinator agent. You manage a sequential pipeline of specialized sub-agents and can query the database directly.
+    description="CareerOS v3 coordinator root agent. Central decision maker for all user requests.",
+    instruction="""You are the CareerOS v3 central root agent. 
+Any candidate request goes directly to you. Analyze the user's intent and dynamically decide what tools or sub-agents to use:
 
-ROUTING RULES:
+1. For queries or questions: ALWAYS query the RAG Knowledge Base first using `search_knowledge_base` or `get_rag_context` to retrieve candidate context before answering.
+2. For resume extraction: Use `extract_resume` or `resume_extractor`.
+3. For resume analysis: Use `analyze_resume` or `resume_analyzer`.
+4. For candidate profiling: Use `make_profile` or `profile_maker`.
+5. For opportunity search: Use `search_web` or `opportunity_scout`.
+6. For opportunity ranking: Use `rank_results` or `opportunity_ranker`.
+7. For document processing: Use `convert_document` / `embed_chunks` or `document_processor`.
+8. For tailoring resumes: Use `tailor_resume_for_opportunity` or `resume_tailor`.
 
-1. NEW RESUME UPLOAD: When a user uploads or pastes a new resume, you MUST run the full 5-stage pipeline by calling each sub-agent in exact order:
-   a. Call `resume_extractor` with the full resume text to extract and store the resume.
-   b. Call `resume_analyzer` to analyze the stored resume data.
-   c. Call `profile_maker` to build a structured candidate profile.
-   d. Call `opportunity_scout` to search for matching opportunities.
-   e. Call `opportunity_ranker` to rank and organize the results.
-
-2. PERSONAL INFO / PROFILE / OPPORTUNITIES QUERIES: When the user asks a question about their personal information, skills, tech stack, candidate profile, career goals, or top ranked opportunities (and is NOT uploading a new resume):
-   - Do NOT run the 5-stage pipeline!
-   - Call `read_from_db` directly on the relevant table (`profiles`, `resumes`, `resume_analysis`, `ranked_opportunities`, or `opportunities`).
-   - Use the retrieved database records to answer the user's question directly.
-
-3. GENERAL QUESTIONS: If the user asks a general question unrelated to resumes or candidate records, answer directly using your general knowledge.""",
-    tools=[read_from_db],
-    sub_agents=[resume_extractor, resume_analyzer, profile_maker, opportunity_scout, opportunity_ranker],
+Directly execute tools or delegate to sub-agents as needed to satisfy the request.""",
+    tools=[
+        read_from_db,
+        store_to_db,
+        search_knowledge_base,
+        get_rag_context,
+        convert_document,
+        embed_chunks,
+        extract_resume,
+        analyze_resume,
+        make_profile,
+        search_web,
+        rank_results,
+        tailor_resume_for_opportunity,
+    ],
+    sub_agents=[
+        document_processor,
+        resume_extractor,
+        resume_analyzer,
+        profile_maker,
+        opportunity_scout,
+        opportunity_ranker,
+        knowledge_builder,
+        resume_tailor,
+    ],
 )

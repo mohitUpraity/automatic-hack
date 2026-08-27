@@ -9,7 +9,7 @@ def analyze_and_store_resume(resume_id: int) -> dict:
 
     Authorized Scope: 'resumes:read', 'analysis:write'
     """
-    resumes = read_from_db("resumes", f"id = {resume_id}")
+    resumes = read_from_db("resumes", f"id = '{resume_id}'")
     records = resumes.get("records", [])
     if not records:
         return {"status": "error", "message": f"Resume ID {resume_id} not found in DB"}
