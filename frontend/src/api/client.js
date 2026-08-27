@@ -14,9 +14,20 @@ export function invalidateClientCache() {
 
 async function fetchWithConfig(url, options = {}) {
   const token = authToken || localStorage.getItem('careeros_token');
+  let currentUserId = null;
+  try {
+    const savedUser = localStorage.getItem('careeros_user');
+    if (savedUser) {
+      currentUserId = JSON.parse(savedUser)?.id;
+    }
+  } catch {}
+
   const headers = { ...options.headers };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (currentUserId) {
+    headers['x-user-id'] = currentUserId;
   }
 
   try {

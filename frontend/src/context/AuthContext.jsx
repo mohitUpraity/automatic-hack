@@ -96,6 +96,18 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (res.user) {
+        const prevUserStr = localStorage.getItem('careeros_user');
+        let prevUserId = null;
+        try {
+          prevUserId = prevUserStr ? JSON.parse(prevUserStr)?.id : null;
+        } catch {}
+
+        if (prevUserId && prevUserId !== res.user.id) {
+          localStorage.removeItem('careeros_active_candidate_id');
+          setSelectedCandidateIdState('all');
+          setCandidates([]);
+        }
+
         setUser(res.user);
         const activeToken = res.token || sbToken;
         setToken(activeToken);
@@ -231,6 +243,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     setCandidates([]);
+    setSelectedCandidateIdState('all');
     localStorage.removeItem('careeros_user');
     localStorage.removeItem('careeros_token');
     localStorage.removeItem('careeros_active_candidate_id');

@@ -442,20 +442,33 @@ def google_auth_endpoint(req: GoogleLoginReq):
     profs = sb.select("profiles", filters={"user_id": f"eq.{user_id}"})
     if not profs:
         prof_id = str(uuid.uuid4())
+        resume_id = str(uuid.uuid4())
         base_md = f"# {display_name}\n**{req.role or 'Software Engineer'}**\n{email_clean}\n\n## Professional Summary\nFresh profile for {display_name}. Upload your master resume to begin.\n\n## Technical Skills\n- **Core Competencies**: Full Stack Development, AI Systems\n"
-        sb.insert("profiles", {
-            "id": prof_id,
-            "user_id": user_id,
-            "name": display_name,
-            "role": req.role or "Software Engineer",
-            "email": email_clean,
-            "is_primary": True,
-            "location_preference": "Remote",
-            "skills": ["Software Engineering", "AI Systems", "Full Stack Development"],
-            "tech_stack": ["Software Engineering", "AI Systems", "Full Stack Development"],
-            "raw_markdown": base_md,
-            "search_keywords": ["software engineering jobs", "full stack developer"]
-        })
+        
+        try:
+            sb.insert("resumes", {
+                "id": resume_id,
+                "user_id": user_id,
+                "name": display_name,
+                "email": email_clean,
+                "skills": ["Software Engineering", "Full Stack Development"],
+                "raw_text": base_md
+            })
+
+            sb.insert("profiles", {
+                "id": prof_id,
+                "user_id": user_id,
+                "resume_id": resume_id,
+                "location_preference": "Remote",
+                "preferred_roles": [req.role or "Software Engineer"],
+                "tech_stack": ["Software Engineering", "Full Stack Development"],
+                "career_goals": f"Professional career profile for {display_name}",
+                "experience_summary": base_md[:300],
+                "search_keywords": ["software engineering jobs", "full stack developer"]
+            })
+            global_fast_cache.invalidate()
+        except Exception as e:
+            print(f"[Google Auth profile init notice] {e}")
 
     token = f"careeros_jwt_{uuid.uuid4().hex}"
     SESSION_TOKENS[token] = user_id
@@ -1416,6 +1429,39 @@ def _get_all_unified_candidates(user_id: Optional[str] = None, candidate_id: Opt
         ]
         if filtered:
             return filtered
+        
+        # If user has no profiles in cache yet, check Supabase users table directly
+        try:
+            sb = get_supabase()
+            db_users = sb.select("users", filters={"id": f"eq.{user_id}"})
+            if db_users:
+                u_rec = db_users[0]
+                clean_name = u_rec.get("name") or "Primary Profile"
+                clean_role = (u_rec.get("target_roles") or ["Software Engineer"])[0]
+                clean_email = u_rec.get("email") or ""
+                return [{
+                    "id": str(user_id),
+                    "profile_id": str(user_id),
+                    "user_id": str(user_id),
+                    "name": clean_name,
+                    "email": clean_email,
+                    "role": clean_role,
+                    "skills": ["Full Stack Development", "Software Engineering"],
+                    "tech_stack": ["Full Stack Development", "Software Engineering"],
+                    "top_skills": ["Full Stack Development", "Software Engineering"],
+                    "projects": [],
+                    "experiences": [],
+                    "education": [],
+                    "raw_markdown": f"# {clean_name}\n**{clean_role}**\n{clean_email}\n\n## Professional Summary\nFresh profile. Upload your master resume to begin.\n",
+                    "resume_markdown": f"# {clean_name}\n**{clean_role}**\n{clean_email}\n\n## Professional Summary\nFresh profile. Upload your master resume to begin.\n",
+                    "is_primary": True,
+                    "cluster_color": "#38bdf8",
+                    "doc_name": "Master Resume"
+                }]
+        except Exception:
+            pass
+
+        return []
 
     return all_cands
 
@@ -1789,16 +1835,36 @@ def get_all_documents(
     sb = get_supabase()
 
     all_docs = sb.select("documents")
-    target_id = candidate_id or effective_user
-    if target_id and target_id not in ("default-user", "all", "candidate_all"):
-        docs = [d for d in all_docs if d.get("user_id") == target_id or (isinstance(d.get("metadata"), dict) and d["metadata"].get("candidate_id") == target_id)]
-        if not docs:
-            c = _get_unified_candidate(target_id)
-            if c:
-                c_uid = c.get("user_id")
-                docs = [d for d in all_docs if d.get("user_id") == c_uid or (isinstance(d.get("metadata"), dict) and d["metadata"].get("candidate_id") == c.get("id"))]
+    
+    # If unauthenticated or default-user with no specific target, return empty list
+    if not effective_user or effective_user in ("default-user", "all", "candidate_all"):
+        return {"status": "success", "documents": []}
+
+    # Resolve all candidate persona IDs owned by this user
+    user_cands = _get_all_unified_candidates(user_id=effective_user)
+    user_cand_ids = {str(c["id"]) for c in user_cands} | {str(c.get("user_id")) for c in user_cands if c.get("user_id")} | {str(effective_user)}
+
+    # If specific candidate persona requested
+    if candidate_id and candidate_id not in ("all", "candidate_all"):
+        c_meta = _get_unified_candidate(candidate_id)
+        c_doc_id = str(c_meta.get("document_id")) if c_meta and c_meta.get("document_id") else None
+        target_cand_str = str(candidate_id)
+        docs = [
+            d for d in all_docs
+            if (str(d.get("user_id")) in user_cand_ids or str(d.get("id")) == c_doc_id)
+            and (
+                str(d.get("user_id")) == target_cand_str
+                or (isinstance(d.get("metadata"), dict) and str(d["metadata"].get("candidate_id")) == target_cand_str)
+                or str(d.get("id")) == c_doc_id
+            )
+        ]
     else:
-        docs = all_docs
+        # All documents belonging to THIS user's candidate personas
+        docs = [
+            d for d in all_docs
+            if str(d.get("user_id")) in user_cand_ids
+            or (isinstance(d.get("metadata"), dict) and str(d["metadata"].get("candidate_id")) in user_cand_ids)
+        ]
 
     return {"status": "success", "documents": docs}
 
@@ -3372,7 +3438,7 @@ async def get_knowledge_graph(user_id: str = "default-user", candidate_id: Optio
 
         # 1. Fetch Unified Candidates from Supabase
         candidates_list = _get_all_unified_candidates(user_id=user_id, candidate_id=candidate_id)
-        if not candidates_list:
+        if not candidates_list and (not user_id or user_id in ("default-user", "all")):
             candidates_list = _get_all_unified_candidates()
 
         active_candidates = {str(c["id"]): c for c in candidates_list}
