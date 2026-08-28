@@ -55,18 +55,4 @@ env:
     valueFromSecret: JWT_SECRET
 
 mcp:
-  enabled: true
-  protocol: stdio
-  servers:
-    - name: mcp-scout
-      command: python3
-      args: ["-m", "my_agent.mcp_servers.mcp_scout_server"]
-    - name: mcp-docproc
-      command: python3
-      args: ["-m", "my_agent.mcp_servers.mcp_docproc_server"]
-    - name: mcp-knowledge
-      command: python3
-      args: ["-m", "my_agent.mcp_servers.mcp_knowledge_server"]
-    - name: mcp-tailor
-      command: python3
-      args: ["-m", "my_agent.mcp_servers.mcp_tailor_server"]
+  enabled: false
