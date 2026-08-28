@@ -17,9 +17,9 @@ service:
   protocol: http
   healthCheck:
     path: /api/health
-    interval: 30s
-    timeout: 5s
-    healthyThreshold: 2
+    interval: 10s
+    timeout: 3s
+    healthyThreshold: 1
     unhealthyThreshold: 3
 
 env:
@@ -27,16 +27,28 @@ env:
     value: "8000"
   - name: PYTHONUNBUFFERED
     value: "1"
+  - name: NODE_ENV
+    value: "production"
   - name: ARMORIQ_SHIELD_DEFAULT
     value: "ON"
+  - name: GROQ_MODEL
+    value: "qwen/qwen3.8-27b"
+  - name: GEMINI_LIVE_MODEL
+    value: "gemini-3.1-flash-live-preview"
   - name: GROQ_API_KEY
     valueFromSecret: GROQ_API_KEY
   - name: GEMINI_API_KEY
+    valueFromSecret: GEMINI_API_KEY
+  - name: GOOGLE_API_KEY
     valueFromSecret: GEMINI_API_KEY
   - name: FIRECRAWL_API_KEY
     valueFromSecret: FIRECRAWL_API_KEY
   - name: SUPABASE_URL
     valueFromSecret: SUPABASE_URL
+  - name: SUPABASE_ANON_KEY
+    valueFromSecret: SUPABASE_ANON_KEY
+  - name: SUPABASE_SERVICE_KEY
+    valueFromSecret: SUPABASE_SERVICE_ROLE_KEY
   - name: SUPABASE_SERVICE_ROLE_KEY
     valueFromSecret: SUPABASE_SERVICE_ROLE_KEY
   - name: JWT_SECRET
@@ -47,14 +59,14 @@ mcp:
   protocol: stdio
   servers:
     - name: mcp-scout
-      command: python
+      command: python3
       args: ["-m", "my_agent.mcp_servers.mcp_scout_server"]
     - name: mcp-docproc
-      command: python
+      command: python3
       args: ["-m", "my_agent.mcp_servers.mcp_docproc_server"]
     - name: mcp-knowledge
-      command: python
+      command: python3
       args: ["-m", "my_agent.mcp_servers.mcp_knowledge_server"]
     - name: mcp-tailor
-      command: python
+      command: python3
       args: ["-m", "my_agent.mcp_servers.mcp_tailor_server"]
