@@ -2,20 +2,34 @@ import React, { useState } from "react";
 import { Play, RotateCcw, Share2, Code2, CheckCircle2, AlertCircle, Copy, Check, Terminal } from "lucide-react";
 import { DEFAULT_CODING_CHALLENGES } from "./interviewData";
 
-export default function CodeEditorPanel({ onSyncCodeWithAi }) {
+export default function CodeEditorPanel({ onSyncCodeWithAi, onCodeChange, initialCode, problemPrompt }) {
   const [selectedChallengeIndex, setSelectedChallengeIndex] = useState(0);
   const [language, setLanguage] = useState("javascript");
-  const [code, setCode] = useState(DEFAULT_CODING_CHALLENGES[0].starterCode);
+  const [code, setCode] = useState(initialCode || DEFAULT_CODING_CHALLENGES[0].starterCode);
   const [output, setOutput] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const [hasSynced, setHasSynced] = useState(false);
 
-  const currentChallenge = DEFAULT_CODING_CHALLENGES[selectedChallengeIndex] || DEFAULT_CODING_CHALLENGES[0];
+  // Sync initial code to parent
+  React.useEffect(() => {
+    if (initialCode) {
+      setCode(initialCode);
+      onCodeChange?.(initialCode);
+    } else {
+      onCodeChange?.(code);
+    }
+  }, [initialCode]);
+
+  const currentChallenge = problemPrompt
+    ? { title: "In-Meeting Technical Challenge", description: problemPrompt }
+    : DEFAULT_CODING_CHALLENGES[selectedChallengeIndex] || DEFAULT_CODING_CHALLENGES[0];
 
   const handleChallengeChange = (idx) => {
     setSelectedChallengeIndex(idx);
-    setCode(DEFAULT_CODING_CHALLENGES[idx].starterCode);
+    const newCode = DEFAULT_CODING_CHALLENGES[idx].starterCode;
+    setCode(newCode);
+    onCodeChange?.(newCode);
     setOutput(null);
   };
 
@@ -150,7 +164,10 @@ export default function CodeEditorPanel({ onSyncCodeWithAi }) {
         {/* Editor Area */}
         <textarea
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={(e) => {
+            setCode(e.target.value);
+            onCodeChange?.(e.target.value);
+          }}
           spellCheck={false}
           className="flex-1 w-full h-full p-3 bg-transparent text-slate-100 resize-none focus:outline-none leading-6 font-mono text-xs sm:text-sm selection:bg-cyan-600/40"
           placeholder="// Write your solution here..."

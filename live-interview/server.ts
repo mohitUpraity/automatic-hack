@@ -221,9 +221,10 @@ app.post("/api/evaluate-interview", async (req, res) => {
       candidateResume,
       conductWarnings = [],
       interviewerObservations = [],
+      conclusionData,
     } = req.body;
 
-    const evaluationPrompt = `You are an elite Hiring Committee Panel and Executive HR Leader. Evaluate this candidate based on their full interview transcript, company/JD requirements, candidate resume claims, live conduct/warnings, and telemetry notes.
+    const evaluationPrompt = `You are CareerOS v3 Principal Bar-Raiser and Hiring Committee Leader. Evaluate this candidate based on their full interview transcript, company/JD requirements, candidate resume claims, live conduct/warnings, interviewer observations, and in-meeting conclusion status.
 
 Target Metadata:
 - Company: ${company}
@@ -236,6 +237,9 @@ ${companyContext || "High-bar technical standards and collaborative culture."}
 Candidate Resume Context:
 ${candidateResume || "Standard candidate profile."}
 
+Live Interviewer Decision & In-Meeting Status:
+${conclusionData ? JSON.stringify(conclusionData, null, 2) : "Session completed naturally."}
+
 Interview Transcript:
 ${JSON.stringify(transcript, null, 2)}
 
@@ -247,6 +251,11 @@ ${JSON.stringify(conductWarnings, null, 2)}
 
 Candidate Code / System Design Notes:
 ${codeSnippet || notes || "No separate code snippet provided."}
+
+CRITICAL EVALUATION GUIDELINES:
+1. If the live interviewer was satisfied, called conclude_interview with a positive verdict (${conclusionData?.overall_verdict || "Hire/Strong Hire"}), or if the candidate explained their technical approach well, grade their performance with high readiness (85-95) and articulate their strengths in problem decomposition and architecture.
+2. If the candidate was disqualified for conduct violations (conduct_disqualification: true), set hiringDecision to "Disqualified" and overallScore to 0-20.
+3. Base all questions, answers, and study roadmaps directly on what was discussed.
 
 Please output a comprehensive, structured evaluation JSON adhering STRICTLY to this schema:
 {
@@ -345,6 +354,9 @@ Please output a comprehensive, structured evaluation JSON adhering STRICTLY to t
               }),
             });
             const groqData: any = await groqRes.json();
+            if (groqData.error) {
+              console.warn(`[Evaluation] Groq error for ${gModel}:`, groqData.error);
+            }
             const content = groqData.choices?.[0]?.message?.content;
             if (content) {
               parsedData = JSON.parse(content);

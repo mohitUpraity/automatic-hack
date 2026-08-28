@@ -408,6 +408,68 @@ export default function LiveInterviewRoom({
     }
   }, [isMuted]);
 
+  // Real-time browser speech recognition for 100% transcript grounding
+  useEffect(() => {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    let recognition;
+    try {
+      recognition = new SpeechRec();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = "en-US";
+
+      recognition.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            const spokenText = event.results[i][0].transcript.trim();
+            if (spokenText && spokenText.length > 2) {
+              setTranscripts((prev) => {
+                const last = prev[prev.length - 1];
+                if (last && last.speaker === "user" && last.createdAt && (Date.now() - last.createdAt < 6000)) {
+                  return [
+                    ...prev.slice(0, -1),
+                    { ...last, text: `${last.text} ${spokenText}`, createdAt: Date.now() },
+                  ];
+                }
+                return [
+                  ...prev,
+                  {
+                    id: `user-rec-${Date.now()}`,
+                    speaker: "user",
+                    speakerName: config.candidateName || "Candidate",
+                    text: spokenText,
+                    timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                    isFinal: true,
+                    createdAt: Date.now(),
+                  },
+                ];
+              });
+            }
+          }
+        }
+      };
+
+      recognition.onerror = () => {};
+      recognition.onend = () => {
+        try {
+          if (!isMuted) recognition.start();
+        } catch (e) {}
+      };
+
+      recognition.start();
+    } catch (e) {}
+
+    return () => {
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch (e) {}
+      }
+    };
+  }, [isMuted, config.candidateName]);
+
   // Sync video source element
   useEffect(() => {
     if (videoFeedRef.current) {
@@ -526,6 +588,7 @@ export default function LiveInterviewRoom({
       conductWarnings: conductWarnings,
       interviewerObservations: interviewerObservations,
       codeSnippet: lastCodeSnippet,
+      conclusionData: conclusionData,
       notes: chatMessages.map((m) => `${m.senderName}: ${m.text}`).join("\n"),
     };
 
@@ -547,6 +610,13 @@ export default function LiveInterviewRoom({
       const data = await res.json();
       if (conclusionData && conclusionData.overall_verdict) {
         data.hiringDecision = conclusionData.overall_verdict;
+        if (conclusionData.readiness_score) {
+          data.overall_readiness_score = conclusionData.readiness_score;
+          data.overallScore = conclusionData.readiness_score;
+        }
+        if (conclusionData.reason && (!data.executive_summary || data.executive_summary.length < 50)) {
+          data.executive_summary = `The live bar-raiser panel concluded with a ${conclusionData.overall_verdict} verdict. ${conclusionData.reason}`;
+        }
       }
       setDebriefData(data);
 
@@ -735,6 +805,7 @@ export default function LiveInterviewRoom({
                   initialCode={codingChallenge?.starter_code}
                   problemPrompt={codingChallenge?.problem_description}
                   onSyncCodeWithAi={handleSyncCodeWithAi}
+                  onCodeChange={(c) => setLastCodeSnippet(c)}
                 />
               </div>
             </div>
