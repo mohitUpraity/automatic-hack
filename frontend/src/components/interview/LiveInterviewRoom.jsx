@@ -76,6 +76,13 @@ export default function LiveInterviewRoom({
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [lastCodeSnippet, setLastCodeSnippet] = useState("");
 
+  // Executive HR & Multimodal Observation States
+  const [conductWarnings, setConductWarnings] = useState([]);
+  const [activeWarningBanner, setActiveWarningBanner] = useState(null);
+  const [interviewerObservations, setInterviewerObservations] = useState([]);
+  const [codingChallenge, setCodingChallenge] = useState(null);
+  const [whiteboardElements, setWhiteboardElements] = useState(null);
+
   // Refs
   const audioManagerRef = useRef(null);
   const socketRef = useRef(null);
@@ -112,14 +119,73 @@ export default function LiveInterviewRoom({
           setIsConnecting(false);
         }
 
-        if (msg.type === "audio") {
-          // Play 24kHz audio chunk from Gemini Live
+        // 1. In-Meeting Floating Reaction Tool Call
+        if (msg.type === "interviewer_reaction") {
+          const newReaction = {
+            id: `rx-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+            emoji: msg.data.emoji || "👏",
+            label: msg.data.label || "Good Point",
+            reason: msg.data.reason || "",
+          };
+          setReactions((prev) => [...prev, newReaction]);
+          setTimeout(() => {
+            setReactions((prev) => prev.filter((r) => r.id !== newReaction.id));
+          }, 4500);
+        }
+
+        // 2. Formal Conduct & Distraction Warning Tool Call
+        else if (msg.type === "conduct_warning") {
+          const warningObj = {
+            id: `warn-${Date.now()}`,
+            reason: msg.data.warning_reason || "Distraction or phone usage noticed",
+            count: msg.data.warning_number || (conductWarnings.length + 1),
+            isFinal: Boolean(msg.data.is_final_warning),
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+          setConductWarnings((prev) => [...prev, warningObj]);
+          setActiveWarningBanner(warningObj);
+          setTimeout(() => setActiveWarningBanner(null), 9000);
+        }
+
+        // 3. Interviewer Telemetry Observation Tool Call
+        else if (msg.type === "interviewer_observation") {
+          setInterviewerObservations((prev) => [
+            ...prev,
+            {
+              id: `obs-${Date.now()}`,
+              category: msg.data.category || "non_verbal",
+              type: msg.data.observation_type || "neutral_note",
+              note: msg.data.note,
+              scoreDelta: msg.data.score_delta || 0,
+              timestamp: msg.data.timestamp || new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            },
+          ]);
+        }
+
+        // 4. Live Coding Challenge Injection
+        else if (msg.type === "push_coding_challenge") {
+          setCodingChallenge(msg.data);
+          setActiveSideTab("code");
+        }
+
+        // 5. Whiteboard Architectural Diagram Update
+        else if (msg.type === "update_whiteboard") {
+          setWhiteboardElements(msg.data);
+          setActiveSideTab("whiteboard");
+        }
+
+        // 6. Conclude Interview Tool Trigger
+        else if (msg.type === "conclude_interview") {
+          console.log("🏁 Interview concluded by AI:", msg.data);
+          triggerFullDebrief(msg.data);
+        }
+
+        // Voice and transcript events
+        else if (msg.type === "audio") {
           setIsConnecting(false);
           audioManager.playAudioChunk(msg.data);
           setIsInterrupted(false);
         } else if (msg.type === "output_transcript") {
-          // AI closed captions
-          console.log("🗣️ AI says:", msg.text);
           setCurrentCaption({
             speaker: "ai",
             speakerName: selectedProfile.name,
@@ -146,8 +212,6 @@ export default function LiveInterviewRoom({
             ];
           });
         } else if (msg.type === "input_transcript") {
-          // Candidate closed captions
-          console.log("🎤 You said:", msg.text);
           setCurrentCaption({
             speaker: "user",
             speakerName: config.candidateName || "You",
@@ -165,7 +229,6 @@ export default function LiveInterviewRoom({
             },
           ]);
         } else if (msg.type === "interrupted") {
-          // Conversational Barge-in
           audioManager.stopPlayback();
           setIsAiSpeaking(false);
           setIsInterrupted(true);
@@ -201,7 +264,7 @@ export default function LiveInterviewRoom({
       console.log("🚀 Live Interview WebSocket connected to", wsUrl);
       setIsConnecting(false);
 
-      // Send initial setup packet to Gemini Live
+      // Send initial setup packet to Gemini Live with Dual Context
       const activeCfg = configRef.current || config;
       const setupPayload = {
         type: "setup",
@@ -209,11 +272,13 @@ export default function LiveInterviewRoom({
         seniority: activeCfg.seniority || "Senior",
         voice: selectedProfile.voice || "Zephyr",
         candidateName: activeCfg.candidateName || "Candidate",
-        interviewType: activeCfg.format || "Full Technical & Coding",
+        interviewType: activeCfg.format || "Full Technical & Behavioral",
         company: activeCfg.company || "Google Cloud",
+        companyContext: activeCfg.companyContext || `Target Company: ${activeCfg.company || "Google Cloud"}\nRole: ${activeCfg.role}`,
+        candidateResume: activeCfg.candidateResume || activeCfg.resumeText || "Experienced Software Engineer",
         customContext: `Candidate Resume: ${activeCfg.resumeText || ""}\nJob Description: ${activeCfg.jobDescription || ""}`,
       };
-      console.log("📤 Sending setup:", setupPayload.candidateName, setupPayload.voice, setupPayload.role);
+      console.log("📤 Sending setup with dual context:", setupPayload.candidateName, setupPayload.company, setupPayload.role);
       ws.send(JSON.stringify(setupPayload));
     };
 
@@ -441,8 +506,8 @@ export default function LiveInterviewRoom({
     handleTriggerReaction("🎨");
   };
 
-  // End Call & Debrief
-  const handleEndCall = async () => {
+  // Trigger full evaluation and debrief modal
+  const triggerFullDebrief = async (conclusionData = null) => {
     setShowDebrief(true);
     setIsEvaluating(true);
 
@@ -456,6 +521,10 @@ export default function LiveInterviewRoom({
       seniority: config.seniority,
       format: config.format,
       company: config.company || selectedProfile.company,
+      companyContext: config.companyContext || config.jobDescription,
+      candidateResume: config.candidateResume || config.resumeText,
+      conductWarnings: conductWarnings,
+      interviewerObservations: interviewerObservations,
       codeSnippet: lastCodeSnippet,
       notes: chatMessages.map((m) => `${m.senderName}: ${m.text}`).join("\n"),
     };
@@ -476,12 +545,20 @@ export default function LiveInterviewRoom({
         });
       }
       const data = await res.json();
+      if (conclusionData && conclusionData.overall_verdict) {
+        data.hiringDecision = conclusionData.overall_verdict;
+      }
       setDebriefData(data);
     } catch (err) {
       console.error("Evaluation request error:", err);
     } finally {
       setIsEvaluating(false);
     }
+  };
+
+  // End Call & Debrief
+  const handleEndCall = () => {
+    triggerFullDebrief();
   };
 
   return (
@@ -541,6 +618,33 @@ export default function LiveInterviewRoom({
       {/* Main Studio Area */}
       <main className="flex-1 flex overflow-hidden p-3 sm:p-4 gap-3 relative">
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+          {/* Active Conduct Warning Banner Alert */}
+          {activeWarningBanner && (
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-30 max-w-xl w-full px-4 animate-bounce">
+              <div className="p-3.5 rounded-2xl bg-rose-950/95 border-2 border-rose-500 shadow-2xl backdrop-blur-md flex items-center justify-between text-white">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-rose-600 flex items-center justify-center font-bold text-sm shadow-md">
+                    ⚠️
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-rose-200 uppercase tracking-wider">
+                      Conduct Warning #{activeWarningBanner.count} {activeWarningBanner.isFinal ? "(Final Warning)" : ""}
+                    </div>
+                    <div className="text-xs text-white font-medium">
+                      {activeWarningBanner.reason}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveWarningBanner(null)}
+                  className="text-xs text-rose-300 hover:text-white px-2 py-1 rounded-lg bg-rose-900/60"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Layout 1: Split Video View */}
           {activeLayout === "split" && (
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 h-full">
@@ -589,7 +693,11 @@ export default function LiveInterviewRoom({
                 </div>
               </div>
               <div className="lg:col-span-8 h-full">
-                <CodeEditorPanel onSyncCodeWithAi={handleSyncCodeWithAi} />
+                <CodeEditorPanel
+                  initialCode={codingChallenge?.starter_code}
+                  problemPrompt={codingChallenge?.problem_description}
+                  onSyncCodeWithAi={handleSyncCodeWithAi}
+                />
               </div>
             </div>
           )}
@@ -620,7 +728,10 @@ export default function LiveInterviewRoom({
                 </div>
               </div>
               <div className="lg:col-span-8 h-full">
-                <WhiteboardPanel onSyncWhiteboardWithAi={handleSyncWhiteboardWithAi} />
+                <WhiteboardPanel
+                  diagramData={whiteboardElements}
+                  onSyncWhiteboardWithAi={handleSyncWhiteboardWithAi}
+                />
               </div>
             </div>
           )}
@@ -645,6 +756,10 @@ export default function LiveInterviewRoom({
             analytics={analytics}
             isAiSpeaking={isAiSpeaking}
             userVolume={userVolume}
+            conductWarnings={conductWarnings}
+            interviewerObservations={interviewerObservations}
+            companyContext={config.companyContext}
+            candidateResume={config.candidateResume}
             onSendMessage={handleSendMessage}
             onClose={() => setActiveSideTab(null)}
           />

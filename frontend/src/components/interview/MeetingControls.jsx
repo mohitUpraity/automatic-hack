@@ -17,6 +17,7 @@ import {
   Layers,
   LayoutGrid,
   ChevronUp,
+  Eye,
 } from "lucide-react";
 
 export default function MeetingControls({
@@ -271,6 +272,18 @@ export default function MeetingControls({
           title="Personal Notes"
         >
           <FileText className="w-4 h-4" />
+        </button>
+
+        <button
+          onClick={() => onToggleSideTab("telemetry")}
+          className={`p-2.5 rounded-full transition-all relative ${
+            activeSideTab === "telemetry"
+              ? "bg-cyan-600/30 text-cyan-300 border border-cyan-500/50"
+              : "text-slate-400 hover:text-white hover:bg-slate-800"
+          }`}
+          title="HR Live Telemetry & Observations"
+        >
+          <Eye className="w-4 h-4" />
         </button>
       </div>
     </footer>

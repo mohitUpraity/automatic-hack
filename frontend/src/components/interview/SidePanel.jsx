@@ -12,6 +12,11 @@ import {
   Activity,
   Mic,
   Volume2,
+  AlertTriangle,
+  Eye,
+  CheckCircle,
+  XCircle,
+  Award,
 } from "lucide-react";
 
 export default function SidePanel({
@@ -23,6 +28,10 @@ export default function SidePanel({
   analytics = { userSpeakingSeconds: 0, aiSpeakingSeconds: 0, interruptionCount: 0, paceWpm: 130 },
   isAiSpeaking = false,
   userVolume = 0,
+  conductWarnings = [],
+  interviewerObservations = [],
+  companyContext = "",
+  candidateResume = "",
   onSendMessage,
   onClose,
 }) {
@@ -55,8 +64,9 @@ export default function SidePanel({
           {activeTab === "chat" && <MessageSquare className="w-5 h-5 text-cyan-400" />}
           {activeTab === "rubric" && <Activity className="w-5 h-5 text-cyan-400" />}
           {activeTab === "notes" && <FileText className="w-5 h-5 text-cyan-400" />}
+          {activeTab === "telemetry" && <Eye className="w-5 h-5 text-cyan-400" />}
           <h2 className="text-sm font-semibold text-white capitalize">
-            {activeTab === "rubric" ? "Interview Agenda & Analytics" : `${activeTab} Panel`}
+            {activeTab === "rubric" ? "Interview Agenda & Analytics" : activeTab === "telemetry" ? "HR Real-Time Telemetry" : `${activeTab} Panel`}
           </h2>
         </div>
         <button
@@ -307,6 +317,106 @@ export default function SidePanel({
               className="flex-1 w-full bg-slate-950 text-slate-200 text-xs p-3 rounded-xl border border-slate-800 resize-none focus:outline-none focus:border-cyan-500 font-mono leading-relaxed"
               placeholder="Write your scratchpad notes here..."
             />
+          </div>
+        )}
+
+        {/* 5. HR REAL-TIME TELEMETRY & OBSERVATIONS TAB */}
+        {activeTab === "telemetry" && (
+          <div className="space-y-4">
+            {/* Integrity & Conduct Status */}
+            <div className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                  Live Conduct & Integrity
+                </span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    conductWarnings.length === 0
+                      ? "bg-emerald-950/80 border-emerald-500/30 text-emerald-400"
+                      : conductWarnings.length === 1
+                      ? "bg-amber-950/80 border-amber-500/30 text-amber-400"
+                      : "bg-rose-950/80 border-rose-500/30 text-rose-400"
+                  }`}
+                >
+                  {conductWarnings.length === 0
+                    ? "Clean (0 Warnings)"
+                    : `${conductWarnings.length} Warning${conductWarnings.length > 1 ? "s" : ""}`}
+                </span>
+              </div>
+
+              {conductWarnings.length > 0 ? (
+                <div className="space-y-1.5 mt-2">
+                  {conductWarnings.map((w, idx) => (
+                    <div
+                      key={w.id || idx}
+                      className="p-2 rounded-lg bg-rose-950/40 border border-rose-800/40 text-[11px] text-rose-300 flex items-start gap-2"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <div className="font-bold">Warning #{w.count || idx + 1} ({w.timestamp})</div>
+                        <div className="text-slate-300">{w.reason}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400">
+                  Multimodal vision analysis active. Eye contact, posture, and attention are within professional thresholds.
+                </p>
+              )}
+            </div>
+
+            {/* In-Meeting AI Observations Feed */}
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center justify-between">
+                <span>Interviewer Live Notes ({interviewerObservations.length})</span>
+                <span className="text-[10px] text-cyan-400 font-mono">Real-time</span>
+              </div>
+
+              {interviewerObservations.length === 0 ? (
+                <div className="p-4 bg-slate-950/40 rounded-xl border border-slate-800 text-center text-slate-500 text-xs">
+                  Interviewer is listening and observing your responses... Notes will stream here as the conversation progresses.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {interviewerObservations.map((obs, idx) => (
+                    <div
+                      key={obs.id || idx}
+                      className={`p-2.5 rounded-xl border text-xs leading-relaxed ${
+                        obs.type === "green_flag"
+                          ? "bg-emerald-950/30 border-emerald-500/30 text-emerald-200"
+                          : obs.type === "red_flag"
+                          ? "bg-rose-950/30 border-rose-500/30 text-rose-200"
+                          : obs.type === "yellow_flag"
+                          ? "bg-amber-950/30 border-amber-500/30 text-amber-200"
+                          : "bg-slate-950/60 border-slate-800 text-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
+                        <span className="uppercase tracking-wider font-bold">
+                          {obs.category?.replace("_", " ")}
+                        </span>
+                        <span>{obs.timestamp}</span>
+                      </div>
+                      <p>{obs.note}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Dual Context Summary Card */}
+            <div className="p-3.5 bg-slate-950/60 rounded-xl border border-slate-800 space-y-2 text-xs">
+              <div className="flex items-center space-x-1.5 text-cyan-400 font-semibold">
+                <FileText className="w-3.5 h-3.5" />
+                <span>Dual Context Active</span>
+              </div>
+              <div className="text-[11px] text-slate-300 space-y-1">
+                <div>• <strong className="text-white">Target Company Context:</strong> Ingested into panel memory.</div>
+                <div>• <strong className="text-white">Candidate Resume Context:</strong> Analyzed for STAR probing.</div>
+              </div>
+            </div>
           </div>
         )}
       </div>

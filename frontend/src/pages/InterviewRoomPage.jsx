@@ -24,16 +24,16 @@ export default function InterviewRoomPage() {
   const [searchParams] = useSearchParams();
   const { id: paramOppId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, candidates = [], selectedCandidateId } = useAuth();
 
-  const oppId = searchParams.get("oppId") || paramOppId;
+  const oppId = searchParams.get("oppId") || paramOppId || searchParams.get("id");
   const [company, setCompany] = useState(searchParams.get("company") || "Google Cloud");
   const [role, setRole] = useState(searchParams.get("role") || "Senior Full-Stack Software Engineer");
-  const [seniority, setSeniority] = useState("Senior");
-  const [format, setFormat] = useState("Full Technical & Coding");
+  const [seniority, setSeniority] = useState(searchParams.get("seniority") || "Senior");
+  const [format, setFormat] = useState(searchParams.get("format") || "Full Technical & Coding");
   const [jobDescription, setJobDescription] = useState("");
   const [resumeText, setResumeText] = useState("");
-  const candidateName = searchParams.get("candidate") || user?.name || "Mohit Upraity";
+  const candidateName = searchParams.get("candidate") || user?.name || (candidates.length > 0 ? candidates[0].name : "Mohit Upraity");
 
   // Pre-call Lobby States
   const [inMeeting, setInMeeting] = useState(false);
@@ -47,20 +47,93 @@ export default function InterviewRoomPage() {
   const audioContextRef = useRef(null);
   const animFrameRef = useRef(null);
 
-  // Fetch opportunity metadata if available
+  const [showContextModal, setShowContextModal] = useState(false);
+  const [activeTab, setActiveTab] = useState("jd"); // "jd" | "resume"
+
+  // 1. Fetch target opportunity from database API
   useEffect(() => {
     if (oppId) {
       fetchOpportunityById(oppId)
         .then((res) => {
           if (res?.opportunity) {
-            if (res.opportunity.company) setCompany(res.opportunity.company);
-            if (res.opportunity.title) setRole(res.opportunity.title);
-            if (res.opportunity.description) setJobDescription(res.opportunity.description);
+            const opp = res.opportunity;
+            if (opp.company || opp.company_name || opp.source) {
+              setCompany(opp.company || opp.company_name || opp.source);
+            }
+            if (opp.title) setRole(opp.title);
+            if (opp.description) setJobDescription(opp.description);
+            if (opp.requirements) {
+              setJobDescription((prev) =>
+                prev ? `${prev}\n\nRequirements & Skills:\n${opp.requirements}` : opp.requirements
+              );
+            }
+            if (opp.seniority_level || opp.level) {
+              setSeniority(opp.seniority_level || opp.level);
+            }
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.warn("[Interview Lobby] Opportunity DB fetch fallback:", err);
+        });
     }
   }, [oppId]);
+
+  // 2. Preload candidate resume from Supabase database persona, AuthContext, or localStorage
+  useEffect(() => {
+    // A. Check active candidate persona from database
+    const activeCandidate = candidates.find(
+      (c) => c.id === selectedCandidateId || String(c.id) === String(selectedCandidateId)
+    ) || candidates[0];
+
+    if (activeCandidate?.resume_text) {
+      setResumeText(activeCandidate.resume_text);
+      return;
+    }
+    if (activeCandidate?.resume_markdown) {
+      setResumeText(activeCandidate.resume_markdown);
+      return;
+    }
+
+    // B. Check user profile
+    if (user?.resume_text) {
+      setResumeText(user.resume_text);
+      return;
+    }
+    if (user?.raw_markdown) {
+      setResumeText(user.raw_markdown);
+      return;
+    }
+
+    // C. Check localStorage cache
+    const cachedResume = localStorage.getItem("careeros_resume_text") ||
+      localStorage.getItem("careeros_raw_resume") ||
+      localStorage.getItem("careeros_parsed_resume");
+    if (cachedResume) {
+      setResumeText(cachedResume);
+      return;
+    }
+
+    // D. Default structured benchmark
+    setResumeText(
+      `Candidate Name: ${candidateName}\nSkills: React, Node.js, Python, TypeScript, Distributed Systems, Cloud Architecture, PostgreSQL, Docker, Kubernetes\nExperience: Senior Full-Stack Software Engineer with 6+ years experience architecting high-scale microservices, real-time streaming engines, and resilient distributed pipelines.`
+    );
+  }, [user, candidates, selectedCandidateId, candidateName]);
+
+  const selectedProfile = INTERVIEWER_PROFILES[selectedProfileIndex];
+
+  const meetingConfig = useMemo(() => ({
+    company,
+    role,
+    seniority,
+    format,
+    candidateName,
+    voice: selectedProfile.voice,
+    companyContext: `Target Company: ${company}\nTarget Role: ${seniority} ${role}\nJob Description & Expectations:\n${jobDescription || "Standard high-bar industry benchmarks for scalability, distributed systems, clean code, and leadership."}`,
+    candidateResume: resumeText || `Candidate Name: ${candidateName}\nTarget Role: ${role}\nExperienced engineer with background in full-stack, distributed systems, and real-time architectures.`,
+    resumeText,
+    jobDescription,
+    interviewerProfile: selectedProfile,
+  }), [company, role, seniority, format, candidateName, selectedProfile, resumeText, jobDescription]);
 
   // Request camera and microphone for Lobby preview
   useEffect(() => {
@@ -174,20 +247,6 @@ export default function InterviewRoomPage() {
       return next;
     });
   };
-
-  const selectedProfile = INTERVIEWER_PROFILES[selectedProfileIndex];
-
-  const meetingConfig = useMemo(() => ({
-    company,
-    role,
-    seniority,
-    format,
-    candidateName,
-    voice: selectedProfile.voice,
-    resumeText,
-    jobDescription,
-    interviewerProfile: selectedProfile,
-  }), [company, role, seniority, format, candidateName, selectedProfile, resumeText, jobDescription]);
 
   // If in meeting, mount the full duplex live interview studio
   if (inMeeting) {
@@ -358,6 +417,61 @@ export default function InterviewRoomPage() {
                 className="w-full bg-slate-950 text-white text-xs px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500 font-semibold"
               />
             </div>
+
+            {/* Dual Context Pill & Inspector */}
+            <div className="mt-3.5 p-3 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-cyan-400" />
+                  Dual Context Ingestion
+                </span>
+                <span className="text-[10px] bg-emerald-950/70 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded-full font-semibold">
+                  JD + Resume Ready
+                </span>
+              </div>
+
+              {/* Tabs for quick context editing */}
+              <div className="flex rounded-xl bg-slate-900 p-1 gap-1 text-[11px]">
+                <button
+                  onClick={() => setActiveTab("jd")}
+                  className={`flex-1 py-1 rounded-lg font-semibold transition-all ${
+                    activeTab === "jd"
+                      ? "bg-slate-800 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Job Description ({company})
+                </button>
+                <button
+                  onClick={() => setActiveTab("resume")}
+                  className={`flex-1 py-1 rounded-lg font-semibold transition-all ${
+                    activeTab === "resume"
+                      ? "bg-slate-800 text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  Candidate Resume ({candidateName})
+                </button>
+              </div>
+
+              {activeTab === "jd" ? (
+                <textarea
+                  rows={3}
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  placeholder="Paste Job Description, tech stack requirements, or company core values..."
+                  className="w-full bg-slate-900/60 text-slate-200 text-[11px] p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500 resize-none font-mono placeholder:text-slate-600"
+                />
+              ) : (
+                <textarea
+                  rows={3}
+                  value={resumeText}
+                  onChange={(e) => setResumeText(e.target.value)}
+                  placeholder="Paste resume experience, notable projects, tech skills..."
+                  className="w-full bg-slate-900/60 text-slate-200 text-[11px] p-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500 resize-none font-mono placeholder:text-slate-600"
+                />
+              )}
+            </div>
           </div>
 
           {/* Persona Selection */}
@@ -365,7 +479,7 @@ export default function InterviewRoomPage() {
             <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-2">
               2. Select AI Interviewer Persona
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
               {INTERVIEWER_PROFILES.map((p, idx) => (
                 <button
                   key={p.id}

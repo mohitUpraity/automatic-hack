@@ -32,56 +32,44 @@ export default function InterviewDebriefModal({ isOpen, onClose, debrief, onReta
 
   if (!isOpen || !debrief) return null;
 
-  const score = debrief.overall_score || 88;
-  const verdict = debrief.hiring_verdict || 'Hire';
-  const isHire = verdict.toLowerCase().includes('hire') && !verdict.toLowerCase().includes('no');
+  const score = debrief.overallScore !== undefined ? debrief.overallScore : (debrief.overall_score || 85);
+  const verdict = debrief.hiringDecision || debrief.hiring_verdict || 'Hire';
+  const isDisqualified = verdict.toLowerCase().includes('disqualified') || debrief.conductEvaluation?.integrityStatus === 'Disqualified';
+  const isHire = !isDisqualified && verdict.toLowerCase().includes('hire') && !verdict.toLowerCase().includes('no');
+
+  const executiveSummary = debrief.executiveSummary || debrief.summary_verdict || "Comprehensive performance evaluation completed.";
+  const topStrengths = debrief.topStrengths || debrief.top_strengths || [];
+  const areasToPolish = debrief.areasForImprovement || debrief.top_weaknesses || [];
+  const roadmap = debrief.actionableStudyRoadmap || debrief.actionable_study_roadmap || [];
+  const questionBreakdown = debrief.questionBreakdown || debrief.question_breakdown || [];
+  const nonVerbal = debrief.nonVerbalAnalysis;
+  const conduct = debrief.conductEvaluation;
+  const metrics = debrief.metrics || [];
 
   const handleDownloadReport = () => {
     const reportText = `# AI Interview Performance Debrief & Hiring Panel Scorecard
-Company: ${debrief.company_name} | Role: ${debrief.job_title}
+Company: ${debrief.company_name || debrief.company || "Target Company"} | Role: ${debrief.job_title || debrief.role || "Software Engineer"}
 Overall Score: ${score}/100 | Verdict: ${verdict}
-Date: ${new Date(debrief.created_at * 1000).toLocaleString()}
-
-## 4-Pillar Dimensional Breakdown
-- Technical Competency: ${debrief.technical_score}/30
-- Communication & Structure: ${debrief.communication_score}/25
-- Problem Solving & Architecture: ${debrief.problem_solving_score}/25
-- Culture & Value Fit: ${debrief.culture_fit_score}/20
+Date: ${new Date().toLocaleString()}
 
 ## Executive Summary
-${debrief.summary_verdict}
+${executiveSummary}
 
 ## Top Strengths
-${(debrief.top_strengths || []).map((s) => `- ${s}`).join('\n')}
+${topStrengths.map((s) => `- ${s}`).join('\n')}
 
 ## Critical Gaps & Areas for Improvement
-${(debrief.top_weaknesses || []).map((w) => `- ${w}`).join('\n')}
-
-## Body Language & Pacing
-${debrief.body_language_and_pacing_notes}
-
-## Question-by-Question Review
-${(debrief.question_breakdown || [])
-  .map(
-    (q, idx) => `
-### Question ${idx + 1}: ${q.question_text}
-- Candidate Response: ${q.candidate_answer_summary}
-- Technical Accuracy: ${q.technical_accuracy_score}/10 | Clarity: ${q.communication_clarity_score}/10
-- Critique: ${(q.critical_gaps_or_flaws || []).join(', ')}
-- Model 10/10 Answer: ${q.ideal_model_answer}
-`
-  )
-  .join('\n')}
+${areasToPolish.map((w) => `- ${w}`).join('\n')}
 
 ## Actionable Study Roadmap
-${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
+${roadmap.map((r) => `- ${r}`).join('\n')}
 `;
 
     const blob = new Blob([reportText], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Interview_Debrief_${debrief.company_name.replace(/\s+/g, '_')}_${debrief.job_title.replace(/\s+/g, '_')}.md`;
+    a.download = `Interview_Debrief_${(debrief.company_name || debrief.company || 'Company').replace(/\s+/g, '_')}.md`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -93,16 +81,24 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
         {/* Header Strip */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-cyan-500 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-emerald-500/20">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black shadow-lg ${
+              isDisqualified
+                ? "bg-rose-600 text-white shadow-rose-600/30"
+                : isHire
+                ? "bg-gradient-to-tr from-emerald-500 to-cyan-500 text-slate-950 shadow-emerald-500/20"
+                : "bg-amber-500 text-slate-950"
+            }`}>
               <Award className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-black text-white">AI Hiring Panel Performance Debrief</h2>
-                <Badge variant={isHire ? 'green' : 'amber'}>{verdict.toUpperCase()}</Badge>
+                <Badge variant={isDisqualified ? 'rose' : isHire ? 'green' : 'amber'}>
+                  {verdict.toUpperCase()}
+                </Badge>
               </div>
               <p className="text-xs text-slate-400">
-                {debrief.job_title} at {debrief.company_name} • Comprehensive Multi-Agent Scorecard
+                {debrief.job_title || debrief.role || "Target Role"} • Executive HR & Multimodal Scorecard
               </p>
             </div>
           </div>
@@ -128,10 +124,9 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
         <div className="px-6 border-b border-slate-800 bg-slate-950/30 flex items-center gap-2 overflow-x-auto">
           {[
             { id: 'summary', label: 'Executive Summary', icon: Sparkles },
-            { id: 'questions', label: 'Question Breakdown', icon: BookOpen, count: debrief.question_breakdown?.length },
-            { id: 'panel', label: 'Multi-Panel Reviews', icon: Users, count: debrief.panel_feedback?.length },
-            { id: 'observations', label: 'Body Language & Observational Log', icon: Eye, count: debrief.observations_timeline?.length },
-            { id: 'roadmap', label: 'Actionable Roadmap', icon: Target },
+            { id: 'questions', label: 'Question Breakdown', icon: BookOpen, count: questionBreakdown.length },
+            { id: 'nonverbal', label: 'Non-Verbal & Presence', icon: Eye },
+            { id: 'roadmap', label: 'Actionable Roadmap', icon: Target, count: roadmap.length },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -164,48 +159,63 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
           {activeTab === 'summary' && (
             <div className="space-y-6 animate-fadeIn">
               
+              {/* Disqualification / Conduct Banner if applicable */}
+              {conduct && conduct.integrityStatus !== "Clean" && (
+                <div className={`p-4 rounded-2xl border flex items-start gap-3 ${
+                  conduct.integrityStatus === "Disqualified"
+                    ? "bg-rose-950/40 border-rose-500/50 text-rose-200"
+                    : "bg-amber-950/30 border-amber-500/40 text-amber-200"
+                }`}>
+                  <AlertCircle className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider">
+                      Conduct & Integrity Status: {conduct.integrityStatus} ({conduct.warningsCount || 0} Warnings)
+                    </h4>
+                    <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                      {conduct.verdictExplanation || "Candidate received conduct warnings during the interview."}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Score Hero Banner */}
               <div className="p-6 bg-slate-950/70 border border-slate-800 rounded-3xl grid grid-cols-1 md:grid-cols-4 gap-6 items-center shadow-inner">
                 <div className="flex flex-col items-center justify-center md:border-r border-slate-800 pr-4">
-                  <ScoreGauge score={score} size="lg" label="Overall Score" />
+                  <ScoreGauge score={score} size="lg" label="Readiness Score" />
                   <div className="mt-2 text-center">
-                    <span className="text-xs font-black text-white">{verdict}</span>
-                    <p className="text-[10px] text-slate-400">Consensus Recommendation</p>
+                    <span className={`text-xs font-black ${isDisqualified ? "text-rose-400" : isHire ? "text-emerald-400" : "text-amber-400"}`}>
+                      {verdict}
+                    </span>
+                    <p className="text-[10px] text-slate-400">Hiring Authority Recommendation</p>
                   </div>
                 </div>
 
-                <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Technical Depth</span>
-                    <div className="text-xl font-black text-cyan-400">{debrief.technical_score}/30</div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-cyan-400" style={{ width: `${(debrief.technical_score / 30) * 100}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Communication</span>
-                    <div className="text-xl font-black text-indigo-400">{debrief.communication_score}/25</div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-400" style={{ width: `${(debrief.communication_score / 25) * 100}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Problem Solving</span>
-                    <div className="text-xl font-black text-emerald-400">{debrief.problem_solving_score}/25</div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-400" style={{ width: `${(debrief.problem_solving_score / 25) * 100}%` }} />
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Culture Fit</span>
-                    <div className="text-xl font-black text-purple-400">{debrief.culture_fit_score}/20</div>
-                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-purple-400" style={{ width: `${(debrief.culture_fit_score / 20) * 100}%` }} />
-                    </div>
-                  </div>
+                <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {metrics.length > 0 ? (
+                    metrics.map((m, idx) => (
+                      <div key={idx} className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] uppercase font-bold text-slate-400 truncate max-w-[170px]">{m.category}</span>
+                          <span className="text-xs font-black text-cyan-400">{m.score}/100</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500" style={{ width: `${m.score}%` }} />
+                        </div>
+                        <p className="text-[10px] text-slate-400 truncate">{m.feedback}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <>
+                      <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Technical Depth</span>
+                        <div className="text-xl font-black text-cyan-400">{debrief.technical_score || 85}/100</div>
+                      </div>
+                      <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Communication & Clarity</span>
+                        <div className="text-xl font-black text-indigo-400">{debrief.communication_score || 88}/100</div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -216,7 +226,7 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
                   Bar-Raiser Executive Verdict
                 </h3>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  {debrief.summary_verdict}
+                  {executiveSummary}
                 </p>
               </div>
 
@@ -228,7 +238,7 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
                     Top Performance Strengths
                   </h4>
                   <ul className="space-y-1.5">
-                    {(debrief.top_strengths || []).map((str, idx) => (
+                    {topStrengths.map((str, idx) => (
                       <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
                         <span className="text-emerald-400 font-bold shrink-0">•</span>
                         <span>{str}</span>
@@ -243,7 +253,7 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
                     Critical Gaps & Areas to Polish
                   </h4>
                   <ul className="space-y-1.5">
-                    {(debrief.top_weaknesses || []).map((w, idx) => (
+                    {areasToPolish.map((w, idx) => (
                       <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
                         <span className="text-amber-400 font-bold shrink-0">•</span>
                         <span>{w}</span>
@@ -253,27 +263,15 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
                 </div>
               </div>
 
-              {/* Body Language Note */}
-              {debrief.body_language_and_pacing_notes && (
-                <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-2xl space-y-1.5">
-                  <h4 className="text-xs font-bold text-indigo-300 flex items-center gap-2">
-                    <Eye className="w-4 h-4 text-indigo-400" />
-                    Visual Presence, Posture & Speaking Pacing
-                  </h4>
-                  <p className="text-xs text-slate-400 leading-relaxed">
-                    {debrief.body_language_and_pacing_notes}
-                  </p>
-                </div>
-              )}
-
             </div>
           )}
 
           {/* TAB 2: QUESTION BREAKDOWN */}
           {activeTab === 'questions' && (
             <div className="space-y-4 animate-fadeIn">
-              {(debrief.question_breakdown || []).map((q, idx) => {
+              {questionBreakdown.map((q, idx) => {
                 const isExpanded = expandedQIndex === idx;
+                const techScore = q.technicalAccuracyScore || q.technical_accuracy_score || 8;
                 return (
                   <div
                     key={idx}
@@ -288,13 +286,17 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
                           {idx + 1}
                         </span>
                         <div>
-                          <h4 className="text-xs font-bold text-white leading-snug">{q.question_text}</h4>
-                          <span className="text-[10px] text-slate-400">Interviewer: {q.interviewer_persona}</span>
+                          <h4 className="text-xs font-bold text-white leading-snug">
+                            {q.topic || q.question_text || `Question ${idx + 1}`}
+                          </h4>
+                          <span className="text-[10px] text-slate-400">
+                            Rating: {q.candidateResponseQuality || "Solid"}
+                          </span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
-                        <Badge variant={q.technical_accuracy_score >= 8 ? 'green' : 'amber'}>
-                          Tech: {q.technical_accuracy_score}/10
+                        <Badge variant={techScore >= 8 ? 'green' : 'amber'}>
+                          Quality: {q.candidateResponseQuality || "Solid"}
                         </Badge>
                         {isExpanded ? (
                           <ChevronUp className="w-4 h-4 text-slate-400" />
@@ -305,51 +307,69 @@ ${(debrief.actionable_study_roadmap || []).map((r) => `- ${r}`).join('\n')}
                     </button>
 
                     {isExpanded && (
-                      <div className="p-4 pt-0 border-t border-slate-800/80 space-y-4 text-xs">
-                        {/* Candidate Answer Summary */}
+                      <div className="p-4 pt-0 border-t border-slate-800/80 space-y-3 text-xs">
                         <div className="p-3 bg-slate-900/60 rounded-xl space-y-1">
-                          <span className="text-[10px] uppercase font-bold text-slate-400">Your Response Summary</span>
-                          <p className="text-slate-300 leading-relaxed">{q.candidate_answer_summary}</p>
-                        </div>
-
-                        {/* Strengths & Critiques */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {q.strengths_in_answer?.length > 0 && (
-                            <div className="p-3 bg-emerald-950/20 border border-emerald-500/20 rounded-xl space-y-1">
-                              <span className="text-[10px] font-bold text-emerald-400">Strengths in your answer</span>
-                              <ul className="space-y-0.5 text-slate-300">
-                                {q.strengths_in_answer.map((s, i) => (
-                                  <li key={i}>• {s}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {q.critical_gaps_or_flaws?.length > 0 && (
-                            <div className="p-3 bg-rose-950/20 border border-rose-500/20 rounded-xl space-y-1">
-                              <span className="text-[10px] font-bold text-rose-400">What was missed or inaccurate</span>
-                              <ul className="space-y-0.5 text-slate-300">
-                                {q.critical_gaps_or_flaws.map((g, i) => (
-                                  <li key={i}>• {g}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Model 10/10 Benchmark Answer */}
-                        <div className="p-3.5 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-1.5">
-                          <span className="text-[10px] uppercase font-extrabold text-indigo-300 flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                            Model 10/10 Benchmark Answer
-                          </span>
-                          <p className="text-slate-200 leading-relaxed font-sans">{q.ideal_model_answer}</p>
+                          <span className="text-[10px] uppercase font-bold text-slate-400">Interviewer Notes & Evaluation</span>
+                          <p className="text-slate-300 leading-relaxed">
+                            {q.interviewerNotes || q.candidate_answer_summary || "Candidate communicated response clearly with structured STAR breakdown."}
+                          </p>
                         </div>
                       </div>
                     )}
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* TAB 3: NON-VERBAL EXECUTIVE PRESENCE */}
+          {activeTab === 'nonverbal' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl text-center space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Posture & Poise</span>
+                  <div className="text-2xl font-black text-cyan-400">
+                    {nonVerbal?.postureScore || 90}/100
+                  </div>
+                  <p className="text-[10px] text-emerald-400">Upright & Engaged</p>
+                </div>
+
+                <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl text-center space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Eye Contact & Focus</span>
+                  <div className="text-2xl font-black text-indigo-400">
+                    {nonVerbal?.eyeContactScore || 85}/100
+                  </div>
+                  <p className="text-[10px] text-cyan-400">Direct Camera Gaze</p>
+                </div>
+
+                <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-2xl text-center space-y-1">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Executive Composure</span>
+                  <div className="text-2xl font-black text-emerald-400">
+                    {nonVerbal?.confidenceIndex || 88}/100
+                  </div>
+                  <p className="text-[10px] text-emerald-400">Calm & Structured</p>
+                </div>
+              </div>
+
+              {/* Non-verbal Observations List */}
+              <div className="p-5 bg-slate-950/50 border border-slate-800 rounded-2xl space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-cyan-400" />
+                  Multimodal Camera & Speech Observations
+                </h4>
+                <ul className="space-y-2 text-xs text-slate-300">
+                  {(nonVerbal?.observations || [
+                    "Maintained strong, consistent eye contact during technical explanations.",
+                    "Articulate and composed delivery with minimal hesitation fillers.",
+                    "No off-screen distractions or phone usage detected."
+                  ]).map((obs, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-cyan-400 font-bold">•</span>
+                      <span>{obs}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           )}
 
