@@ -4,24 +4,31 @@ uvicorn[standard]>=0.30.0
 python-dotenv>=1.0.0
 python-multipart>=0.0.6
 pydantic>=2.0
+pydantic-settings>=2.0.0
+websockets>=13.0
+cryptography>=42.0.0
 
-# Document Processing
-docling>=2.0
-docling-core>=2.0
-
-# Embeddings (FREE — Gemini API)
+# Multi-Agent ADK & Google GenAI
+google-adk>=2.7.0
+google-genai>=2.19.0
+google-auth>=2.0.0
 google-generativeai>=0.8.0
 
-# Database
-supabase>=2.0
+# Document Processing & PDF Generation
+docling>=2.0
+docling-core>=2.0
+weasyprint>=60.0
+reportlab>=4.0.0
+markdown>=3.5
+pypdf>=4.0
 
-# LLM
+# Database & Graph
+supabase>=2.0
+psycopg2-binary>=2.9.0
+networkx>=3.0
+
+# LLM & Search
 litellm>=1.0
 
-# PDF Generation
-weasyprint>=60.0
-markdown>=3.5
-
-# Existing
-pypdf>=4.0
+# Testing
 pytest>=7.0.0
