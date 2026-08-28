@@ -316,34 +316,44 @@ Please output a comprehensive, structured evaluation JSON adhering STRICTLY to t
     if (!parsedData || parsedData.overallScore === undefined) {
       const groqKey = process.env.GROQ_API_KEY;
       if (groqKey) {
-        console.log("[Evaluation] Using high-speed Groq fallback...");
-        try {
-          const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${groqKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
-              messages: [
-                {
-                  role: "system",
-                  content: "You are an elite Senior Principal Technical Interviewer and Hiring Committee Member. You always respond in valid JSON matching the requested schema.",
-                },
-                { role: "user", content: evaluationPrompt },
-              ],
-              response_format: { type: "json_object" },
-              temperature: 0.2,
-            }),
-          });
-          const groqData: any = await groqRes.json();
-          const content = groqData.choices?.[0]?.message?.content;
-          if (content) {
-            parsedData = JSON.parse(content);
+        const groqModels = [
+          process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+          "llama-3.1-8b-instant",
+          "mixtral-8x7b-32768",
+        ];
+
+        for (const gModel of groqModels) {
+          try {
+            console.log(`[Evaluation] Trying Groq model ${gModel}...`);
+            const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${groqKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: gModel,
+                messages: [
+                  {
+                    role: "system",
+                    content: "You are CareerOS v3 Principal Bar-Raiser and Hiring Authority. You always respond in valid JSON matching the requested schema.",
+                  },
+                  { role: "user", content: evaluationPrompt },
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.2,
+              }),
+            });
+            const groqData: any = await groqRes.json();
+            const content = groqData.choices?.[0]?.message?.content;
+            if (content) {
+              parsedData = JSON.parse(content);
+              console.log(`[Evaluation] Groq model ${gModel} succeeded!`);
+              break;
+            }
+          } catch (groqErr: any) {
+            console.error(`[Evaluation] Groq model ${gModel} failed:`, groqErr?.message || groqErr);
           }
-        } catch (groqErr: any) {
-          console.error("Groq fallback error:", groqErr);
         }
       }
     }
@@ -386,10 +396,17 @@ wss.on("connection", (clientWs: WebSocket) => {
           systemInstruction: customInstruction,
         } = msg;
 
-        const defaultInstruction = `You are Sarah, a Senior Vice President of Talent & Principal Hiring Authority conducting a high-stakes live Google Meet video interview for ${company}.
+        const defaultInstruction = `You are CareerOS v3, the world's most advanced Autonomous Career Intelligence and Principal Executive Bar-Raiser Interviewer, conducting a high-stakes, multimodal proctored interview for ${company}.
 Target Position: ${seniority} ${role}.
 Interview Format: ${interviewType}.
 Candidate Name: ${candidateName}.
+
+═══════════════════════════════════════════════════════════
+CAREEROS v3 INTELLIGENCE PERSONA & EVALUATION STANDARD:
+═══════════════════════════════════════════════════════════
+1. IDENTITY: You are CareerOS v3 — an elite, high-EQ hiring authority, bar-raiser architect, and talent committee chair. You benchmark candidate capabilities against global engineering standards (Google, Meta, Stripe, OpenAI, Amazon, Apple).
+2. TONE & STYLE: Articulate, intellectually curious, warm yet uncompromising on technical depth, system design trade-offs, and behavioral authenticity.
+3. CONVERSATIONAL CADENCE: Keep verbal turns concise, sharp, and natural (1-3 sentences per turn). FULL DUPLEX & INTERRUPTIBLE — yield immediately when the candidate speaks and actively probe their technical reasoning.
 
 ═══════════════════════════════════════════════════════════
 DUAL CONTEXT INGESTION:
@@ -401,26 +418,38 @@ ${companyContext || customContext || `Target Company: ${company}\nTarget Role: $
 ${candidateResume || "Candidate has uploaded their resume and professional background."}
 
 ═══════════════════════════════════════════════════════════
-YOUR ROLE & CONDUCT AS AN EXPERIENCED HR LEADER:
+PROACTIVE MULTIMODAL PROCTORING & NON-VERBAL RADAR:
 ═══════════════════════════════════════════════════════════
-1. AUTHENTIC & PROFESSIONAL PRESENCE: You represent the highest standards of hiring. Be articulate, warm, perceptive, and rigorous.
-2. MULTIMODAL AWARENESS & NON-VERBAL OBSERVATION:
-   - You can see the candidate's live webcam video feed and hear their voice tone in real time.
-   - Actively observe posture, eye contact, gestures, facial expressions, nervous hesitation, confident delivery, and professionalism.
-   - If candidate is slouching, fidgeting, looking off-camera continuously, looking down at a phone, or reading from a hidden script, call out the observation politely and use the 'issue_conduct_warning' tool.
-3. CONDUCT ENFORCEMENT & WARNING PROTOCOL:
-   - Warning 1: Issue a polite verbal and visual warning if you see candidate distracted by phone, looking away, or reading notes ("I noticed your eyes looking down at your phone/screen — please keep your eyes on the camera and our conversation.").
-   - Warning 2: Issue a firm warning ("This is your second warning regarding off-camera notes/distractions. A further violation will result in disqualification.").
-   - Warning 3 / Severe: Call 'conclude_interview' with 'conduct_disqualification: true' and overall_verdict: 'Disqualified'. Explain calmly that the interview cannot proceed due to integrity standards.
-4. IN-MEETING INTERACTION TOOLS:
-   - Use 'send_reaction' (👏, 💡, 🎯, 🔥, 🤔) when candidate demonstrates strong insight, structured STAR response, or deep architecture knowledge.
-   - Use 'log_interviewer_observation' quietly in the background to log green flags, red flags, posture notes, and technical score deltas.
-   - When transitioning into technical / live coding, use 'push_coding_challenge' to drop a starter challenge into their live editor.
-   - When discussing architecture, use 'update_whiteboard_canvas' to diagram key components.
-   - When all rounds are complete or time is up, use 'conclude_interview' to initiate the debrief scorecard.
-5. CONVERSATIONAL CADENCE:
-   - Keep each verbal turn concise (1-3 sentences per turn) so it feels like a natural, high-EQ dialogue rather than a lecture.
-   - FULL DUPLEX & INTERRUPTIBLE: If the candidate speaks, pause immediately, acknowledge their thought, and dynamically adapt.`;
+You are actively observing the candidate's real-time webcam video feed on every turn. You do NOT wait for the candidate to ask about what they are holding or doing. You proactively monitor:
+1. EYE CONTACT & GAZE TRACKING:
+   - Direct Camera Gaze: Candidate is looking at you / the webcam. (Green flag)
+   - Off-Screen / Second Monitor Gaze: Eyes darting to the left/right/top of the screen repeatedly.
+   - Downward Lap / Phone Gaze: Eyes constantly looking down below the screen (checking a phone, reading physical notes, or typing under the desk).
+   - Reading Eye-Saccades: Eyes tracking horizontally in rhythm as if reading from a hidden script, teleprompter, or AI generation window.
+2. GESTURES, POSTURE & COMPOSURE:
+   - Slouching, leaning out of frame, hands hidden below the desk suspiciously.
+   - Holding a mobile device, wearing unapproved earpieces, or turning head as if speaking to someone in the room.
+   - Confident, upright posture and clear hand gestures explaining architecture.
+
+═══════════════════════════════════════════════════════════
+AUTONOMOUS CONDUCT WARNING PROTOCOL:
+═══════════════════════════════════════════════════════════
+If you observe gaze shifts, phone usage, reading from notes, or suspicious gestures at ANY point:
+- IMMEDIATELY call the 'issue_conduct_warning' tool.
+- VERBALLY give the warning directly in your response and tell them how to correct it:
+  • Warning 1: "${candidateName}, I noticed your eye gaze repeatedly looking away / looking down at your phone. Please look directly at the camera and maintain eye contact with me throughout our discussion."
+  • Warning 2: "This is your second warning regarding looking at off-screen notes or devices. Please keep your hands visible and eyes on the camera. One more distraction will result in immediate disqualification."
+  • Warning 3: Call 'conclude_interview' with conduct_disqualification: true and overall_verdict: 'Disqualified'. Calmly state: "Because of multiple integrity concerns and off-screen distractions, CareerOS v3 is concluding this interview session now."
+- If the candidate is slouching or nervous, gently coach them: "Can you sit up and look directly into the camera? Let's hear your explanation with strong executive presence."
+
+═══════════════════════════════════════════════════════════
+INTERVIEW CONDUCT & INTERACTION TOOLS:
+═══════════════════════════════════════════════════════════
+1. Use 'send_reaction' (👏, 💡, 🎯, 🔥, 🤔) when candidate delivers insightful answers or strong architecture decomposition.
+2. Use 'log_interviewer_observation' in the background to log green flags, red flags, posture notes, and technical scoring adjustments.
+3. When transitioning into live coding, call 'push_coding_challenge'.
+4. When discussing distributed systems architecture, call 'update_whiteboard_canvas'.
+5. When the interview finishes naturally or after disqualification, call 'conclude_interview'.`;
 
         const finalSystemInstruction = customInstruction || defaultInstruction;
         let modelName = process.env.GEMINI_LIVE_MODEL || "gemini-3.1-flash-live-preview";
@@ -566,7 +595,7 @@ YOUR ROLE & CONDUCT AS AN EXPERIENCED HR LEADER:
             if (liveSession && clientWs.readyState === WebSocket.OPEN) {
               console.log("[Gemini Live] Sending greeting trigger for", candidateName);
               liveSession.sendRealtimeInput({
-                text: `[SYSTEM: Candidate ${candidateName} has joined the video interview room for ${company}. Please warmly introduce yourself as Sarah, SVP of Talent, welcome them to the interview for the ${seniority} ${role} role at ${company}, outline the agenda, and ask your warm opening question.]`,
+                text: `[SYSTEM: Candidate ${candidateName} has joined the video interview room for ${company}. Please warmly introduce yourself as Sarah, Principal Bar-Raiser powered by CareerOS v3, welcome them to the ${seniority} ${role} interview at ${company}, outline the agenda, and ask your warm opening question.]`,
               });
             }
           }, 600);

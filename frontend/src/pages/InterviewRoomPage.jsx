@@ -1,23 +1,27 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useSearchParams, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { fetchOpportunityById } from "../api/client";
 import { INTERVIEWER_PROFILES } from "../components/interview/interviewData";
 import LiveInterviewRoom from "../components/interview/LiveInterviewRoom";
+import InterviewHistoryView from "../components/interview/InterviewHistoryView";
 import {
-  Sparkles,
-  Video,
-  VideoOff,
   Mic,
   MicOff,
-  Building2,
-  Briefcase,
+  Video,
+  VideoOff,
+  Sparkles,
   ArrowRight,
+  ShieldAlert,
   ShieldCheck,
-  Zap,
   Radio,
+  Sliders,
   FileText,
+  Building,
+  UserCheck,
   Volume2,
+  Clock,
+  Layers,
 } from "lucide-react";
 
 export default function InterviewRoomPage() {
@@ -25,6 +29,8 @@ export default function InterviewRoomPage() {
   const { id: paramOppId } = useParams();
   const navigate = useNavigate();
   const { user, candidates = [], selectedCandidateId } = useAuth();
+
+  const [lobbyView, setLobbyView] = useState(searchParams.get("tab") === "history" ? "history" : "studio");
 
   const oppId = searchParams.get("oppId") || paramOppId || searchParams.get("id");
   const [company, setCompany] = useState(searchParams.get("company") || "Google Cloud");
@@ -270,7 +276,7 @@ export default function InterviewRoomPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 sm:p-8 font-sans selection:bg-cyan-500/30">
       {/* Top Brand Bar */}
-      <header className="flex items-center justify-between max-w-7xl mx-auto w-full mb-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between max-w-7xl mx-auto w-full mb-6 gap-4">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-600/30">
             <Sparkles className="w-5 h-5 text-white" />
@@ -288,16 +294,57 @@ export default function InterviewRoomPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => navigate("/opportunities")}
-          className="text-xs font-semibold text-slate-400 hover:text-white px-3 py-1.5 rounded-xl border border-slate-800 hover:bg-slate-900 transition-colors"
-        >
-          Exit to Dashboard
-        </button>
+        {/* View Switcher Tabs */}
+        <div className="flex items-center gap-2 self-start sm:self-center">
+          <div className="flex items-center p-1 bg-slate-900/90 border border-slate-800 rounded-2xl shadow-inner">
+            <button
+              onClick={() => setLobbyView("studio")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                lobbyView === "studio"
+                  ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Video className="w-3.5 h-3.5" />
+              <span>Live Studio</span>
+            </button>
+            <button
+              onClick={() => setLobbyView("history")}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                lobbyView === "history"
+                  ? "bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5" />
+              <span>Interview History</span>
+            </button>
+          </div>
+
+          <button
+            onClick={() => navigate("/opportunities")}
+            className="text-xs font-semibold text-slate-400 hover:text-white px-3 py-1.5 rounded-xl border border-slate-800 hover:bg-slate-900 transition-colors"
+          >
+            Exit
+          </button>
+        </div>
       </header>
 
-      {/* Main Grid: Device Check vs Interview Config */}
-      <main className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 my-auto">
+      {/* Conditionally Render History or Studio Lobby */}
+      {lobbyView === "history" ? (
+        <div className="max-w-7xl mx-auto w-full flex-1 mt-2">
+          <InterviewHistoryView
+            onLaunchInterview={(item) => {
+              if (item.company) setCompany(item.company);
+              if (item.role) setRole(item.role);
+              if (item.seniority) setSeniority(item.seniority);
+              setLobbyView("studio");
+            }}
+          />
+        </div>
+      ) : (
+        /* Main Grid: Device Check vs Interview Config */
+        <main className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 my-auto">
         {/* Left: Camera Preview & Hardware Checks */}
         <div className="lg:col-span-7 flex flex-col space-y-4">
           <div className="relative aspect-video bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center">
@@ -527,6 +574,7 @@ export default function InterviewRoomPage() {
           </button>
         </div>
       </main>
+      )}
     </div>
   );
 }

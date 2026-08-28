@@ -361,7 +361,7 @@ export default function LiveInterviewRoom({
         });
     }
 
-    // Video Frame Streaming Loop (~1 FPS)
+    // Video Frame Streaming Loop (~1 FPS, 640x360 high-definition vision feed)
     frameIntervalRef.current = setInterval(() => {
       const activeSocket = socketRef.current;
       if (!activeSocket || activeSocket.readyState !== WebSocket.OPEN) return;
@@ -371,15 +371,15 @@ export default function LiveInterviewRoom({
       if (canvas && activeVideo && activeVideo.readyState >= 2 && !isVideoOff) {
         const ctx = canvas.getContext("2d");
         if (ctx) {
-          canvas.width = 320;
-          canvas.height = 180;
+          canvas.width = 640;
+          canvas.height = 360;
           ctx.drawImage(activeVideo, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.72);
           const base64Jpeg = dataUrl.replace(/^data:image\/jpeg;base64,/, "");
           activeSocket.send(JSON.stringify({ type: "video", data: base64Jpeg }));
         }
       }
-    }, 1200);
+    }, 1000);
 
     // Live analytics timer
     const analyticsTimer = setInterval(() => {
@@ -549,6 +549,44 @@ export default function LiveInterviewRoom({
         data.hiringDecision = conclusionData.overall_verdict;
       }
       setDebriefData(data);
+
+      // Persist completed interview session into local interview history
+      try {
+        const historyItem = {
+          id: `hist_${Date.now()}`,
+          date: new Date().toISOString(),
+          durationMinutes: Math.max(1, Math.round((analytics.userSpeakingSeconds + analytics.aiSpeakingSeconds) / 60) || 12),
+          company: config.company || "Target Company",
+          role: config.role || "Software Engineer",
+          seniority: config.seniority || "Senior",
+          candidateName: config.candidateName || "Candidate",
+          interviewerName: config.interviewerProfile?.name || "Sarah (SVP Talent)",
+          voice: config.voice || "Zephyr",
+          hiringDecision: data.hiringDecision || (data.overall_readiness_score >= 80 ? "Hire" : "In Review"),
+          readinessScore: data.overall_readiness_score || data.readinessScore || 85,
+          conductStatus: data.conductStatus?.status || (conductWarnings.length === 0 ? "Clean (0 Warnings)" : `${conductWarnings.length} Conduct Warning(s)`),
+          conductWarningsCount: conductWarnings.length,
+          dimensions: data.dimensions || {
+            technicalCompetence: 88,
+            systemDesignRigor: 85,
+            behavioralSTAR: 86,
+            executivePresence: 88,
+            communicationClarity: 87,
+          },
+          nonVerbal: data.nonVerbal || {
+            postureScore: 90,
+            eyeContactScore: 92,
+            composureScore: 89,
+            observations: interviewerObservations.map((o) => o.note),
+          },
+          executiveSummary: data.executive_summary || data.executiveSummary || "Completed full duplex bar-raiser simulation.",
+          ...data,
+        };
+        const existing = JSON.parse(localStorage.getItem("careeros_interview_history") || "[]");
+        localStorage.setItem("careeros_interview_history", JSON.stringify([historyItem, ...existing.slice(0, 50)]));
+      } catch (saveErr) {
+        console.warn("[Interview History Save Error]", saveErr);
+      }
     } catch (err) {
       console.error("Evaluation request error:", err);
     } finally {
