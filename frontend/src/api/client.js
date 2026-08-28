@@ -566,4 +566,87 @@ export async function extractSocialLinks(resumeMarkdown) {
   return await res.json();
 }
 
+export async function runATS90GoalPipeline(payload) {
+  const res = await fetchWithConfig(`${API_BASE}/api/ats-goal-pipeline`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'ATS Goal Pipeline execution failed' }));
+    throw new Error(err.detail || 'ATS Goal Pipeline execution failed');
+  }
+  return await res.json();
+}
+
+export async function fetchCompanyJdDeepIntel(companyName, jobTitle = 'Software Engineer', jobUrl = null) {
+  const res = await fetchWithConfig(`${API_BASE}/api/company-jd-deep-intel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      company_name: companyName,
+      job_title: jobTitle,
+      job_url: jobUrl,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to fetch deep company & JD intelligence' }));
+    throw new Error(err.detail || 'Failed to fetch deep company & JD intelligence');
+  }
+  return await res.json();
+}
+
+// ── Live Multi-Agent AI Interview Room Client APIs ──────────────────────────
+
+export async function uploadInterviewResume(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetchWithConfig(`${API_BASE}/api/interview/upload-resume`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to parse interview resume' }));
+    throw new Error(err.detail || 'Failed to parse interview resume');
+  }
+  return await res.json();
+}
+
+export async function initInterviewSession(config) {
+  const res = await fetchWithConfig(`${API_BASE}/api/interview/init-session`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to initialize interview session' }));
+    throw new Error(err.detail || 'Failed to initialize interview session');
+  }
+  return await res.json();
+}
+
+export async function generateInterviewDebrief(payload) {
+  const res = await fetchWithConfig(`${API_BASE}/api/interview/debrief`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to generate interview debrief' }));
+    throw new Error(err.detail || 'Failed to generate interview debrief');
+  }
+  return await res.json();
+}
+
+export async function fetchInterviewHistory(candidateId = null) {
+  const query = candidateId ? `?candidate_id=${encodeURIComponent(candidateId)}` : '';
+  const res = await fetchWithConfig(`${API_BASE}/api/interview/history${query}`);
+  if (!res.ok) {
+    return { status: 'success', history: [] };
+  }
+  return await res.json();
+}
+
+
 

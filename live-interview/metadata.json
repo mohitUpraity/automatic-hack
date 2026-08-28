@@ -1,0 +1,13 @@
+{
+  "name": "MeetAI - Real-Time AI Video Interview Platform",
+  "description": "Real-time Google Meet style AI video interview platform featuring full-duplex interruptible audio, live webcam/screen sharing, real-time closed captions, live coding IDE, and in-depth interview performance evaluation.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "display-capture"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
+

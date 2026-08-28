@@ -12,6 +12,7 @@ import ObservatoryPage from './pages/ObservatoryPage';
 import KnowledgeGraphPage from './pages/KnowledgeGraphPage';
 import ResumeStudioPage from './pages/ResumeStudioPage';
 import ProfilePage from './pages/ProfilePage';
+import InterviewRoomPage from './pages/InterviewRoomPage';
 import { fetchStats } from './api/client';
 
 function AppLayout() {
@@ -34,6 +35,8 @@ function AppLayout() {
           <Route path="/studio" element={<ProtectedRoute><ResumeStudioPage /></ProtectedRoute>} />
           <Route path="/resume-studio" element={<ProtectedRoute><ResumeStudioPage /></ProtectedRoute>} />
           <Route path="/opportunities" element={<ProtectedRoute><OpportunitiesPage /></ProtectedRoute>} />
+          <Route path="/interview" element={<ProtectedRoute><InterviewRoomPage /></ProtectedRoute>} />
+          <Route path="/interview/:id" element={<ProtectedRoute><InterviewRoomPage /></ProtectedRoute>} />
           <Route path="/documents" element={<ProtectedRoute><DocumentsPage /></ProtectedRoute>} />
           <Route path="/opportunity/:id" element={<ProtectedRoute><OpportunityPage /></ProtectedRoute>} />
           <Route path="/observatory" element={<ProtectedRoute><ObservatoryPage /></ProtectedRoute>} />

@@ -5,6 +5,7 @@ import GlassCard from '../components/ui/GlassCard';
 import Badge from '../components/ui/Badge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import AutoPilotModal from '../components/autopilot/AutoPilotModal';
+import ATSGoalTrackerModal from '../components/opportunities/ATSGoalTrackerModal';
 import { useAuth } from '../context/AuthContext';
 import {
   fetchOpportunities,
@@ -73,6 +74,7 @@ export default function ResumeStudioPage() {
 
   // UI state
   const [isAutoPilotOpen, setIsAutoPilotOpen] = useState(false);
+  const [isATSGoalOpen, setIsATSGoalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingAction, setProcessingAction] = useState('');
   const [customPrompt, setCustomPrompt] = useState('');
@@ -375,6 +377,16 @@ export default function ResumeStudioPage() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {selectedOpportunity && (
+              <button
+                onClick={() => setIsATSGoalOpen(true)}
+                className="px-3.5 py-2 bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 hover:from-amber-300 hover:via-emerald-300 hover:to-cyan-300 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-950 flex items-center gap-1.5 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+              >
+                <Target className="w-3.5 h-3.5 text-slate-950" />
+                Run ATS 90+ Goal
+                <Sparkles className="w-3 h-3 text-slate-950" />
+              </button>
+            )}
             <button
               onClick={handleAutoTailor}
               disabled={isProcessing || !selectedOpportunity}
@@ -752,6 +764,17 @@ export default function ResumeStudioPage() {
         initialResumeText={markdown}
         candidateId={activeCandidateId}
       />
+
+      {/* Autonomous ATS 90+ Goal Modal */}
+      {selectedOpportunity && (
+        <ATSGoalTrackerModal
+          isOpen={isATSGoalOpen}
+          onClose={() => setIsATSGoalOpen(false)}
+          opportunity={selectedOpportunity}
+          candidateId={activeCandidateId}
+          candidateName={activeCandidate?.name || 'Mohit Upraity'}
+        />
+      )}
     </PageShell>
   );
 }

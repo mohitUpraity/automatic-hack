@@ -1,9 +1,12 @@
+# Secrets & Environment
+.env
+*.env
+.env.*
+!.env.example
+
 # Python bytecode
 __pycache__/
 *.py[cod]
-
-# Secrets & Environment
-.env
 
 # ADK & Temp storage
 .adk/
@@ -12,10 +15,13 @@ temp_uploads/
 *.db
 pdf_text.txt
 extract_pdf.py
+scratch/
 
 # Frontend builds
 frontend/dist/
 frontend/node_modules/
+live-interview/dist/
+live-interview/node_modules/
 
 # OS metadata
 .DS_Store

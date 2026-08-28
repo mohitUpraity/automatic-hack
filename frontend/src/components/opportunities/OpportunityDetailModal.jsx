@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   X,
+  Target,
   Building2,
   MapPin,
   Calendar,
@@ -18,12 +19,15 @@ import {
   Briefcase,
   Lightbulb,
   Globe,
-  Users
+  Users,
+  Video
 } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import ScoreGauge from '../ui/ScoreGauge';
+import ATSGoalTrackerModal from './ATSGoalTrackerModal';
+import InterviewSetupModal from '../interview/InterviewSetupModal';
 import { deepResearchOpportunity, deepResearchCompany } from '../../api/client';
 
 export default function OpportunityDetailModal({ opportunity, isOpen, onClose, candidateId = 'candidate_mohit' }) {
@@ -32,6 +36,8 @@ export default function OpportunityDetailModal({ opportunity, isOpen, onClose, c
   const [intel, setIntel] = useState(null);
   const [isResearching, setIsResearching] = useState(false);
   const [researchError, setResearchError] = useState('');
+  const [isATSGoalOpen, setIsATSGoalOpen] = useState(false);
+  const [isInterviewSetupOpen, setIsInterviewSetupOpen] = useState(false);
 
   useEffect(() => {
     if (opportunity && isOpen) {
@@ -150,10 +156,32 @@ export default function OpportunityDetailModal({ opportunity, isOpen, onClose, c
             )}
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
+            <button
+              onClick={() => setIsInterviewSetupOpen(true)}
+              className="px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-950/50 flex items-center gap-1.5 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+              title="Real-Time Google Meet style AI Interview"
+            >
+              <Video className="w-3.5 h-3.5 text-cyan-300" />
+              <span>Take AI Interview</span>
+            </button>
+            <button
+              onClick={() => setIsATSGoalOpen(true)}
+              className="relative group px-3.5 py-2 bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 hover:from-amber-300 hover:via-emerald-300 hover:to-cyan-300 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+              title="Autonomous ATS 90+ Tailoring Loop"
+            >
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <Target className="w-3.5 h-3.5 text-slate-950" />
+              <span>Run ATS 90+ Goal</span>
+              <Sparkles className="w-3 h-3 text-slate-950" />
+            </button>
+
             <div className="text-right hidden sm:block">
-              <ScoreGauge score={opportunity.relevance_score || 94} size={48} strokeWidth={4} />
-              <p className="text-[10px] font-bold text-slate-400 mt-1">Relevance</p>
+              <ScoreGauge score={opportunity.relevance_score || 94} size={44} strokeWidth={4} />
+              <p className="text-[9px] font-bold text-slate-400 mt-0.5">Relevance</p>
             </div>
             <button
               onClick={onClose}
@@ -411,7 +439,7 @@ export default function OpportunityDetailModal({ opportunity, isOpen, onClose, c
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             {opportunity.url && (
               <a
                 href={opportunity.url}
@@ -425,15 +453,54 @@ export default function OpportunityDetailModal({ opportunity, isOpen, onClose, c
             )}
             <button
               onClick={handleOpenInStudio}
-              className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all cursor-pointer"
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs rounded-xl border border-slate-700 flex items-center gap-2 transition-all cursor-pointer"
             >
-              <Wand2 className="w-3.5 h-3.5" />
-              Tailor Resume with Company Intel
+              <Wand2 className="w-3.5 h-3.5 text-purple-400" />
+              Studio Editor
+            </button>
+            <button
+              onClick={() => setIsInterviewSetupOpen(true)}
+              className="px-4 py-2 bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-950 flex items-center gap-1.5 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <Video className="w-4 h-4 text-cyan-300" />
+              <span>Take AI Interview</span>
+              <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-cyan-950/80 border border-cyan-400/40 text-cyan-300">LIVE</span>
+            </button>
+            <button
+              onClick={() => setIsATSGoalOpen(true)}
+              className="px-5 py-2 bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 hover:from-amber-300 hover:via-emerald-300 hover:to-cyan-300 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-950 flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <Target className="w-4 h-4 text-slate-950" />
+              Run ATS 90+ Goal Loop
+              <Sparkles className="w-3.5 h-3.5 text-slate-950" />
             </button>
           </div>
         </div>
 
       </div>
+
+      {/* Autonomous ATS 90+ Goal Modal */}
+      <ATSGoalTrackerModal
+        isOpen={isATSGoalOpen}
+        onClose={() => setIsATSGoalOpen(false)}
+        opportunity={opportunity}
+        candidateId={candidateId}
+        candidateName={opportunity.matched_candidate_name || 'Mohit Upraity'}
+      />
+
+      {/* Live AI Interview Setup Lobby Modal */}
+      <InterviewSetupModal
+        isOpen={isInterviewSetupOpen}
+        onClose={() => setIsInterviewSetupOpen(false)}
+        opportunity={opportunity}
+        candidateId={candidateId}
+        candidateName={opportunity.matched_candidate_name || 'Mohit Upraity'}
+        onStartInterview={(sessionConfig) => {
+          setIsInterviewSetupOpen(false);
+          onClose();
+          navigate(`/interview?company=${encodeURIComponent(sessionConfig.company_name)}&role=${encodeURIComponent(sessionConfig.job_title)}&candidate=${encodeURIComponent(sessionConfig.candidate_name)}&voice=${encodeURIComponent(sessionConfig.voice_name)}&oppId=${encodeURIComponent(opportunity.id || '')}`);
+        }}
+      />
     </div>
   );
 }

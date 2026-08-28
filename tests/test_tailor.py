@@ -25,7 +25,7 @@ Senior AI & Full-Stack Engineer with 5+ years experience building intelligent ap
 ## Education
 - B.S. Computer Science - Stanford University
 """
-    output_pdf = "/tmp/test_tailored_resume.pdf"
+    output_pdf = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "temp_uploads", "test_tailored_resume.pdf")
     res = generate_tailored_pdf(sample_md, output_pdf)
     assert res["status"] == "success"
     assert os.path.exists(res["pdf_path"])

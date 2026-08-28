@@ -69,7 +69,7 @@ class SupabasePostgrestClient:
 
         req = urllib.request.Request(endpoint, headers=self._headers(), method="GET")
         try:
-            with urllib.request.urlopen(req, context=self.ssl_ctx, timeout=15) as resp:
+            with urllib.request.urlopen(req, context=self.ssl_ctx, timeout=2.0) as resp:
                 raw = resp.read().decode("utf-8")
                 return json.loads(raw) if raw else []
         except urllib.error.HTTPError as e:
@@ -94,7 +94,7 @@ class SupabasePostgrestClient:
         payload = json.dumps(data).encode("utf-8")
         req = urllib.request.Request(endpoint, data=payload, headers=self._headers(prefer), method="POST")
         try:
-            with urllib.request.urlopen(req, context=self.ssl_ctx, timeout=20) as resp:
+            with urllib.request.urlopen(req, context=self.ssl_ctx, timeout=3.0) as resp:
                 raw = resp.read().decode("utf-8")
                 return json.loads(raw) if raw else []
         except urllib.error.HTTPError as e:

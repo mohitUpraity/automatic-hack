@@ -1,9 +1,8 @@
-"""Unified LLM Integration for CareerOS (120B SOTA Models & Gemini Fallback with In-Place Template Preservation)."""
-
 import json
 import os
 import re
 import requests
+from typing import Optional, Any, Dict, List
 import litellm
 from dotenv import load_dotenv
 
@@ -88,8 +87,16 @@ def _in_place_tailor_fallback(original_md: str, role_title: str = "Target Role",
     return "\n".join(tailored_lines)
 
 
-def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI Career Assistant for candidate analysis.") -> str:
+def call_groq_llm(
+    prompt: Optional[str] = None,
+    system_instruction: Optional[str] = None,
+    system_prompt: Optional[str] = None,
+    user_content: Optional[str] = None,
+    **kwargs
+) -> str:
     """Invokes Groq Cloud LLM (openai/gpt-oss-120b & qwen/qwen3.8-27b) with Gemini API & heuristic in-place fallbacks."""
+    actual_prompt = (prompt if prompt is not None else user_content) or ""
+    actual_system = (system_instruction if system_instruction is not None else system_prompt) or "You are an expert AI Career Assistant for candidate analysis."
     
     # 1. Try Groq Cloud REST API with SOTA models
     if GROQ_API_KEY:
@@ -109,11 +116,11 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
                 payload = {
                     "model": clean_model,
                     "messages": [
-                        {"role": "system", "content": system_instruction},
-                        {"role": "user", "content": prompt}
+                        {"role": "system", "content": actual_system},
+                        {"role": "user", "content": actual_prompt}
                     ],
-                    "temperature": 0.1,
-                    "max_tokens": 1800
+                    "temperature": kwargs.get("temperature", 0.1),
+                    "max_tokens": kwargs.get("max_tokens", 1800)
                 }
 
                 res = requests.post(url, headers=headers, json=payload, timeout=12)
@@ -135,7 +142,7 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
             client = genai.Client(api_key=GEMINI_API_KEY)
             resp = client.models.generate_content(
                 model="gemini-3.1-flash-lite",
-                contents=f"{system_instruction}\n\n{prompt}"
+                contents=f"{actual_system}\n\n{actual_prompt}"
             )
             if resp and resp.text:
                 return resp.text.strip()
@@ -143,7 +150,7 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
             print(f"[Gemini API Notice] {e}")
 
     # 3. Intelligent In-Place Resume Tailoring & Refinement Fallback Engine
-    prompt_lower = prompt.lower()
+    prompt_lower = actual_prompt.lower()
 
     is_tailoring = any(k in prompt_lower for k in [
         "golden template", "original resume", "in-place ats resume tailoring",
@@ -153,16 +160,16 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
 
     if is_tailoring:
         orig_md = ""
-        if '"""' in prompt:
-            parts = prompt.split('"""')
+        if '"""' in actual_prompt:
+            parts = actual_prompt.split('"""')
             if len(parts) >= 3:
                 orig_md = parts[1].strip()
         
-        if not orig_md and "Original Resume Markdown:" in prompt:
-            orig_md = prompt.split("Original Resume Markdown:", 1)[1].strip()
+        if not orig_md and "Original Resume Markdown:" in actual_prompt:
+            orig_md = actual_prompt.split("Original Resume Markdown:", 1)[1].strip()
         
-        if not orig_md and "ORIGINAL RESUME" in prompt:
-            orig_md = prompt.split("ORIGINAL RESUME", 1)[1].strip()
+        if not orig_md and "ORIGINAL RESUME" in actual_prompt:
+            orig_md = actual_prompt.split("ORIGINAL RESUME", 1)[1].strip()
             if orig_md.startswith(":") or orig_md.startswith("(GOLDEN TEMPLATE):"):
                 orig_md = orig_md.split("\n", 1)[1].strip()
 
@@ -170,15 +177,15 @@ def call_groq_llm(prompt: str, system_instruction: str = "You are an expert AI C
         target_company = "Target Organization"
         target_reqs = ""
 
-        role_match = re.search(r'Target Role(?: Title)?:\s*([^\n]+)', prompt, re.IGNORECASE)
+        role_match = re.search(r'Target Role(?: Title)?:\s*([^\n]+)', actual_prompt, re.IGNORECASE)
         if role_match:
             target_role = role_match.group(1).strip()
 
-        company_match = re.search(r'(?:Target Organization|Company / Organization|Company):\s*([^\n]+)', prompt, re.IGNORECASE)
+        company_match = re.search(r'(?:Target Organization|Company / Organization|Company):\s*([^\n]+)', actual_prompt, re.IGNORECASE)
         if company_match:
             target_company = company_match.group(1).strip()
 
-        req_match = re.search(r'(?:Role Requirements & Tech Stack|Key Job Requirements & Tech Stack|Requirements):\s*([^\n]+)', prompt, re.IGNORECASE)
+        req_match = re.search(r'(?:Role Requirements & Tech Stack|Key Job Requirements & Tech Stack|Requirements):\s*([^\n]+)', actual_prompt, re.IGNORECASE)
         if req_match:
             target_reqs = req_match.group(1).strip()
 

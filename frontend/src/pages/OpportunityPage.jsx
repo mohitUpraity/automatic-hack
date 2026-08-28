@@ -13,6 +13,7 @@ import {
   FileText,
   Building,
   Wand2,
+  Video
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -22,6 +23,8 @@ import Badge from '../components/ui/Badge';
 import ScoreGauge from '../components/ui/ScoreGauge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import OpportunityCard from '../components/opportunities/OpportunityCard';
+import ATSGoalTrackerModal from '../components/opportunities/ATSGoalTrackerModal';
+import InterviewSetupModal from '../components/interview/InterviewSetupModal';
 import {
   fetchOpportunityById,
   fetchOpportunities,
@@ -39,6 +42,8 @@ export default function OpportunityPage() {
   const [candidateProfile, setCandidateProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isATSGoalOpen, setIsATSGoalOpen] = useState(false);
+  const [isInterviewSetupOpen, setIsInterviewSetupOpen] = useState(false);
 
   // Tailor Resume Form state
   const [companyName, setCompanyName] = useState('');
@@ -194,12 +199,28 @@ export default function OpportunityPage() {
               </div>
 
               <div className="flex flex-col gap-2.5 w-full sm:w-auto">
+                <button
+                  onClick={() => setIsInterviewSetupOpen(true)}
+                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 via-indigo-600 to-purple-600 hover:from-cyan-500 hover:to-purple-500 text-white font-black text-xs rounded-xl shadow-lg shadow-indigo-950/60 flex items-center justify-center gap-2 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+                >
+                  <Video className="w-4 h-4 text-cyan-300" />
+                  Take AI Live Interview
+                  <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-cyan-950/80 border border-cyan-400/40 text-cyan-300">LIVE</span>
+                </button>
+                <button
+                  onClick={() => setIsATSGoalOpen(true)}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-400 via-emerald-400 to-cyan-400 hover:from-amber-300 hover:via-emerald-300 hover:to-cyan-300 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-emerald-950/60 flex items-center justify-center gap-2 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+                >
+                  <Target className="w-4 h-4 text-slate-950" />
+                  Run ATS 90+ Goal Pipeline
+                  <Sparkles className="w-3.5 h-3.5 text-slate-950 animate-bounce" />
+                </button>
                 {opportunity.url && (
                   <a
                     href={opportunity.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-indigo-950 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-bold text-xs rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
                     Direct Apply Link
                     <ExternalLink className="w-4 h-4" />
@@ -207,18 +228,11 @@ export default function OpportunityPage() {
                 )}
                 <button
                   onClick={() => navigate('/studio')}
-                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-purple-950 flex items-center justify-center gap-2 transition-all"
+                  className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-purple-950 flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <Wand2 className="w-4 h-4" />
                   Open in AI Resume Studio
                 </button>
-                <a
-                  href="#tailor-section"
-                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 transition-all"
-                >
-                  <FileEdit className="w-4 h-4 text-amber-400" />
-                  Quick Tailor Here
-                </a>
               </div>
             </div>
           </div>
@@ -397,6 +411,28 @@ export default function OpportunityPage() {
           </div>
         )}
       </div>
+
+      {/* Autonomous ATS 90+ Goal Modal */}
+      <ATSGoalTrackerModal
+        isOpen={isATSGoalOpen}
+        onClose={() => setIsATSGoalOpen(false)}
+        opportunity={opportunity}
+        candidateId={candidateProfile?.id || 'candidate_mohit'}
+        candidateName={candidateProfile?.name || 'Mohit Upraity'}
+      />
+
+      {/* Live AI Interview Setup Lobby Modal */}
+      <InterviewSetupModal
+        isOpen={isInterviewSetupOpen}
+        onClose={() => setIsInterviewSetupOpen(false)}
+        opportunity={opportunity}
+        candidateId={candidateProfile?.id || 'candidate_mohit'}
+        candidateName={candidateProfile?.name || 'Mohit Upraity'}
+        onStartInterview={(sessionConfig) => {
+          setIsInterviewSetupOpen(false);
+          navigate(`/interview?company=${encodeURIComponent(sessionConfig.company_name)}&role=${encodeURIComponent(sessionConfig.job_title)}&candidate=${encodeURIComponent(sessionConfig.candidate_name)}&voice=${encodeURIComponent(sessionConfig.voice_name)}&oppId=${encodeURIComponent(opportunity?.id || '')}`);
+        }}
+      />
     </PageShell>
   );
 }

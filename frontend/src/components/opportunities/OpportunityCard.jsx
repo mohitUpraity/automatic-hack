@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Building2, ArrowRight, ExternalLink, Wand2, Sparkles, Clock, CheckCircle2, Target } from 'lucide-react';
+import { MapPin, Building2, ArrowRight, ExternalLink, Wand2, Sparkles, Clock, CheckCircle2, Target, Video } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import Badge from '../ui/Badge';
 import ScoreGauge from '../ui/ScoreGauge';
@@ -31,6 +31,12 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
     e.stopPropagation();
     const cand = opportunity.matched_candidate_id || candidateId || 'candidate_mohit';
     navigate(`/studio?candidateId=${cand}&oppId=${opportunity.id}`);
+  };
+
+  const handleOpenInterview = (e) => {
+    e.stopPropagation();
+    const cand = opportunity.matched_candidate_id || candidateId || 'candidate_mohit';
+    navigate(`/interview?company=${encodeURIComponent(opportunity.company || opportunity.company_name || 'Tech Organization')}&role=${encodeURIComponent(opportunity.title || 'Software Engineer')}&candidateId=${cand}&oppId=${opportunity.id}`);
   };
 
   return (
@@ -112,6 +118,14 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
         </div>
         
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleOpenInterview}
+            className="px-2 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[10px] rounded-lg shadow flex items-center gap-1 transition-all cursor-pointer"
+            title="Take Real-Time AI Interview"
+          >
+            <Video className="w-3 h-3 text-cyan-300" />
+            Interview
+          </button>
           {opportunity.url && (
             <a
               href={opportunity.url}

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Shield, MessageSquare, FileText, Activity, GitBranch, Menu, X, Wand2, User, Compass, LogOut } from 'lucide-react';
+import { Shield, MessageSquare, FileText, Activity, GitBranch, Menu, X, Wand2, User, Compass, LogOut, Video } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import CandidateSelector from './CandidateSelector';
@@ -18,6 +18,7 @@ export default function Sidebar({ stats }) {
     { name: 'Home/Chat', path: '/', icon: MessageSquare },
     { name: 'AI Resume Studio', path: '/studio', icon: Wand2 },
     { name: 'Opportunities Feed', path: '/opportunities', icon: Compass },
+    { name: 'AI Live Interview', path: '/interview', icon: Video, isLive: true },
     { name: 'Candidate Documents', path: '/documents', icon: FileText },
     { name: 'Profile & Preferences', path: '/profile', icon: User },
     { name: 'Observatory', path: '/observatory', icon: Activity },
@@ -25,7 +26,7 @@ export default function Sidebar({ stats }) {
   ];
 
   const getNavLinkClass = ({ isActive }) =>
-    `flex items-center gap-3 px-4 py-3 mb-2 rounded-lg transition-all duration-200 ${
+    `flex items-center justify-between px-4 py-3 mb-2 rounded-lg transition-all duration-200 ${
       isActive
         ? 'bg-indigo-500/10 text-indigo-400 border-l-4 border-indigo-500 font-medium'
         : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border-l-4 border-transparent'
@@ -67,8 +68,16 @@ export default function Sidebar({ stats }) {
         <nav className="flex-1 px-4 py-3 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink key={item.path} to={item.path} onClick={() => setIsOpen(false)} className={getNavLinkClass}>
-              <item.icon className="w-5 h-5" />
-              <span>{item.name}</span>
+              <div className="flex items-center gap-3">
+                <item.icon className="w-5 h-5" />
+                <span>{item.name}</span>
+              </div>
+              {item.isLive && (
+                <span className="flex items-center gap-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-400 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+                  Live
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

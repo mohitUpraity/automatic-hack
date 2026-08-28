@@ -22,29 +22,10 @@ def _clean_text_tokens(text: str) -> List[str]:
 
 
 def _build_semantic_vector(text: str, dim: int = EMBEDDING_DIM) -> List[float]:
-    """Generates a dense, normalized semantic feature vector.
+    """Generates a dense, normalized semantic feature vector in sub-milliseconds.
     
     Combines character/word n-gram hashing, semantic domain weighting, and cosine projection.
-    If GEMINI_API_KEY is active and reachable, leverages Google Gemini 768d embeddings.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            res = genai.embed_content(
-                model="models/gemini-embedding-001",
-                content=text,
-                task_type="RETRIEVAL_QUERY"
-            )
-            emb = res.get("embedding")
-            if emb and len(emb) == dim:
-                # Normalize vector
-                norm = math.sqrt(sum(x * x for x in emb))
-                return [x / (norm + 1e-9) for x in emb]
-        except Exception:
-            pass
-
     # Dense semantic TF-IDF hashing projection with domain-specific dimensional weights
     vec = [0.0] * dim
     tokens = _clean_text_tokens(text)

@@ -64,6 +64,13 @@ def generate_pipeline_keypairs() -> Dict[str, AgentKeypair]:
         "opportunity_ranker",
         "knowledge_builder",
         "resume_tailor",
+        "company_intel_scout",
+        "ats_evaluator",
+        "lead_hr_interviewer",
+        "behavioral_observer",
+        "technical_evaluator",
+        "db_scribe",
+        "panel_synthesizer",
     ]
 
     keypairs = {}
