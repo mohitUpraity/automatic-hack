@@ -274,7 +274,7 @@ export default function InterviewRoomPage() {
 
   // Pre-meeting Lobby UI
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between p-4 sm:p-8 font-sans selection:bg-cyan-500/30">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between pt-16 px-4 pb-4 lg:p-8 font-sans selection:bg-cyan-500/30">
       {/* Top Brand Bar */}
       <header className="flex flex-col sm:flex-row sm:items-center justify-between max-w-7xl mx-auto w-full mb-6 gap-4">
         <div className="flex items-center space-x-3">

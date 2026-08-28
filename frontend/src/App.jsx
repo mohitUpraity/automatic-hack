@@ -28,7 +28,7 @@ function AppLayout() {
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-200 font-sans">
       <Sidebar stats={stats} />
-      <main className="flex-1 md:ml-[260px] min-h-screen w-full">
+      <main className="flex-1 lg:ml-[260px] min-h-screen w-full">
         <Routes>
           <Route path="/" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />

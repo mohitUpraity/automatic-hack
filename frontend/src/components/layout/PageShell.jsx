@@ -6,7 +6,7 @@ export default function PageShell({ title, subtitle, icon: Icon, children }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="max-w-6xl mx-auto p-6 lg:p-10 w-full"
+      className="max-w-6xl mx-auto pt-16 px-6 pb-6 lg:p-10 w-full"
     >
       <div className="flex items-center gap-4 mb-8">
         {Icon && (

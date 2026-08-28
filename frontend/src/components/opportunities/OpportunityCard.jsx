@@ -104,7 +104,7 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
       )}
 
       {/* Action Strip */}
-      <div className="flex items-center justify-between pt-3 border-t border-slate-800/60 mt-auto gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between pt-3 border-t border-slate-800/60 mt-auto gap-3">
         <div className="flex items-center gap-2">
           <ScoreGauge score={opportunity.relevance_score || 85} size={36} strokeWidth={3.5} />
           <div className="flex flex-col">
@@ -117,7 +117,7 @@ export default function OpportunityCard({ opportunity, onClick, candidateId = 'c
           </div>
         </div>
         
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between sm:justify-end gap-1.5 w-full sm:w-auto">
           <button
             onClick={handleOpenInterview}
             className="px-2 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-[10px] rounded-lg shadow flex items-center gap-1 transition-all cursor-pointer"

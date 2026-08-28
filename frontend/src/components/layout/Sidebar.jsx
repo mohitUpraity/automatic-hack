@@ -39,25 +39,45 @@ export default function Sidebar({ stats }) {
 
   return (
     <>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-white"
-      >
-        {isOpen ? <X size={24} /> : <Menu size={24} />}
-      </button>
+      {/* Mobile Drawer Overlay Backdrop */}
+      {isOpen && (
+        <div
+          onClick={() => setIsOpen(false)}
+          className="lg:hidden fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-sm transition-opacity duration-300"
+        />
+      )}
+
+      {/* Mobile hamburger trigger - only visible when drawer is closed */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-slate-900/90 backdrop-blur-md rounded-xl text-slate-400 hover:text-white border border-slate-800 shadow-lg cursor-pointer"
+        >
+          <Menu size={20} />
+        </button>
+      )}
 
       <div
-        className={`fixed inset-y-0 left-0 z-40 w-[260px] bg-slate-950/80 backdrop-blur-xl border-r border-slate-800/50 flex flex-col transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-[260px] bg-slate-950/95 backdrop-blur-xl border-r border-slate-800/50 flex flex-col transition-transform duration-300 lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center gap-3 px-6 py-6 border-b border-slate-800/40">
-          <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-indigo-400" />
+        <div className="flex items-center justify-between px-6 py-6 border-b border-slate-800/40">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-indigo-400" />
+            </div>
+            <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+              CareerOS v3
+            </h1>
           </div>
-          <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
-            CareerOS v3
-          </h1>
+          {/* Close button inline for mobile */}
+          <button
+            onClick={() => setIsOpen(false)}
+            className="lg:hidden p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/50 rounded-lg cursor-pointer"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Candidate Persona Selector */}

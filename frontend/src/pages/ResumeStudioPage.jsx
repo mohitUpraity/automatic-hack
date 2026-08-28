@@ -290,89 +290,91 @@ export default function ResumeStudioPage() {
     >
       <div className="space-y-6 animate-fade-in">
         {/* Top Candidate & Opportunity Navigation Bar */}
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl">
-          {/* Candidate Persona Selector */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center font-bold text-sm text-white shadow-inner shrink-0">
-              {activeCandidate?.name ? activeCandidate.name.slice(0, 2).toUpperCase() : 'ME'}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <Users className="w-3.5 h-3.5 text-indigo-400" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Candidate Persona:</span>
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4 bg-slate-900/80 backdrop-blur-md border border-slate-800 p-4 rounded-2xl shadow-xl">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 flex-1">
+            {/* Candidate Persona Selector */}
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-600 flex items-center justify-center font-bold text-sm text-white shadow-inner shrink-0">
+                {activeCandidate?.name ? activeCandidate.name.slice(0, 2).toUpperCase() : 'ME'}
               </div>
-              <div className="relative mt-0.5 w-full sm:w-64 max-w-full">
-                <select
-                  value={activeCandidateId}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setActiveCandidateId(val);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner truncate"
-                >
-                  {candidates.map((c) => {
-                    const cleanRole = c.role ? c.role.split(' at ')[0].split('(')[0].split('|')[0].trim() : '';
-                    const shortRole = cleanRole.length > 25 ? cleanRole.slice(0, 23) + '...' : cleanRole;
-                    return (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {shortRole ? `(${shortRole})` : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-
-          {/* Target Role Selector */}
-          <div className="flex-1 flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider">
-              <Target className="w-4 h-4 text-cyan-400" />
-              <span>Target Role:</span>
-            </div>
-            <div className="relative flex-1 min-w-[240px]">
-              <select
-                value={selectedOppId}
-                onChange={(e) => handleOpportunityChange(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 appearance-none pr-8 cursor-pointer font-medium shadow-inner"
-              >
-                {opportunities.length === 0 ? (
-                  <option value="">No scouted opportunities for this candidate yet</option>
-                ) : (
-                  opportunities.map((opp) => {
-                    const title = opp.title || opp.company_name || 'Software Engineering Role';
-                    const comp = opp.company || opp.company_name || opp.source || 'Tech Company';
-                    const cat = opp.category?.toUpperCase() || 'OPPORTUNITY';
-                    return (
-                      <option key={opp.id} value={opp.id}>
-                        [{cat}] {title} ({comp})
-                      </option>
-                    );
-                  })
-                )}
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
-            </div>
-
-            {selectedOpportunity && (
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs font-extrabold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-1 rounded-lg">
-                  {selectedOpportunity.relevance_score || 94}% Fit
-                </span>
-                {selectedOpportunity.url && (
-                  <a
-                    href={selectedOpportunity.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition-colors"
-                    title="Open Direct Apply Link"
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <Users className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Candidate Persona:</span>
+                </div>
+                <div className="relative mt-0.5 w-full sm:w-64 max-w-full">
+                  <select
+                    value={activeCandidateId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setActiveCandidateId(val);
+                    }}
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-100 font-extrabold focus:outline-none focus:border-indigo-500 appearance-none pr-8 cursor-pointer shadow-inner truncate"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
+                    {candidates.map((c) => {
+                      const cleanRole = c.role ? c.role.split(' at ')[0].split('(')[0].split('|')[0].trim() : '';
+                      const shortRole = cleanRole.length > 25 ? cleanRole.slice(0, 23) + '...' : cleanRole;
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.name} {shortRole ? `(${shortRole})` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2 pointer-events-none" />
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* Target Role Selector */}
+            <div className="flex-1 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0">
+                <Target className="w-4 h-4 text-cyan-400" />
+                <span>Target Role:</span>
+              </div>
+              <div className="relative flex-1 w-full sm:min-w-[240px]">
+                <select
+                  value={selectedOppId}
+                  onChange={(e) => handleOpportunityChange(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500 appearance-none pr-8 cursor-pointer font-medium shadow-inner"
+                >
+                  {opportunities.length === 0 ? (
+                    <option value="">No scouted opportunities for this candidate yet</option>
+                  ) : (
+                    opportunities.map((opp) => {
+                      const title = opp.title || opp.company_name || 'Software Engineering Role';
+                      const comp = opp.company || opp.company_name || opp.source || 'Tech Company';
+                      const cat = opp.category?.toUpperCase() || 'OPPORTUNITY';
+                      return (
+                        <option key={opp.id} value={opp.id}>
+                          [{cat}] {title} ({comp})
+                        </option>
+                      );
+                    })
+                  )}
+                </select>
+                <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+              </div>
+
+              {selectedOpportunity && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-xs font-extrabold text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2 py-1 rounded-lg">
+                    {selectedOpportunity.relevance_score || 94}% Fit
+                  </span>
+                  {selectedOpportunity.url && (
+                    <a
+                      href={selectedOpportunity.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg border border-slate-700 transition-colors"
+                      title="Open Direct Apply Link"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -407,7 +409,7 @@ export default function ResumeStudioPage() {
 
         {/* Candidate Profile Details Banner */}
         {activeCandidate && (
-          <div className="p-4 bg-slate-900/60 rounded-2xl border border-indigo-500/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg">
+          <div className="p-4 bg-slate-900/60 rounded-2xl border border-indigo-500/30 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-lg">
             <div className="flex items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-sm text-white shadow-inner">
                 {activeCandidate.name?.slice(0, 2).toUpperCase() || 'ME'}
@@ -448,7 +450,7 @@ export default function ResumeStudioPage() {
 
         {/* Firecrawl Deep Company Intelligence Context Banner */}
         {selectedOpportunity && (
-          <div className="bg-gradient-to-r from-slate-900/95 via-cyan-950/20 to-slate-900/95 border border-cyan-500/30 p-4 rounded-2xl shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="bg-gradient-to-r from-slate-900/95 via-cyan-950/20 to-slate-900/95 border border-cyan-500/30 p-4 rounded-2xl shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
             <div className="space-y-1.5 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
@@ -513,7 +515,7 @@ export default function ResumeStudioPage() {
 
         {/* Post-Tailoring Highlight Banner */}
         {justTailored && (
-          <div className="p-4 bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-teal-950/80 border border-emerald-500/40 rounded-2xl shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-fade-in">
+          <div className="p-4 bg-gradient-to-r from-emerald-950/80 via-slate-900/90 to-teal-950/80 border border-emerald-500/40 rounded-2xl shadow-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 animate-fade-in">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center font-black text-emerald-400">
                 <CheckCircle2 className="w-5 h-5" />
@@ -669,7 +671,7 @@ export default function ResumeStudioPage() {
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-2.5">
                 <button
                   onClick={() => handleAiAction('ats_optimize', 'Injecting high-impact ATS keywords...')}
                   disabled={isProcessing}
