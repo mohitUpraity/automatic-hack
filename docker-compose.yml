@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  careeros:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: careeros:latest
+    container_name: careeros-app
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - JWT_SECRET=${JWT_SECRET:-careeros_secret_key_2026}
+      - ARMORIQ_SHIELD_DEFAULT=ON
+    restart: unless-stopped

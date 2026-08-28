@@ -90,15 +90,8 @@ app = FastAPI(title="CareerOS v3 API Server", version="3.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8000"
-    ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$",
+    allow_origins=["*"],
+    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -4850,3 +4843,24 @@ def approve_action_endpoint(req: ActionApprovalRequest):
             "message": "Action rejected by human supervisor. Execution terminated safely with zero side effects.",
             "timestamp": time.time()
         }
+
+
+# ── Health Check Endpoint for Cloud IDPs & ZopDay ────────────────────────────
+@app.get("/api/health")
+def health_check():
+    """Health check endpoint for container probes and load balancers."""
+    return {
+        "status": "healthy",
+        "service": "CareerOS v3 API",
+        "armoriq_shield": "active",
+        "timestamp": time.time()
+    }
+
+
+# ── Static Frontend Mount for Unified Single-Container Deployment ─────────────
+frontend_dist_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
+if os.path.exists(frontend_dist_path):
+    from fastapi.staticfiles import StaticFiles
+    # Mount frontend static build
+    app.mount("/", StaticFiles(directory=frontend_dist_path, html=True), name="frontend")
+
